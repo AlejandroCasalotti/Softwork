@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="inherit_payment_provider" model="ir.ui.view">
+        <field name="name">inherit.payment.provider</field>
+        <field name="model">payment.provider</field>
+        <field name="inherit_id" ref="payment.payment_provider_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_method_ids']" position="before">
+                <field name="product_id"/>
+                <label for="payment_charges"/>
+                <div>
+                    <field name="payment_charges" class="oe_inline" nolabel="1" />
+                    <span class="o_form_label oe_inline">%</span>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
