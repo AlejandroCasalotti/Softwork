@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Lista Proveedores -->
+    <record id="view_product_supplierinfo_tree_inherit" model="ir.ui.view">
+        <field name="name">product.supplierinfo.tree.inherit.coste</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id" ref="purchase.product_supplierinfo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='price']" position="after">
+                <field name="usar_costo_proveedor"/>
+                <field name="regla_costo_id" attrs="{'invisible': [('usar_costo_proveedor', '=', False)]}"/>
+                <field name="price_discounted" attrs="{'invisible': [('usar_costo_proveedor', '=', False)]}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Form Proveedores -->
+    <record id="view_product_supplierinfo_form_inherit" model="ir.ui.view">
+        <field name="name">product.supplierinfo.form.inherit.coste</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id" ref="purchase.product_supplierinfo_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='price']" position="after">
+                <group attrs="{'invisible': [('usar_costo_proveedor', '=', False)]}">
+                    <field name="price_discounted" string="Costo Neto"/>
+                    <field name="regla_costo_id"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

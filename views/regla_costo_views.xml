@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista Lista Reglas -->
+    <record id="view_rela_costo_tree" model="ir.ui.view">
+        <field name="name">coste.proveedor.regla.tree</field>
+        <field name="model">coste.proveedor.regla</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="descuento_total"/>
+                <field name="tarifa_total"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Vista Form Reglas -->
+    <record id="view_rela_costo_form" model="ir.ui.view">
+        <field name="name">coste.proveedor.regla.form</field>
+        <field name="model">coste.proveedor.regla</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="descuento_total"/>
+                        <field name="tarifa_total"/>
+                    </group>
+                    <notebook>
+                        <page string="Líneas">
+                            <field name="linea_ids">
+                                <tree editable="bottom">
+                                    <field name="secuencia"/>
+                                    <field name="descripcion"/>
+                                    <field name="porcentaje_descuento"/>
+                                    <field name="tarifa_extra"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Acción y Menú -->
+    <record id="action_rela_costo" model="ir.actions.act_window">
+        <field name="name">Reglas de Costo</field>
+        <field name="res_model">coste.proveedor.regla</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_rela_costo_root" 
+              name="Reglas Costo" 
+              parent="purchase.menu_purchase_root"
+              action="action_rela_costo"/>
+</odoo>

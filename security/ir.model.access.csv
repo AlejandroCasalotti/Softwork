@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_coste_proveedor_regla,coste.proveedor.regla,model_coste_proveedor_regla,purchase.group_purchase_user,1,1,1,1
+access_coste_proveedor_linea,coste.proveedor.linea,model_coste_proveedor_linea,purchase.group_purchase_user,1,1,1,1
