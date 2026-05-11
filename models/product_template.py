@@ -3,46 +3,48 @@ from odoo import models, fields, api
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
     
-    # Añadir campo para mostrar origen del precio
     origen_precio_proveedor = fields.Char(
         'Origen Precio',
         compute='_compute_origen_precio',
-        help='Indica si el precio viene de proveedor'
+        help='Indica si el precio viene de proveedor con reglas'
     )
     
-    @api.depends('product_variant_ids', 'product_variant_ids.supplierinfo_ids')
+    @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
+                 'product_variant_ids.supplierinfo_ids.regla_costo_id')
     def _compute_origen_precio(self):
+        """Verifica que el proveedor tenga ✓ Usar Costo + Regla activa"""
         for record in self:
-            proveedor_activo = False
+            usa_proveedor = False
             for variant in record.product_variant_ids:
-                proveedor = variant.supplierinfo_ids.filtered(
-                    lambda p: p.usar_costo_proveedor
+                # Buscar proveedor con AMBOS: ✓ Usar Costo Y Regla definida
+                proveedor_activo = variant.supplierinfo_ids.filtered(
+                    lambda p: p.usar_costo_proveedor and p.regla_costo_id
                 )
-                if proveedor:
-                    proveedor_activo = True
+                if proveedor_activo:
+                    usa_proveedor = True
                     break
             
-            record.origen_precio_proveedor = 'Proveedor' if proveedor_activo else 'Manual'
+            record.origen_precio_proveedor = 'Proveedor (Reglas)' if usa_proveedor else 'Manual'
     
     @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
                  'product_variant_ids.supplierinfo_ids.regla_costo_id',
                  'product_variant_ids.supplierinfo_ids.price_discounted')
     def _compute_standard_price_proveedor(self):
-        """Actualiza standard_price con precio proveedor si está activo"""
+        """Actualiza standard_price SOLO si proveedor tiene ✓ + Regla"""
         for record in self:
-            # Tomar primer variant
             variant = record.product_variant_ids[:1]
             if not variant:
                 continue
                 
-            # Buscar proveedor activo con reglas
-            proveedor = variant.supplierinfo_ids.filtered(
+            # Proveedor con AMBOS requisitos
+            proveedor_valido = variant.supplierinfo_ids.filtered(
                 lambda p: p.usar_costo_proveedor and p.regla_costo_id
             )
             
-            if proveedor:
-                # Usar precio descontado del proveedor principal
-                record.standard_price = proveedor[0].price_discounted
+            if proveedor_valido:
+                record.standard_price = proveedor_valido[0].price_discounted
+                record.origen_precio_proveedor = 'Proveedor (Reglas)'
             else:
-                # Mantener precio original del variant
+                # Precio manual/original
                 record.standard_price = variant.standard_price or 0
+                record.origen_precio_proveedor = 'Manual'
