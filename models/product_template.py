@@ -6,32 +6,43 @@ class ProductTemplate(models.Model):
     origen_precio_proveedor = fields.Char(
         'Origen Precio',
         compute='_compute_origen_precio',
-        help='Indica si el precio viene de proveedor con reglas'
+        store=True  # ✅ Agregado
     )
     
-    @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
-             'product_variant_ids.supplierinfo_ids.regla_costo_id')
+    standard_price = fields.Float(
+        compute='_compute_standard_price_proveedor',
+        store=True,
+        inverse='_inverse_standard_price'
+    )
+    
+    @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor')
     def _compute_origen_precio(self):
-        """Verifica que el proveedor tenga AMBOS: Usar Costo + Regla activa"""
-        pass
-
+        """Detecta si el precio viene de proveedor"""
+        for record in self:
+            proveedor_activo = False
+            for variant in record.product_variant_ids:
+                if variant.supplierinfo_ids.filtered(lambda p: p.usar_costo_proveedor):
+                    proveedor_activo = True
+                    break
+            record.origen_precio_proveedor = 'Proveedor' if proveedor_activo else 'Manual'
+    
     @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
                  'product_variant_ids.supplierinfo_ids.regla_costo_id',
                  'product_variant_ids.supplierinfo_ids.price_discounted')
     def _compute_standard_price_proveedor(self):
-        """Actualiza standard_price SOLO si proveedor tiene ambos requisitos"""
+        """Actualiza standard_price con precio proveedor si está activo"""
         for record in self:
             variant = record.product_variant_ids[:1]
             if not variant:
+                record.standard_price = 0
                 continue
             
-            # Proveedor con AMBOS requisitos
-            proveedor_valido = variant.supplierinfo_ids.filtered(
+            proveedor = variant.supplierinfo_ids.filtered(
                 lambda p: p.usar_costo_proveedor and p.regla_costo_id
             )
-            if proveedor_valido:
-                record.standard_price = proveedor_valido[0].price_discounted
-                record.origen_precio_proveedor = 'Proveedor (Reglas)'
-            else:
-                record.standard_price = variant.standard_price or 0
-                record.origen_precio_proveedor = 'Manual'
+            
+            record.standard_price = proveedor[0].price_discounted if proveedor else variant.standard_price or 0
+    
+    def _inverse_standard_price(self):
+        """Permite editar standard_price manualmente"""
+        pass  # O implementar lógica si es editable
