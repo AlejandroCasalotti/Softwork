@@ -12,7 +12,7 @@ class ProductSupplierInfo(models.Model):
         'coste.proveedor.regla',
         'Regla de Costo',
         domain="[('linea_ids', '!=', False)]",  # Solo reglas con líneas
-        attrs="{'invisible': [('usar_costo_proveedor', '=', False)], 'required': [('usar_costo_proveedor', '=', True)]}"
+        states="{'invisible': [('usar_costo_proveedor', '=', False)], 'required': [('usar_costo_proveedor', '=', True)]}"
     )
     
     price_discounted = fields.Float(
@@ -30,10 +30,14 @@ class ProductSupplierInfo(models.Model):
                 and record.regla_costo_id.linea_ids):
                 
                 precio_base = record.price or 0.0
-                descuento_total = sum(record.regla_costo_id.linea_ids.mapped('porcentaje_descuento')) / 100
-                tarifa_total = sum(record.regla_costo_id.linea_ids.mapped('tarifa_extra'))
                 
-                precio_con_descuento = precio_base * (1 - descuento_total)
+                # Aplicar descuentos en cascada (multiplicativos)
+                precio_con_descuento = precio_base
+                for linea in record.regla_costo_id.linea_ids:
+                    precio_con_descuento *= (1 - linea.porcentaje_descuento / 100)
+                
+                # Sumar tarifas extras
+                tarifa_total = sum(record.regla_costo_id.linea_ids.mapped('tarifa_extra'))
                 record.price_discounted = precio_con_descuento + tarifa_total
             else:
                 record.price_discounted = record.price or 0.0

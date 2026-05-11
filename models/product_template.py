@@ -13,18 +13,8 @@ class ProductTemplate(models.Model):
              'product_variant_ids.supplierinfo_ids.regla_costo_id')
 def _compute_origen_precio(self):
     """Verifica que el proveedor tenga AMBOS: Usar Costo + Regla activa"""
-    for record in self:
-        usa_proveedor = False
-        for variant in record.product_variant_ids:
-            proveedor_activo = variant.supplierinfo_ids.filtered(
-                lambda p: p.usar_costo_proveedor and p.regla_costo_id
-            )
-            if proveedor_activo:
-                usa_proveedor = True
-                break
-        
-        # NO asignes aquí, solo detecta
-        # record.origen_precio_proveedor se asignará en _compute_standard_price_proveedor
+    # Este método ahora solo detecta pero no asigna
+    pass
 
 @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
              'product_variant_ids.supplierinfo_ids.regla_costo_id',
@@ -36,10 +26,10 @@ def _compute_standard_price_proveedor(self):
         if not variant:
             continue
         
+        # Proveedor con AMBOS requisitos
         proveedor_valido = variant.supplierinfo_ids.filtered(
             lambda p: p.usar_costo_proveedor and p.regla_costo_id
         )
-        
         if proveedor_valido:
             record.standard_price = proveedor_valido[0].price_discounted
             record.origen_precio_proveedor = 'Proveedor (Reglas)'

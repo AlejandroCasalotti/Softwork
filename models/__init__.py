@@ -1,3 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from . import models
+from . import (
+    regla_costo,
+    product_supplierinfo,
+    product_template,
+)

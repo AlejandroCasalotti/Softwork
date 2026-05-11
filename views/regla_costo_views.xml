@@ -49,8 +49,8 @@
         <field name="view_mode">tree,form</field>
     </record>
 
-    <menuitem id="action_regla_costo" model="ir.actions.act_window">
-              name="Reglas Costo" 
-              parent="purchase.menu_purchase_root"
-              action="action_regla_costo"/>
+    <menuitem id="menu_regla_costo_root" 
+          name="Reglas Costo" 
+          parent="purchase.menu_purchase_root"
+          action="action_regla_costo"/>
 </odoo>
