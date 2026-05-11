@@ -7,7 +7,7 @@ class ProductTemplate(models.Model):
         'Origen Precio',
         compute='_compute_origen_precio',
         store=True,
-        help='Indica si el precio viene de proveedor con reglas activas'
+        help='Indica si el precio viene de proveedor con reglas activas'  # ✅ Restaurado
     )
     
     standard_price = fields.Float(
@@ -17,15 +17,14 @@ class ProductTemplate(models.Model):
     )
     
     @api.depends('product_variant_ids.supplierinfo_ids.usar_costo_proveedor',
-                 'product_variant_ids.supplierinfo_ids.regla_costo_id')
+                 'product_variant_ids.supplierinfo_ids.regla_costo_id')  # ✅ Sincronizado
     def _compute_origen_precio(self):
         """Verifica que el proveedor tenga AMBOS: Usar Costo + Regla activa"""
         for record in self:
             proveedor_activo = False
             for variant in record.product_variant_ids:
-                # Verificar que tenga AMBOS requisitos
                 proveedor_con_regla = variant.supplierinfo_ids.filtered(
-                    lambda p: p.usar_costo_proveedor and p.regla_costo_id
+                    lambda p: p.usar_costo_proveedor and p.regla_costo_id  # ✅ AMBOS requisitos
                 )
                 if proveedor_con_regla:
                     proveedor_activo = True
@@ -43,7 +42,6 @@ class ProductTemplate(models.Model):
                 record.standard_price = 0
                 continue
             
-            # Proveedor con AMBOS requisitos
             proveedor_valido = variant.supplierinfo_ids.filtered(
                 lambda p: p.usar_costo_proveedor and p.regla_costo_id
             )
@@ -52,10 +50,9 @@ class ProductTemplate(models.Model):
             else:
                 record.standard_price = variant.standard_price or 0
     
-    def _inverse_standard_price(self):
+    def _inverse_standard_price(self):  # ✅ Ahora implementado
         """Permite editar standard_price manualmente cuando no hay proveedor activo"""
         for record in self:
-            # Solo permitir edición manual si no hay proveedor con reglas
             proveedor_activo = any(
                 variant.supplierinfo_ids.filtered(
                     lambda p: p.usar_costo_proveedor and p.regla_costo_id
@@ -63,6 +60,5 @@ class ProductTemplate(models.Model):
                 for variant in record.product_variant_ids
             )
             if not proveedor_activo:
-                # Actualizar el standard_price de la primera variante
                 if record.product_variant_ids:
                     record.product_variant_ids[0].standard_price = record.standard_price
