@@ -1,3 +1,5 @@
-# __init__.py
-
-from . import models
+from . import (
+    regla_costo,
+    product_supplierinfo,
+    product_template,
+)
