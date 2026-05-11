@@ -6,7 +6,7 @@
     'depends': ['product', 'purchase'],
     'data': [
         'security/ir.model.access.csv',
-        'views/rela_costo_views.xml',
+        'views/regla_costo_views.xml',
         'views/product_supplierinfo_views.xml',
         'views/product_template_views.xml',
     ],

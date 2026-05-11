@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- Vista Lista Reglas -->
-    <record id="view_rela_costo_tree" model="ir.ui.view">
+    <record id="view_regla_costo_tree" model="ir.ui.view">
         <field name="name">coste.proveedor.regla.tree</field>
         <field name="model">coste.proveedor.regla</field>
         <field name="arch" type="xml">
@@ -14,7 +14,7 @@
     </record>
 
     <!-- Vista Form Reglas -->
-    <record id="view_rela_costo_form" model="ir.ui.view">
+    <record id="view_regla_costo_form" model="ir.ui.view">
         <field name="name">coste.proveedor.regla.form</field>
         <field name="model">coste.proveedor.regla</field>
         <field name="arch" type="xml">
@@ -43,14 +43,14 @@
     </record>
 
     <!-- Acción y Menú -->
-    <record id="action_rela_costo" model="ir.actions.act_window">
+    <record id="action_regla_costo" model="ir.actions.act_window">
         <field name="name">Reglas de Costo</field>
         <field name="res_model">coste.proveedor.regla</field>
         <field name="view_mode">tree,form</field>
     </record>
 
-    <menuitem id="menu_rela_costo_root" 
+    <menuitem id="action_regla_costo" model="ir.actions.act_window">
               name="Reglas Costo" 
               parent="purchase.menu_purchase_root"
-              action="action_rela_costo"/>
+              action="action_regla_costo"/>
 </odoo>

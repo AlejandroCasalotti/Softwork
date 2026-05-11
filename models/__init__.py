@@ -1,5 +1,3 @@
-from . import (
-    regla_costo,
-    product_supplierinfo,
-    product_template,
-)
+# -*- coding: utf-8 -*-
+
+from . import models
