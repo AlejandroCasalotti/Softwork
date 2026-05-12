@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 {
     'name': 'Coste Proveedor con Reglas',
     'version': '19.0.1.0.0',
