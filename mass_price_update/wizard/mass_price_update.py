@@ -45,7 +45,7 @@ class MassPriceUpdate(models.TransientModel):
         string='Apply Type', required=True,
         help='Choose the applying type whether add or reduce')
     product_ids = fields.Many2many(
-        'product.product', string='Products', default=False,
+        'product.supplierinfo', string='Products', default=False,
         domain="[('active', '=', True)]", help='Choose the required products')
     category_ids = fields.Many2many(
         'product.category', string='Categories', default=False,
@@ -62,13 +62,13 @@ class MassPriceUpdate(models.TransientModel):
             self.write({
                 'category_ids': [(5,)],
                 'line_ids': [(5,)],
-                'product_ids': [(6, 0, self.env['product.product'].search(
+                'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
                     [('active', '=', True)]).ids)]
             })
         elif self.apply_to == 'category':
             self.write({
                 'line_ids': [(5,)],
-                'product_ids': [(6, 0, self.env['product.product'].search(
+                'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
                     [('categ_id', 'in', self.category_ids.ids)]).ids)]
             })
         else:
@@ -94,7 +94,7 @@ class MassPriceUpdate(models.TransientModel):
         if self.category_ids:
             self.write({'line_ids': [(5,)], 'product_ids': [(5,)]})
             lines = []
-            products = self.env['product.product'].sudo().search(
+            products = self.env['product.supplierinfo'].sudo().search(
                 [('categ_id', 'in', self.category_ids.ids)])
             for product in products:
                 lines.append((0, 0, {'product_id': product.id}))
@@ -121,8 +121,8 @@ class MassPriceUpdate(models.TransientModel):
         else:
             for product in self.product_ids:
                 product_template = product.product_tmpl_id
-                product_template.standard_price = (
-                        product_template.standard_price * percentage_num)
+                product_template.price = (
+                        product_template.price * percentage_num)
         message = f"""The {'sales price' if self.apply_on == 'price'
                     else 'cost'} is updated."""
         return {

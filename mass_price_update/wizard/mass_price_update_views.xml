@@ -15,7 +15,7 @@
                                    invisible="apply_to != 'category'"
                                    required="apply_to == 'category'"
                             />
-                            <field name="product_ids" widget="many2many_tags"
+                            <field name="product_tmpl_ids" widget="many2many_tags"
                                    options="{'no_create_edit': True, 'no_create': True}"
                                    invisible="apply_to != 'selected'"
                                    required="apply_to == 'selected'"/>
@@ -29,9 +29,9 @@
                     <notebook>
                         <page string="Products">
                             <field name="line_ids"
-                                   invisible="product_ids == False or change == 0">
+                                   invisible="product_tmpl_ids == False or change == 0">
                                 <list string="Product List">
-                                    <field name="product_id"/>
+                                    <field name="product_tmpl_id"/>
                                     <field name="current_price"
                                            widget="monetary"
                                            options="{'currency_field': 'currency_id', 'field_digits': True}"
