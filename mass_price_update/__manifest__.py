@@ -5,7 +5,7 @@
     'version': '19.0.1.0.0',
     'category': 'Inventory/Purchase',
     'summary': """Actualización masiva del precio unitario del proveedor""",
-    'description': """""",
+    'description': """Actualización masiva del precio unitario del proveedor""",
     'author': 'Softwork Arg.',
     'company': 'Softwork Arg.',
     'maintainer': 'Softwork Arg.',
@@ -14,12 +14,12 @@
     'data': [
         'security/ir.model.access.csv',
         'views/product_template_views.xml',
-        'views/product_template_views.xml',
-        'views/product_template_views.xml'
+        'views/mass_supplier_price_update_views.xml',
+        'data/mass_supplier_price_update_data.xml'
     ],
     'assets': {
         'web.assets_backend': [
-            'mass_supplier_price_update/static/src/*/',
+            'mass_price_update/static/src/*/',
         ],
     },
     'installable': True,

@@ -7,8 +7,6 @@
         <field name="name">Actualizar Precio Proveedor Masivo</field>
         <field name="model_id" ref="product.model_product_template"/>
         <field name="state">code</field>
-        <field name="code">
-records.action_mass_supplier_price_update()
-        </field>
+        <field name="code"><![CDATA[records.action_mass_supplier_price_update()]]></field>
     </record>
 </odoo>

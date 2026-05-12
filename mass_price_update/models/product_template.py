@@ -132,7 +132,7 @@ class MassSupplierPriceUpdate(models.TransientModel):
         if self.update_type == 'fixed':
             return self.new_price
         elif self.update_type == 'percentage':
-            return old_price * (self.percentage / 100)
+            return self.new_price * (self.percentage / 100)
         elif self.update_type == 'percentage_increase':
             return old_price * (1 + self.percentage / 100)
         elif self.update_type == 'percentage_decrease':
