@@ -1,0 +1,52 @@
+# -*- coding: utf-8 -*-
+
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista tree con botón masivo -->
+    <record id="view_product_template_tree_mass_update19" model="ir.ui.view">
+        <field name="name">product.template.tree.mass.update19</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_tree_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//tree[@name='tree']" position="attributes">
+                <attribute name="decoration-success">standard_price &gt; 0</attribute>
+                <attribute name="decoration-muted">standard_price = 0</attribute>
+            </xpath>
+            <xpath expr="//tree[@name='tree']" position="inside">
+                <button name="action_mass_supplier_price_update" 
+                        type="object" 
+                        string="💰 Precio Proveedor Masivo"
+                        class="oe_highlight btn btn-secondary o_list_button_add"
+                        attrs="{'invisible': [('standard_price', '=', 0)]}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Acción principal en menú -->
+    <menuitem id="menu_product_mass_price_update19"
+              name="💰 Actualización Masiva Costes"
+              parent="product.menu_product_catalog"
+              action="action_product_template_mass_update19"
+              sequence="25"
+              groups="product.group_stock_manager"/>
+
+    <record id="action_product_template_mass_update19" model="ir.actions.act_window">
+        <field name="name">Actualización Masiva - Precio Proveedor</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="product.product_template_search_view"/>
+        <field name="context">{
+            'search_default_available': 1,
+            'search_default_has_variants': 0,
+            'group_by': ['categ_id']
+        }</field>
+        <field name="help" type="html">
+            <div class="oe_empty">
+                <p class="mb-4">Selecciona productos y usa <strong>"💰 Precio Proveedor Masivo"</strong></p>
+                <div class="oe_empty_content">
+                    <div class="oe_empty_icon"/>
+                </div>
+            </div>
+        </field>
+    </record>
+</odoo>
