@@ -33,7 +33,7 @@ class ChangePriceLine(models.TransientModel):
                                            help='The related field from mass'
                                                 'price update', )
     product_id = fields.Many2one(
-        'product.supplierinfo', string='Product', required=True,
+        'product.product', string='Product', required=True,
         domain="[('active', '=', True)]", help='Selected products will show')
     current_price = fields.Float(string='Current Price', digits='Product Price',
                                  related='product_id.lst_price',
