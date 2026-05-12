@@ -25,25 +25,25 @@ from odoo import api, fields, models
 class ChangePriceLine(models.TransientModel):
     """One2many for align the products with new price"""
     _name = 'change.price.line'
-    _rec_name = 'product_tmpl_id'
+    _rec_name = 'product_id'
     _description = "Change Price Line"
 
     mass_price_update_id = fields.Many2one('mass.price.update',
                                            string='Number',
                                            help='The related field from mass'
                                                 'price update', )
-    product_tmpl_id = fields.Many2one(
+    product_id = fields.Many2one(
         'product.supplierinfo', string='Product', required=True,
         domain="[('active', '=', True)]", help='Selected products will show')
     current_price = fields.Float(string='Current Price', digits='Product Price',
-                                 related='product_tmpl_id.lst_price',
+                                 related='product_id.lst_price',
                                  help='The current Sales price')
     new_price = fields.Float(string='New Price', digits='Product Price',
                              compute='_compute_new_price_cost',
                              help='Computing the new price based on the '
                                   'percentage')
     current_cost = fields.Float(string='Current Cost', digits='Product Price',
-                                related='product_tmpl_id.price',
+                                related='product_id.price',
                                 help='Current cost of the product')
     new_cost = fields.Float(string='New Cost', digits='Product Price',
                             compute='_compute_new_price_cost',
@@ -51,7 +51,7 @@ class ChangePriceLine(models.TransientModel):
                                  'percentage')
     currency_id = fields.Many2one('res.currency',
                                   string='Currency',
-                                  related='product_tmpl_id.currency_id',
+                                  related='product_id.currency_id',
                                   help='The currency of the product')
 
     @api.depends('mass_price_update_id.apply_on',
