@@ -1,28 +1,23 @@
 # -*- coding: utf-8 -*-
 
 {
-    'name': 'Mass Supplier Price Update',
+    'name': 'Mass Price Update',
     'version': '19.0.1.0.0',
-    'category': 'Inventory/Purchase',
-    'summary': """Actualización masiva del precio unitario del proveedor""",
-    'description': """Actualización masiva del precio unitario del proveedor""",
-    'author': 'Softwork Arg.',
-    'company': 'Softwork Arg.',
-    'maintainer': 'Softwork Arg.',
+    'category': 'Warehouse',
+    'summary': """Actualizar precio unitario del proveedor por porcentaje""",
+    'description': """Este módulo permite actualizar masivamente los precios del proveedor""",
+    'author': 'SoftWork Arg.',
+    'company': 'SoftWork Arg',
+    'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['product', 'purchase'],
+    'depends': ['stock'],
     'data': [
+        'security/mass_price_update_groups.xml',
         'security/ir.model.access.csv',
-        'views/product_template_views.xml',
-        'views/mass_supplier_price_update_views.xml',
-        'data/mass_supplier_price_update_data.xml'
+        'wizard/mass_price_update_views.xml'
     ],
-    'assets': {
-        'web.assets_backend': [
-            'mass_price_update/static/src/*/',
-        ],
-    },
+    'license': 'AGPL-3',
     'installable': True,
     'auto_install': False,
-    'license': 'LGPL-3',
+    'application': False,
 }
