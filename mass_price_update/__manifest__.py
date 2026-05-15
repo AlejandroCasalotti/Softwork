@@ -3,7 +3,7 @@
 {
     'name': 'Mass Price Update',
     'version': '19.0.1.0.0',
-    'category': 'Inventory/Purchase',
+    'category': 'Warehouse',
     'summary': """Actualizar precio unitario del proveedor por porcentaje""",
     'description': """Este módulo permite actualizar masivamente los precios del proveedor""",
     'author': 'SoftWork Arg.',
