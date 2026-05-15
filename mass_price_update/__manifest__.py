@@ -10,7 +10,7 @@
     'company': 'SoftWork Arg',
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['stock'],
+    'depends': ['purchase'],
     'data': [
         'security/mass_price_update_groups.xml',
         'security/ir.model.access.csv',

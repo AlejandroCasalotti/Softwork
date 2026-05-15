@@ -30,7 +30,7 @@ class ChangePriceLine(models.TransientModel):
                  'mass_price_update_id.change',
                  'mass_price_update_id.apply_type')
     def _compute_new_price_cost(self):
-        """Compute new price and new cost"""
+        """Compute new price"""
         for record in self:
             if record.mass_price_update_id.apply_type == 'add':
                 percentage_num = 1 + record.mass_price_update_id.change
