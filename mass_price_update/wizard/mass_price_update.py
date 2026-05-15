@@ -111,3 +111,4 @@ class MassPriceUpdate(models.TransientModel):
                 'next': {'type': 'ir.actions.act_window_close'},
             }
         }
+
