@@ -49,7 +49,7 @@ class MassPriceUpdate(models.TransientModel):
         elif self.apply_to == 'category':
             self.write({
                 'line_ids': [(5,)],
-                'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
+                'product_ids': [(6, 0, self.env['product.product'].search(
                     [('categ_id', 'in', self.category_ids.ids)]).ids)]
             })
         else:
@@ -75,7 +75,7 @@ class MassPriceUpdate(models.TransientModel):
         if self.category_ids:
             self.write({'line_ids': [(5,)], 'product_ids': [(5,)]})
             lines = []
-            products = self.env['product.supplierinfo'].sudo().search(
+            products = self.env['product.product'].sudo().search(
                 [('categ_id', 'in', self.category_ids.ids)])
             for product in products:
                 lines.append((0, 0, {'product_id': product.id}))
