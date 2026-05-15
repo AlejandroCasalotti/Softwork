@@ -37,8 +37,4 @@ class ChangePriceLine(models.TransientModel):
             else:
                 percentage_num = 1 - record.mass_price_update_id.change
             if record.mass_price_update_id.apply_on == 'price':
-                record.new_cost = False
                 record.new_price = record.current_price * percentage_num
-            else:
-                record.new_price = False
-                record.new_cost = record.current_cost * percentage_num
