@@ -17,7 +17,7 @@ class MassPriceUpdate(models.TransientModel):
         help='Allows to select the products based on the conditions')
     apply_on = fields.Selection([
         ('price', 'Price')], default='price',
-        string='Apply On', required=True, help='Apply on Price or Cost')
+        string='Apply On', required=True, help='Apply on Price')
     change = fields.Float(string='Change',
                           help='The percentage for adding or reducing to the '
                                'actual price')
@@ -26,7 +26,7 @@ class MassPriceUpdate(models.TransientModel):
         string='Apply Type', required=True,
         help='Choose the applying type whether add or reduce')
     product_ids = fields.Many2many(
-        'product.supplierinfo', string='Products', default=False,
+        'product.product', string='Products', default=False,
         domain="[('active', '=', True)]", help='Choose the required products')
     category_ids = fields.Many2many(
         'product.category', string='Categories', default=False,
@@ -43,7 +43,7 @@ class MassPriceUpdate(models.TransientModel):
             self.write({
                 'category_ids': [(5,)],
                 'line_ids': [(5,)],
-                'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
+                'product_ids': [(6, 0, self.env['product.sproduct'].search(
                     [('active', '=', True)]).ids)]
             })
         elif self.apply_to == 'category':
