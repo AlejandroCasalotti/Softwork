@@ -11,7 +11,7 @@ class MassPriceUpdate(models.TransientModel):
     _description = "Mass Price Update"
 
     apply_to = fields.Selection([
-        ('all', 'All Products'), ('partner', 'Selected Partners'),
+        ('all', 'All Products'), ('category', 'Selected Categorys'),
         ('selected', 'Selected Products')], default='selected',
         string='Apply To', required=True,
         help='Allows to select the products based on the conditions')
