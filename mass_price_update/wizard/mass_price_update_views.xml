@@ -10,10 +10,10 @@
                     <group>
                         <group>
                             <field name="apply_to" widget="radio"/>
-                            <field name="partner_ids" widget="many2many_tags"
+                            <field name="category_ids" widget="many2many_tags"
                                    options="{'no_create_edit': True, 'no_create': True}"
-                                   invisible="apply_to != 'partner'"
-                                   required="apply_to == 'partner'"
+                                   invisible="apply_to != 'category'"
+                                   required="apply_to == 'category'"
                             />
                             <field name="product_ids" widget="many2many_tags"
                                    options="{'no_create_edit': True, 'no_create': True}"

@@ -13,6 +13,6 @@
         <field name="comment">Access to the mass price update wizard menu
         </field>
         <field name="privilege_id"
-               ref="module_partner_mass_price_update"/>
+               ref="module_category_mass_price_update"/>
     </record>
 </odoo>
