@@ -11,7 +11,7 @@ class MassPriceUpdate(models.TransientModel):
     _description = "Mass Price Update"
 
     apply_to = fields.Selection([
-        ('all', 'All Products'), ('category', 'Selected Categorys'),
+        ('all', 'All Products'), ('partner', 'Selected Partners'),
         ('selected', 'Selected Products')], default='selected',
         string='Apply To', required=True,
         help='Allows to select the products based on the conditions')
@@ -28,8 +28,8 @@ class MassPriceUpdate(models.TransientModel):
     product_ids = fields.Many2many(
         'product.supplierinfo', string='Products', default=False,
         domain="[('active', '=', True)]", help='Choose the required products')
-    category_ids = fields.Many2many(
-        'product.product', string='Categorys', default=False,
+    partner_ids = fields.Many2many(
+        'product.supplierinfo', string='Partners', default=False,
         help='Choose the required Partners')
     line_ids = fields.One2many('change.price.line',
                                'mass_price_update_id',
@@ -41,16 +41,16 @@ class MassPriceUpdate(models.TransientModel):
         """When select an option from apply_to, the related records will show"""
         if self.apply_to == 'all':
             self.write({
-                'category_ids': [(5,)],
+                'partner_ids': [(5,)],
                 'line_ids': [(5,)],
                 'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
                     [('active', '=', True)]).ids)]
             })
-        elif self.apply_to == 'category':
+        elif self.apply_to == 'partner':
             self.write({
                 'line_ids': [(5,)],
-                'product_ids': [(6, 0, self.env['product.product'].search(
-                    [('categ_id', 'in', self.category_ids.ids)]).ids)]
+                'product_ids': [(6, 0, self.env['product.supplierinfo'].search(
+                    [('partner_id', 'in', self.partner_ids.ids)]).ids)]
             })
         else:
             self.write({
@@ -70,13 +70,13 @@ class MassPriceUpdate(models.TransientModel):
             self.write({'line_ids': lines})
 
     @api.onchange('category_ids')
-    def _onchange_category_ids(self):
-        """When select the category related product will show"""
-        if self.category_ids:
+    def _onchange_partner_ids(self):
+        """When select the partner related product will show"""
+        if self.partner_ids:
             self.write({'line_ids': [(5,)], 'product_ids': [(5,)]})
             lines = []
-            products = self.env['product.product'].sudo().search(
-                [('category_id', 'in', self.category_ids.ids)])
+            products = self.env['product.supplierinfo'].sudo().search(
+                [('partner_id', 'in', self.partner_ids.ids)])
             for product in products:
                 lines.append((0, 0, {'product_id': product.id}))
             self.write({
@@ -86,7 +86,7 @@ class MassPriceUpdate(models.TransientModel):
 
     def action_change_price(self):
         """This function is used to change the price or cost of products"""
-        if self.apply_to == 'category' and not self.product_ids:
+        if self.apply_to == 'partner' and not self.product_ids:
             raise UserError(_("Please select any category with products."))
         if self.apply_to == 'selected' and not self.product_ids:
             raise UserError(_("Please select any product."))
