@@ -69,7 +69,7 @@ class MassPriceUpdate(models.TransientModel):
                 lines.append((0, 0, {'product_id': product._origin.id}))
             self.write({'line_ids': lines})
 
-    @api.onchange('category_ids')
+    @api.onchange('partner_ids')
     def _onchange_partner_ids(self):
         """When select the partner related product will show"""
         if self.partner_ids:
