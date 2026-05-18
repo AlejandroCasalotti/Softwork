@@ -16,20 +16,20 @@ class MassPriceUpdate(models.TransientModel):
         string='Apply To', required=True,
         help='Allows to select the products based on the conditions')
     apply_on = fields.Selection([
-        ('price', 'Price')], default='price',
-        string='Apply On', required=True, help='Apply on Price')
+        ('precio', 'Precio unitario')], default='precio',
+        string='Apply On', required=True, help='Apply on Price Unitario')
     change = fields.Float(string='Change',
                           help='The percentage for adding or reducing to the '
                                'actual price')
     apply_type = fields.Selection([
-        ('add', 'Add'), ('reduce', 'Reduce')], default='add',
-        string='Apply Type', required=True,
+        ('add', 'Aumentar'), ('reduce', 'Reducir')], default='add',
+        string='Aplicar tipo', required=True,
         help='Choose the applying type whether add or reduce')
     product_ids = fields.Many2many(
-        'product.supplierinfo', string='Products', default=False,
+        'product.supplierinfo', string='Productos', default=False,
         domain="[('active', '=', True)]", help='Choose the required products')
     partner_ids = fields.Many2many(
-        'product.supplierinfo', string='Partners', default=False,
+        'product.supplierinfo', string='Proveedores', default=False,
         help='Choose the required Partners')
     line_ids = fields.One2many('change.price.line',
                                'mass_price_update_id',
@@ -96,11 +96,11 @@ class MassPriceUpdate(models.TransientModel):
             percentage_num = 1 + self.change
         else:
             percentage_num = 1 - self.change
-        if self.apply_on == 'price':
+        if self.apply_on == 'precio':
             for product in self.product_ids:
                 product.price = product.price * percentage_num
 
-        message = f"""The {'sales price' if self.apply_on == 'price'}"""
+        message = f"""The {'precio de venta' if self.apply_on == 'precio'}"""
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
