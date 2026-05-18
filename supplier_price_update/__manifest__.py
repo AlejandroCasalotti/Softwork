@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 {
     'name': 'Aumentar Precio Proveedor',
     'version': '19.0.1.0.0',
