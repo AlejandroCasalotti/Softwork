@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<!--    Category for managing the access for product price update-->
+    <record id="module_increase_price_wizard" model="res.groups.privilege">
+        <field name="name">Incrementar precio proveedor</field>
+        <field name="description">Helps to manage access to the increase price supplier wizard
+        </field>
+    </record>
+<!--    Group for Administrator-->
+    <record id="increase_price_group_admin" model="res.groups">
+        <field name="name">Administrator</field>
+        <field name="comment">Access to the increase price wizard menu
+        </field>
+        <field name="privilege_id"
+               ref="module_increase_price_wizard"/>
+    </record>
+</odoo>
