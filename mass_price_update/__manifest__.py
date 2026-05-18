@@ -3,14 +3,14 @@
 {
     'name': 'Mass Price Update',
     'version': '19.0.1.0.0',
-    'category': 'Warehouse',
+    'category': 'Purchase',
     'summary': """Actualizar precio unitario del proveedor por porcentaje""",
     'description': """Este módulo permite actualizar masivamente los precios del proveedor""",
     'author': 'SoftWork Arg.',
     'company': 'SoftWork Arg',
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['purchase'],
+    'depends': ['product'],
     'data': [
         'security/mass_price_update_groups.xml',
         'security/ir.model.access.csv',
