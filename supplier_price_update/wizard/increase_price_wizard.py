@@ -38,3 +38,4 @@ class IncreasePriceWizard(models.TransientModel):
             'type': 'ir.actions.act_window_close',
             'info': f'Precios aumentados en {self.percentage}%',
         }
+        
