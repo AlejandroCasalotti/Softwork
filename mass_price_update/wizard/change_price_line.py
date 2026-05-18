@@ -3,7 +3,7 @@ from odoo import api, fields, models
 
 class ChangePriceLine(models.TransientModel):
     """One2many for align the products with new price"""
-    _name = 'change.price.line'
+    _name = 'change.precio.line'
     _rec_name = 'product_id'
     _description = "Aumentar el precio en linea"
 
