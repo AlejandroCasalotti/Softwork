@@ -7,35 +7,48 @@ from odoo.exceptions import UserError
 class IncreasePriceWizard(models.TransientModel):
     _name = 'increase.price.wizard'
     _description = 'Wizard para aumentar precio de proveedores'
-    _auto_join = True
-    
+
     percentage = fields.Float(
         string='Porcentaje de aumento (%)',
         required=True,
         default=10.0,
     )
+    
+    supplier_info_ids = fields.Many2many(
+        'product.supplierinfo',
+        string='Productos seleccionados',
+        readonly=True,
+    )
 
     @api.model
     def default_get(self, fields_list):
         res = super(IncreasePriceWizard, self).default_get(fields_list)
-        # Obtener IDs de otra forma
-        res['supplier_info_ids'] = self.env.context.get('active_ids', [])
+        active_ids = self.env.context.get('active_ids', [])
+        if active_ids:
+            res['supplier_info_ids'] = [(6, 0, active_ids)]
         return res
 
     def action_apply_increase(self):
-        active_ids = self.env.context.get('active_ids', [])
+        self.ensure_one()
         
-        if not active_ids:
-            return {'type': 'ir.actions.act_window_close'}
+        if not self.supplier_info_ids:
+            raise UserError('No hay productos seleccionados.')
         
-        supplier_infos = self.env['product.supplierinfo'].browse(active_ids)
+        if self.percentage < 0:
+            raise UserError('El porcentaje no puede ser negativo.')
         
-        for supplier_info in supplier_infos:
-            new_price = supplier_info.price * (1 + self.percentage / 100)
+        # Aplicar el aumento
+        for supplier_info in self.supplier_info_ids:
+            current_price = supplier_info.price
+            new_price = current_price * (1 + self.percentage / 100)
             supplier_info.price = new_price
         
         return {
-            'type': 'ir.actions.act_window_close',
-            'info': f'Precios aumentados en {self.percentage}%',
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Éxito',
+                'message': f'Precios aumentados en {self.percentage}% para {len(self.supplier_info_ids)} proveedor(es).',
+                'type': 'success',
+            }
         }
-        

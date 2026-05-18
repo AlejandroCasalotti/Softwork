@@ -2,7 +2,7 @@
 
 {
     'name': 'Aumentar Precio Proveedor',
-    'version': '1.0',
+    'version': '19.0.1.0.0',
     'category': 'Inventory',
     'summary': 'Permite aumentar precios de proveedores en lote',
     'description': 'Wizard para aumentar precios de productos de proveedores.',
