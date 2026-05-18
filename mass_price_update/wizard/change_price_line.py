@@ -6,7 +6,7 @@ from odoo import api, fields, models
 
 class ChangePriceLine(models.TransientModel):
     """One2many for align the products with new price"""
-    _name = 'change.precio.line'
+    _name = 'change.price.line'
     _rec_name = 'product_id'
     _description = "Aumentar el precio en linea"
 
@@ -39,7 +39,5 @@ class ChangePriceLine(models.TransientModel):
                 percentage_num = 1 + record.mass_price_update_id.change
             else:
                 percentage_num = 1 - record.mass_price_update_id.change
-            if record.mass_price_update_id.apply_on == 'price':
+            if record.mass_price_update_id.apply_on == 'precio':
                 record.new_price = record.current_price * percentage_num
-            else:
-                record.new_price = False
