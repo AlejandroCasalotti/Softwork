@@ -49,7 +49,7 @@ class IncreasePriceWizard(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': 'Éxito',
-                'message': f'Precios aumentados en {self.percentage}% para {len(self.supplier_info_ids)} proveedor(es).',
+                'message': f'Precios aumentados en {self.percentage}% para {len(self.supplier_info_ids)} producto(s).',
                 'sticky': True,
                 'next': {'type': 'ir.actions.act_window_close'},
             }
