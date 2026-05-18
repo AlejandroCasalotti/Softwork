@@ -13,7 +13,7 @@
     'depends': ['product'],
     'data': [
         'security/ir.model.access.csv',
-        'security/increase_price_wizard_groups.xml'
+        'security/increase_price_wizard_groups.xml',
         'wizard/increase_price_wizard.xml',
     ],
     'license': 'AGPL-3',
