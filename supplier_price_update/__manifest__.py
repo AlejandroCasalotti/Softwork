@@ -9,6 +9,7 @@
     'author': 'Tu Nombre',
     'depends': ['product'],
     'data': [
+        'security/ir.model.access.csv',
         'wizard/increase_price_wizard.xml',
     ],
     'installable': True,
