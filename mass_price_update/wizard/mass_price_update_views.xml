@@ -35,10 +35,10 @@
                                     <field name="current_price"
                                            widget="monetary"
                                            options="{'currency_field': 'currency_id', 'field_digits': True}"
-                                           column_invisible="parent.apply_on == 'cost'"/>
+                                           column_invisible="parent.apply_on == 'price'"/>
                                     <field name="new_price" widget="monetary"
                                            options="{'currency_field': 'currency_id', 'field_digits': True}"
-                                           column_invisible="parent.apply_on == 'cost'"/>
+                                           column_invisible="parent.apply_on == 'price'"/>
                                     <field name="currency_id"/>
                                 </list>
                             </field>
@@ -47,7 +47,7 @@
                     <footer>
                         <button name="action_change_price" string="Change Price"
                                 type="object" class="oe_highlight"
-                                invisible="apply_on == 'cost'"
+                                invisible="apply_on == 'price'"
                                 confirm="Are you sure you want to change the sales price?"/>
                         <button string="Cancel" class="btn btn-default"
                                 special="cancel"/>

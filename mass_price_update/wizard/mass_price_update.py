@@ -6,7 +6,7 @@ from odoo.tools import _
 
 
 class MassPriceUpdate(models.TransientModel):
-    """Change Price and Cost of Products by Percentage"""
+    """Change Price of Products by Percentage"""
     _name = 'mass.price.update'
     _description = "Mass Price Update"
 
@@ -85,9 +85,9 @@ class MassPriceUpdate(models.TransientModel):
             })
 
     def action_change_price(self):
-        """This function is used to change the price or cost of products"""
+        """This function is used to change the price of products"""
         if self.apply_to == 'partner' and not self.product_ids:
-            raise UserError(_("Please select any category with products."))
+            raise UserError(_("Please select any partners with products."))
         if self.apply_to == 'selected' and not self.product_ids:
             raise UserError(_("Please select any product."))
         if not self.change:
