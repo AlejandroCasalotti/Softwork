@@ -10,7 +10,7 @@
         aplicando descuentos, recargos y tarifas extras en cascada.
     ''',
     'author': 'Tu Nombre',
-    'depends': ['product'],
+    'depends': ['product', 'stock'],
     'data': [
         'views/coste_net_rule_views.xml',
     ],

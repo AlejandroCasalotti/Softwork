@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+
     <!-- Vista árbol de reglas -->
     <record id="view_coste_net_rule_tree" model="ir.ui.view">
         <field name="name">coste.net.rule.tree</field>
         <field name="model">coste.net.rule</field>
         <field name="arch" type="xml">
-            <tree string="Reglas de Costo Neto" editable="bottom">
+            <tree string="Reglas de Costo Neto" default_order="sequence">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="active" widget="boolean_toggle"/>
@@ -44,7 +45,7 @@
                                 <field name="line_type"/>
                                 <field name="value"/>
                             </tree>
-                            <form string="Línea de Regla">
+                            <form string="Línea">
                                 <group>
                                     <field name="sequence"/>
                                     <field name="name"/>
@@ -59,39 +60,33 @@
         </field>
     </record>
 
-    <!-- Acción de menú para reglas -->
+    <!-- Acción de menú -->
     <record id="action_coste_net_rule" model="ir.actions.act_window">
         <field name="name">Reglas de Costo Neto</field>
         <field name="res_model">coste.net.rule</field>
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Menú en Inventario -->
+    <!-- Menú -->
     <record id="menu_coste_net_rule" model="ir.ui.menu">
         <field name="name">Reglas de Costo Neto</field>
         <field name="action">action_coste_net_rule</field>
-        <field name="parent">stock.menu_stock_config</field>
-        <sequence>99</field>
+        <field name="parent">stock.menu_stock_settings</field>
     </record>
 
-    <!-- Vista de product.supplierinfo con el campo de regla -->
+    <!-- Heredar vista de product.supplierinfo -->
     <record id="view_product_supplierinfo_form_coste" model="ir.ui.view">
-        <field name="name">product.supplierinfo.form.coste</field>
+        <field name="name">product.supplierinfo.form.coste.net</field>
         <field name="model">product.supplierinfo</field>
         <field name="inherit_id">product.product_supplierinfo_form_view</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='price']" position="after">
-                <field name="has_rule" invisible="1"/>
-                <field name="rule_id" 
-                       string="Regla Costo"
-                       attrs="{'invisible': [('has_rule', '=', False)]}"
-                       options="{'no_create': True}"/>
-                <field name="price_net" 
-                       string="Costo Neto"
-                       attrs="{'invisible': [('has_rule', '=', False)]}"
-                       readonly="1"
-                       digits="Product Price"/>
+                <field name="rule_id" string="Regla Costo"/>
+                <field name="price_net" string="Costo Neto" 
+                       readonly="1" 
+                       attrs="{'invisible': [('rule_id', '=', False)]}"/>
             </xpath>
         </field>
     </record>
+
 </odoo>
