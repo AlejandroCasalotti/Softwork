@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista del wizard -->
+    <record id="view_assign_rule_wizard_form" model="ir.ui.view">
+        <field name="name">assign.rule.wizard.form</field>
+        <field name="model">assign.rule.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Asignar Regla de Costo">
+                <sheet>
+                    <group>
+                        <field name="rule_id" options="{'no_create': True}"/>
+                    </group>
+                    <p>Selecciona una regla para aplicar a los proveedores seleccionados.</p>
+                </sheet>
+                <footer>
+                    <button name="action_assign" string="Asignar" type="object" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

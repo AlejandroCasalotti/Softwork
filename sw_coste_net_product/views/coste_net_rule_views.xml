@@ -36,7 +36,6 @@
                             <field name="total_fixed" string="Total Tarifa Fija" readonly="1"/>
                         </group>
                     </group>
-                    
                     <group string="Líneas de Regla" colspan="2">
                         <field name="line_ids" nolabel="1">
                             <tree string="Líneas" editable="bottom">
@@ -60,18 +59,35 @@
         </field>
     </record>
 
-    <!-- Acción de menú -->
+    <!-- Acción de menú en COMPRAS -->
     <record id="action_coste_net_rule" model="ir.actions.act_window">
         <field name="name">Reglas de Costo Neto</field>
         <field name="res_model">coste.net.rule</field>
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Menú -->
+    <!-- Menú en COMPRAS -->
     <record id="menu_coste_net_rule" model="ir.ui.menu">
-        <field name="name">Reglas de Costo Neto</field>
+        <field name="name">Reglas de Costo</field>
         <field name="action">action_coste_net_rule</field>
-        <field name="parent">stock.menu_stock_settings</field>
+        <field name="parent">purchase.menu_purchase_configuration</field>
+    </record>
+
+    <!-- Acción de servidor para asignar regla -->
+    <record id="server_action_assign_rule" model="ir.actions.server">
+        <field name="name">Asignar Regla de Costo</field>
+        <field name="model_id" ref="product.model_product_supplierinfo"/>
+        <field name="binding_model_id" ref="product.model_product_supplierinfo"/>
+        <field name="state">code</field>
+        <field name="code">
+            action = {
+                'name': 'Asignar Regla de Costo',
+                'type': 'ir.actions.act_window',
+                'res_model': 'assign.rule.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+            }
+        </field>
     </record>
 
     <!-- Heredar vista de product.supplierinfo -->
