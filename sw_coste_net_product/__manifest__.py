@@ -10,7 +10,7 @@
         aplicando descuentos, recargos y tarifas extras en cascada.
     ''',
     'author': 'SW Sistemas',
-    'depends': ['product'],
+    'depends': ['product', 'purchase'],
     'data': [
         'security/ir.model.access.csv',
         'wizard/assign_rule_wizard_views.xml',
