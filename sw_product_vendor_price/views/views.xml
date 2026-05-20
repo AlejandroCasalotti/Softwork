@@ -8,42 +8,16 @@
             <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='price']" position="before">
-                    <field name="sync_enabled" widget="boolean_toggle"/>
+                    <field name="sync_enabled"/>
                 </xpath>
-                <xpath expr="//field[@name='price']" position="after">
-                    <field name="vendor_price" 
-                           attrs="{'invisible': [('sync_enabled', '=', False)], 'readonly': [('sync_enabled', '=', False)]}"/>
-                    <field name="sale_margin" 
-                           attrs="{'invisible': [('sync_enabled', '=', False)], 'readonly': [('sync_enabled', '=', False)]}"/>
+                <xpath expr="//field[@name='date_planned']" position="before">
+                    <field name="vendor_price"/>
+                    <field name="sale_margin"/>
                 </xpath>
             </field>
         </record>
 
-        <!-- Vista para Product.template - Pestaña de compra -->
-        <record id="product_template_form_inherit_vendor_price" model="ir.ui.view">
-            <field name="name">product.template.form.inherit.vendor.price</field>
-            <field name="model">product.template</field>
-            <field name="inherit_id" ref="product.product_template_form_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='list_price']" position="before">
-                    <field name="force_price_sync" widget="boolean_toggle" string="Sincronizar desde Proveedor"/>
-                </xpath>
-            </field>
-        </record>
-
-        <!--Vista para Product.product - Sección de información de inventario-->
-        <record id="product_product_form_inherit_vendor_price" model="ir.ui.view">
-            <field name="name">product.product.form.inherit.vendor.price</field>
-            <field name="model">product.product</field>
-            <field name="inherit_id" ref="product.product_normal_form_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='standard_price']" position="after">
-                    <field name="manual_standard_price" invisible="1"/>
-                </xpath>
-            </field>
-        </record>
-
-        <!-- Columnas adicionales en lista de supplierinfo -->
+        <!-- Columnas adicionales en lista de supplierinfo (vista árbol) -->
         <record id="product_supplierinfo_tree_inherit" model="ir.ui.view">
             <field name="name">product.supplierinfo.tree.inherit</field>
             <field name="model">product.supplierinfo</field>
@@ -53,6 +27,18 @@
                     <field name="vendor_price" optional="show"/>
                     <field name="sale_margin" optional="show"/>
                     <field name="sync_enabled" optional="show"/>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Vista para Product.template -->
+        <record id="product_template_form_inherit_vendor_price" model="ir.ui.view">
+            <field name="name">product.template.form.inherit.vendor.price</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="product.product_template_form_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='list_price']" position="before">
+                    <field name="force_price_sync" widget="boolean_toggle" string="Sincronizar desde Proveedor"/>
                 </xpath>
             </field>
         </record>
