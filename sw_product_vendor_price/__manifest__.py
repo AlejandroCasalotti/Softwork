@@ -14,7 +14,6 @@
         'security/ir.model.access.csv',
         'views/views.xml',
     ],
-    'demo': [],
     'license': 'AGPL-3',
     'installable': True,
     'application': True,
