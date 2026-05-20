@@ -1,28 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        <!-- ============================================ -->
-        <!-- VISTA DE LISTA: REGLAS DE COSTO -->
-        <!-- ============================================ -->
+        <!-- Vista Lista: Reglas -->
         <record id="view_cost_rule_list" model="ir.ui.view">
             <field name="name">cost.rule.list</field>
             <field name="model">cost.rule</field>
             <field name="arch" type="xml">
                 <list string="Reglas de Costo" editable="top">
-                    <field name="sequence" widget="handle"/>
                     <field name="active" widget="boolean_toggle"/>
                     <field name="name"/>
                     <field name="rule_type"/>
                     <field name="rule_mode"/>
                     <field name="rule_value"/>
-                    <field name="supplier_id"/>
                 </list>
             </field>
         </record>
 
-        <!-- ============================================ -->
-        <!-- VISTA DE FORMULARIO: REGLAS DE COSTO -->
-        <!-- ============================================ -->
+        <!-- Vista Formulario: Reglas -->
         <record id="view_cost_rule_form" model="ir.ui.view">
             <field name="name">cost.rule.form</field>
             <field name="model">cost.rule</field>
@@ -30,82 +24,38 @@
                 <form string="Regla de Costo">
                     <sheet>
                         <group>
-                            <group>
-                                <field name="name" placeholder="Ej: Descuento Volumen"/>
-                                <field name="active" widget="boolean_toggle"/>
-                                <field name="supplier_id" domain="[('supplier_rank', '>', 0)]"
-                                       placeholder="Todos los proveedores"/>
-                            </group>
-                            <group>
-                                <field name="sequence"/>
-                                <field name="rule_type"/>
-                                <field name="rule_mode"/>
-                                <field name="rule_value"/>
-                            </group>
-                        </group>
-                        <group string="Descripción">
-                            <field name="description" nolabel="1" placeholder="Notas sobre esta regla..."/>
+                            <field name="name"/>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="rule_type"/>
+                            <field name="rule_mode"/>
+                            <field name="rule_value"/>
+                            <field name="supplier_id"/>
+                            <field name="description"/>
                         </group>
                     </sheet>
                 </form>
             </field>
         </record>
 
-        <!-- ============================================ -->
-        <!-- VISTA DE BÚSQUEDA: REGLAS DE COSTO -->
-        <!-- ============================================ -->
-        <record id="view_cost_rule_search" model="ir.ui.view">
-            <field name="name">cost.rule.search</field>
-            <field name="model">cost.rule</field>
-            <field name="arch" type="xml">
-                <search string="Buscar Reglas">
-                    <field name="name"/>
-                    <field name="supplier_id"/>
-                    <filter string="Activas" name="active" domain="[('active', '=', True)]"/>
-                    <filter string="Descuentos" name="discount" domain="[('rule_type', '=', 'discount')]"/>
-                    <filter string="Tarifas Extra" name="extra" domain="[('rule_type', '=', 'extra')]"/>
-                </search>
-            </field>
-        </record>
-
-        <!-- ============================================ -->
-        <!-- ACCIÓN DE VENTANA: REGLAS DE COSTO -->
-        <!-- ============================================ -->
+        <!-- Acción -->
         <record id="action_cost_rule" model="ir.actions.act_window">
             <field name="name">Reglas de Costo</field>
             <field name="res_model">cost.rule</field>
             <field name="view_mode">list,form</field>
-            <field name="help" type="html">
-                <p class="o_view_nocontent_smiling_face">
-                    Crea tu primera regla de costo
-                </p>
-                <p>
-                    Las reglas de costo permiten agregar descuentos o tarifas extras
-                    a los precios de los proveedores.
-                </p>
-            </field>
         </record>
 
-        <!-- ============================================ -->
-        <!-- MENÚ PRINCIPAL -->
-        <!-- ============================================ -->
-        <menuitem
-            id="menu_cost_rule"
-            name="Reglas de Costos"
-            action="action_cost_rule"
-            sequence="100"/>
+        <!-- Menú -->
+        <menuitem id="menu_cost_rule" name="Reglas de Costo" action="action_cost_rule"/>
 
-        <!-- ============================================ -->
-        <!-- HERENCIA: SUPPLIERINFO FORM (Solo lo esencial) -->
-        <!-- ============================================ -->
-        <record id="view_product_supplierinfo_form_inherit" model="ir.ui.view">
+        <!-- Herencia SupplierInfo -->
+        <record id="view_supplierinfo_form" model="ir.ui.view">
             <field name="name">product.supplierinfo.form.inherit</field>
             <field name="model">product.supplierinfo</field>
             <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='price']" position="after">
-                    <field name="sale_margin" string="Margen (%)"/>
-                    <field name="rule_ids" widget="many2many_tags" string="Reglas"/>
+                    <field name="sale_margin"/>
+                    <field name="rule_ids" widget="many2many_tags"/>
                 </xpath>
             </field>
         </record>
