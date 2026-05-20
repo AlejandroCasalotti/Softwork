@@ -75,7 +75,6 @@
             <field name="name">Reglas de Costo</field>
             <field name="res_model">cost.rule</field>
             <field name="view_mode">list,form</field>
-            <field name="context">{}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Crea tu primera regla de costo
@@ -88,13 +87,12 @@
         </record>
 
         <!-- ============================================ -->
-        <!-- MENÚ: REGLAS DE COSTO EN COMPRAS -->
+        <!-- MENÚ PRINCIPAL (Sin padre - se crea en root) -->
         <!-- ============================================ -->
         <menuitem
             id="menu_cost_rule"
             name="Reglas de Costos"
             action="action_cost_rule"
-            parent="purchase.menu_procurement"
             sequence="100"/>
 
         <!-- ============================================ -->
