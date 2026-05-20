@@ -113,7 +113,7 @@ class CosteNetRule(models.Model):
             _logger.warning('Vista original no encontrada')
             return False
         
-        # Crear vista heredada
+        # Crear vista heredada - SIN "attrs" - usa invisible directamente
         view_data = {
             'name': 'product.supplierinfo.form.costenet',
             'model': 'product.supplierinfo',
@@ -121,8 +121,7 @@ class CosteNetRule(models.Model):
             'arch': '''
                 <xpath expr="//field[@name='price']" position="after">
                     <field name="rule_id"/>
-                    <field name="price_net" readonly="1" 
-                           attrs="{'invisible': [('rule_id', '=', False)]}"/>
+                    <field name="price_net" readonly="1"/>
                 </xpath>
             ''',
             'active': True,
