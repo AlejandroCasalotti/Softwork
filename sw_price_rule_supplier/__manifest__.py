@@ -10,10 +10,9 @@
     'company': 'SW Sistemas',
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['product'],
+    'depends': ['purchase'],
     'data': [
-        'security/ir.model.access.csv',
-        'views/coste_net_rule_views.xml',
+        'views/price_rule_views.xml',
     ],
     'license': 'AGPL-3',
     'installable': True,

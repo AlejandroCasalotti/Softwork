@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Vista lista de reglas -->
+    <record id="view_price_rule_tree" model="ir.ui.view">
+        <field name="name">price.rule.supplier.tree</field>
+        <field name="model">price.rule.supplier</field>
+        <field name="arch" type="xml">
+            <list string="Reglas de Costo">
+                <field name="name"/>
+                <field name="active" widget="boolean_toggle"/>
+                <field name="total_discount" string="Total Desc%"/>
+                <field name="total_tariff" string="Total Tarifa"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista formulario de regla -->
+    <record id="view_price_rule_form" model="ir.ui.view">
+        <field name="name">price.rule.supplier.form</field>
+        <field name="model">price.rule.supplier</field>
+        <field name="arch" type="xml">
+            <form string="Regla de Costo">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                    </group>
+                    <group>
+                        <field name="total_discount" readonly="1"/>
+                        <field name="total_tariff" readonly="1"/>
+                    </group>
+                    <group string="Líneas de Descuento/Tarifa">
+                        <field name="line_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="description"/>
+                                <field name="discount"/>
+                                <field name="tariff_extra"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Acción de ventana -->
+    <record id="action_price_rule" model="ir.actions.act_window">
+        <field name="name">Reglas de Costo</field>
+        <field name="res_model">price.rule.supplier</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Menú en Compras > Configuración -->
+    <record id="menu_price_rule" model="ir.ui.menu">
+        <field name="name">Reglas de Costo</field>
+        <field name="action">action_price_rule</field>
+        <field name="parent_id">purchase.menu_purchase_configuration</field>
+    </record>
+
+    <!-- Heredar vista de proveedor -->
+    <record id="view_product_supplierinfo_price_rule" model="ir.ui.view">
+        <field name="name">product.supplierinfo.price.rule</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id">product.product_supplierinfo_form_view</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='price']" position="after">
+                <field name="price_rule_id"/>
+                <field name="net_price" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
