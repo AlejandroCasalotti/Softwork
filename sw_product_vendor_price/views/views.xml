@@ -87,7 +87,7 @@
         </record>
 
         <!-- ============================================ -->
-        <!-- MENÚ PRINCIPAL (Sin padre - se crea en root) -->
+        <!-- MENÚ PRINCIPAL -->
         <!-- ============================================ -->
         <menuitem
             id="menu_cost_rule"
@@ -96,7 +96,7 @@
             sequence="100"/>
 
         <!-- ============================================ -->
-        <!-- HERENCIA: SUPPLIERINFO FORM -->
+        <!-- HERENCIA: SUPPLIERINFO FORM (Solo lo esencial) -->
         <!-- ============================================ -->
         <record id="view_product_supplierinfo_form_inherit" model="ir.ui.view">
             <field name="name">product.supplierinfo.form.inherit</field>
@@ -105,27 +105,7 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='price']" position="after">
                     <field name="sale_margin" string="Margen (%)"/>
-                </xpath>
-                
-                <xpath expr="//field[@name='product_tmpl_id']" position="before">
-                    <field name="rule_ids" widget="many2many_tags" 
-                           string="Reglas de Costo"
-                           placeholder="Seleccionar reglas..."/>
-                </xpath>
-            </field>
-        </record>
-
-        <!-- ============================================ -->
-        <!-- HERENCIA: SUPPLIERINFO LIST -->
-        <!-- ============================================ -->
-        <record id="view_product_supplierinfo_list_inherit" model="ir.ui.view">
-            <field name="name">product.supplierinfo.list.inherit</field>
-            <field name="model">product.supplierinfo</field>
-            <field name="inherit_id" ref="product.product_supplierinfo_list_view"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='price']" position="after">
-                    <field name="sale_margin" optional="show"/>
-                    <field name="final_cost" optional="show"/>
+                    <field name="rule_ids" widget="many2many_tags" string="Reglas"/>
                 </xpath>
             </field>
         </record>
