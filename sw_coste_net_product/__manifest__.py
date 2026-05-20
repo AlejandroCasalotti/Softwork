@@ -13,7 +13,6 @@
     'depends': ['purchase'],
     'data': [
         'security/ir.model.access.csv',
-        'wizard/assign_rule_wizard_views.xml',
         'views/coste_net_rule_views.xml',
     ],
     'license': 'AGPL-3',
