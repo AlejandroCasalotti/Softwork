@@ -12,6 +12,7 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['purchase'],
     'data': [
+        'security/ir.model.access.csv',
         'views/price_rule_views.xml',
     ],
     'license': 'AGPL-3',
