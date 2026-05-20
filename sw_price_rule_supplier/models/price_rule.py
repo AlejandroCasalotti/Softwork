@@ -2,6 +2,9 @@
 
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 
 class PriceRuleSupplier(models.Model):
@@ -36,6 +39,75 @@ class PriceRuleSupplier(models.Model):
                 total_tariff += line.tariff_extra or 0.0
             rule.total_discount = total_disc
             rule.total_tariff = total_tariff
+
+    def _register_hook(self):
+        super()._register_hook()
+        self._create_menu_and_view()
+
+    def _create_menu_and_view(self):
+        """Crea menú y vista heredada automáticamente"""
+        # Crear acción
+        action = self.env['ir.actions.act_window'].search([
+            ('name', '=', 'Reglas de Costo'),
+        ], limit=1)
+        
+        if not action:
+            action = self.env['ir.actions.act_window'].create({
+                'name': 'Reglas de Costo',
+                'res_model': 'price.rule.supplier',
+                'view_mode': 'list,form',
+            })
+            _logger.info('Acción creada')
+        
+        # Crear menú
+        menu = self.env['ir.ui.menu'].search([
+            ('name', '=', 'Reglas de Costo'),
+        ], limit=1)
+        
+        if not menu:
+            # Buscar menú de configuración de compras
+            parent_menu = self.env['ir.ui.menu'].search([
+                ('name', '=', 'Configuration'),
+                ('parent_path', 'like', '%purchase%'),
+            ], limit=1)
+            
+            if parent_menu:
+                self.env['ir.ui.menu'].create({
+                    'name': 'Reglas de Costo',
+                    'action': f'ir.actions.act_window,{action.id}',
+                    'parent_id': parent_menu.id,
+                })
+                _logger.info('Menú creado')
+        
+        # Crear vista heredada
+        view = self.env['ir.ui.view'].search([
+            ('name', '=', 'product.supplierinfo.price.rule'),
+        ], limit=1)
+        
+        if not view:
+            # Buscar vista original
+            original = self.env['ir.ui.view'].search([
+                ('model', '=', 'product.supplierinfo'),
+                ('type', '=', 'form'),
+                ('inherit_id', '=', False),
+            ], limit=1)
+            
+            if original:
+                self.env['ir.ui.view'].create({
+                    'name': 'product.supplierinfo.price.rule',
+                    'model': 'product.supplierinfo',
+                    'inherit_id': original.id,
+                    'arch': '''
+                        <xpath expr="//field[@name='price']" position="after">
+                            <field name="price_rule_id"/>
+                            <field name="net_price" readonly="1"/>
+                        </xpath>
+                    ''',
+                    'active': True,
+                })
+                _logger.info('Vista heredada creada')
+        
+        return True
 
 
 class PriceRuleSupplierLine(models.Model):
@@ -76,7 +148,6 @@ class ProductSupplierInfo(models.Model):
                 record.net_price = record.price
                 continue
             
-            # Aplicar descuentos en cascada
             current_price = record.price
             lines = record.price_rule_id.line_ids.sorted(key='sequence')
             
