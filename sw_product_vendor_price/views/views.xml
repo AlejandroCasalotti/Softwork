@@ -2,13 +2,13 @@
 <odoo>
     <data>
         <!-- ============================================ -->
-        <!-- VISTA DE ÁRBOL: REGLAS DE COSTO (Menú Principal) -->
+        <!-- VISTA DE LISTA: REGLAS DE COSTO -->
         <!-- ============================================ -->
-        <record id="view_cost_rule_tree" model="ir.ui.view">
-            <field name="name">cost.rule.tree</field>
+        <record id="view_cost_rule_list" model="ir.ui.view">
+            <field name="name">cost.rule.list</field>
             <field name="model">cost.rule</field>
             <field name="arch" type="xml">
-                <tree string="Reglas de Costo" editable="top">
+                <list string="Reglas de Costo" editable="top">
                     <field name="sequence" widget="handle"/>
                     <field name="active" widget="boolean_toggle"/>
                     <field name="name"/>
@@ -16,7 +16,7 @@
                     <field name="rule_mode"/>
                     <field name="rule_value"/>
                     <field name="supplier_id"/>
-                </tree>
+                </list>
             </field>
         </record>
 
@@ -74,7 +74,7 @@
         <record id="action_cost_rule" model="ir.actions.act_window">
             <field name="name">Reglas de Costo</field>
             <field name="res_model">cost.rule</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">list,form</field>
             <field name="context">{}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
@@ -99,44 +99,31 @@
 
         <!-- ============================================ -->
         <!-- HERENCIA: SUPPLIERINFO FORM -->
-        <!-- Agregar margen y reglas -->
         <!-- ============================================ -->
         <record id="view_product_supplierinfo_form_inherit" model="ir.ui.view">
             <field name="name">product.supplierinfo.form.inherit</field>
             <field name="model">product.supplierinfo</field>
             <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
             <field name="arch" type="xml">
-                <!-- Agregar margen de venta después del precio -->
                 <xpath expr="//field[@name='price']" position="after">
                     <field name="sale_margin" string="Margen (%)"/>
                 </xpath>
                 
-                <!-- Agregar reglas de costo -->
-                <xpath expr="//field[@name='product_name']" position="before">
+                <xpath expr="//field[@name='product_tmpl_id']" position="before">
                     <field name="rule_ids" widget="many2many_tags" 
                            string="Reglas de Costo"
                            placeholder="Seleccionar reglas..."/>
-                </xpath>
-                
-                <!-- Agregar campos calculados -->
-                <xpath expr="//field[@name='date_calendar_start']" position="before">
-                    <group string="Cálculo de Costo" col="4">
-                        <field name="calculated_discount" string="Descuentos"/>
-                        <field name="calculated_extra" string="Tarifas"/>
-                        <field name="final_cost" string="Costo Final" 
-                               style="font-weight: bold; color: #875A7B;"/>
-                    </group>
                 </xpath>
             </field>
         </record>
 
         <!-- ============================================ -->
-        <!-- HERENCIA: SUPPLIERINFO TREE -->
+        <!-- HERENCIA: SUPPLIERINFO LIST -->
         <!-- ============================================ -->
-        <record id="view_product_supplierinfo_tree_inherit" model="ir.ui.view">
-            <field name="name">product.supplierinfo.tree.inherit</field>
+        <record id="view_product_supplierinfo_list_inherit" model="ir.ui.view">
+            <field name="name">product.supplierinfo.list.inherit</field>
             <field name="model">product.supplierinfo</field>
-            <field name="inherit_id" ref="product.product_supplierinfo_tree_view"/>
+            <field name="inherit_id" ref="product.product_supplierinfo_list_view"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='price']" position="after">
                     <field name="sale_margin" optional="show"/>
