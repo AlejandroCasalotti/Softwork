@@ -10,7 +10,7 @@
     'company': 'SW Sistemas',
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['product', 'purchase'],
+    'depends': ['purchase'],
     'data': [
         'security/ir.model.access.csv',
         'wizard/assign_rule_wizard_views.xml',
