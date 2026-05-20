@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Vista árbol de reglas -->
+    <!-- Vista lista de reglas -->
     <record id="view_coste_net_rule_tree" model="ir.ui.view">
-        <field name="name">coste.net.rule.tree</field>
-        <field name="model">coste.net.rule</field>
+        <field name="name">coste_net_rule.tree</field>
+        <field name="model">coste_net_rule</field>
         <field name="arch" type="xml">
-            <tree string="Reglas de Costo Neto" default_order="sequence">
+            <tree string="Reglas de Costo">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
                 <field name="active" widget="boolean_toggle"/>
-                <field name="total_discount" string="Desc.%"/>
-                <field name="total_surcharge" string="Rec.%"/>
+                <field name="total_discount" string="Desc%"/>
+                <field name="total_surcharge" string="Rec%"/>
                 <field name="total_fixed" string="Fijo"/>
             </tree>
         </field>
@@ -19,39 +19,29 @@
 
     <!-- Vista formulario de regla -->
     <record id="view_coste_net_rule_form" model="ir.ui.view">
-        <field name="name">coste.net.rule.form</field>
-        <field name="model">coste.net.rule</field>
+        <field name="name">coste_net_rule.form</field>
+        <field name="model">coste_net_rule</field>
         <field name="arch" type="xml">
-            <form string="Regla de Costo Neto">
+            <form string="Regla de Costo">
                 <sheet>
                     <group>
-                        <group>
-                            <field name="name"/>
-                            <field name="sequence"/>
-                            <field name="active"/>
-                        </group>
-                        <group>
-                            <field name="total_discount" string="Total Descuento (%)" readonly="1"/>
-                            <field name="total_surcharge" string="Total Recargo (%)" readonly="1"/>
-                            <field name="total_fixed" string="Total Tarifa Fija" readonly="1"/>
-                        </group>
+                        <field name="name"/>
+                        <field name="sequence"/>
+                        <field name="active"/>
                     </group>
-                    <group string="Líneas de Regla" colspan="2">
+                    <group>
+                        <field name="total_discount" readonly="1"/>
+                        <field name="total_surcharge" readonly="1"/>
+                        <field name="total_fixed" readonly="1"/>
+                    </group>
+                    <group string="Lineas">
                         <field name="line_ids" nolabel="1">
-                            <tree string="Líneas" editable="bottom">
+                            <tree editable="bottom">
                                 <field name="sequence" widget="handle"/>
                                 <field name="name"/>
                                 <field name="line_type"/>
                                 <field name="value"/>
                             </tree>
-                            <form string="Línea">
-                                <group>
-                                    <field name="sequence"/>
-                                    <field name="name"/>
-                                    <field name="line_type"/>
-                                    <field name="value"/>
-                                </group>
-                            </form>
                         </field>
                     </group>
                 </sheet>
@@ -59,47 +49,30 @@
         </field>
     </record>
 
-    <!-- Acción de menú en COMPRAS -->
+    <!-- Accion de menu -->
     <record id="action_coste_net_rule" model="ir.actions.act_window">
-        <field name="name">Reglas de Costo Neto</field>
-        <field name="res_model">coste.net.rule</field>
+        <field name="name">Reglas de Costo</field>
+        <field name="res_model">coste_net_rule</field>
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Menú en COMPRAS -->
+    <!-- Menu en Compras -->
     <record id="menu_coste_net_rule" model="ir.ui.menu">
         <field name="name">Reglas de Costo</field>
         <field name="action">action_coste_net_rule</field>
         <field name="parent">purchase.menu_purchase_configuration</field>
     </record>
 
-    <!-- Acción de servidor para asignar regla -->
-    <record id="server_action_assign_rule" model="ir.actions.server">
-        <field name="name">Asignar Regla de Costo</field>
-        <field name="model_id" ref="product.model_product_supplierinfo"/>
-        <field name="binding_model_id" ref="product.model_product_supplierinfo"/>
-        <field name="state">code</field>
-        <field name="code">
-            action = {
-                'name': 'Asignar Regla de Costo',
-                'type': 'ir.actions.act_window',
-                'res_model': 'assign.rule.wizard',
-                'view_mode': 'form',
-                'target': 'new',
-            }
-        </field>
-    </record>
-
-    <!-- Heredar vista de product.supplierinfo -->
+    <!-- Heredar vista de proveedor -->
     <record id="view_product_supplierinfo_form_coste" model="ir.ui.view">
-        <field name="name">product.supplierinfo.form.coste.net</field>
+        <field name="name">product.supplierinfo.form.costenet</field>
         <field name="model">product.supplierinfo</field>
         <field name="inherit_id">product.product_supplierinfo_form_view</field>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='price']" position="after">
-                <field name="rule_id" string="Regla Costo"/>
-                <field name="price_net" string="Costo Neto" 
-                       readonly="1" 
+                <field name="rule_id"/>
+                <field name="price_net" 
+                       readonly="1"
                        attrs="{'invisible': [('rule_id', '=', False)]}"/>
             </xpath>
         </field>
