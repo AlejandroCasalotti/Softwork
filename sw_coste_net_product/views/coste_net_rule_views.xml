@@ -49,18 +49,11 @@
         </field>
     </record>
 
-    <!-- Accion de menu - CAMBIADO tree A list -->
+    <!-- Accion de menu -->
     <record id="action_coste_net_rule" model="ir.actions.act_window">
         <field name="name">Reglas de Costo</field>
         <field name="res_model">coste_net_rule</field>
         <field name="view_mode">list,form</field>
-    </record>
-
-    <!-- Menu en Compras - CAMBIADO parent A parent_id -->
-    <record id="menu_coste_net_rule" model="ir.ui.menu">
-        <field name="name">Reglas de Costo</field>
-        <field name="action">action_coste_net_rule</field>
-        <field name="parent_id">purchase.menu_purchase_configuration</field>
     </record>
 
     <!-- Heredar vista de proveedor -->
