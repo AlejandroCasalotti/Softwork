@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        <!-- Vista para Supplierinfo - Lista de precios del proveedor -->
+        <!-- Vista para Supplierinfo - Agregar campos nuevos -->
         <record id="view_product_supplierinfo_form_inherit" model="ir.ui.view">
             <field name="name">product.supplierinfo.form.inherit</field>
             <field name="model">product.supplierinfo</field>
             <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
             <field name="arch" type="xml">
+                <xpath expr="//field[@name='price']" position="after">
+                    <field name="vendor_price" string="Precio Proveedor"/>
+                    <field name="sale_margin" string="Margen (%)"/>
+                </xpath>
                 <xpath expr="//field[@name='price']" position="before">
                     <field name="sync_enabled"/>
-                </xpath>
-                <xpath expr="//field[@name='date_planned']" position="before">
-                    <field name="vendor_price"/>
-                    <field name="sale_margin"/>
                 </xpath>
             </field>
         </record>
 
-        <!-- Columnas adicionales en lista de supplierinfo (vista árbol) -->
+        <!-- Vista árbol para Supplierinfo -->
         <record id="product_supplierinfo_tree_inherit" model="ir.ui.view">
             <field name="name">product.supplierinfo.tree.inherit</field>
             <field name="model">product.supplierinfo</field>
@@ -38,7 +38,7 @@
             <field name="inherit_id" ref="product.product_template_form_view"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='list_price']" position="before">
-                    <field name="force_price_sync" widget="boolean_toggle" string="Sincronizar desde Proveedor"/>
+                    <field name="force_price_sync"/>
                 </xpath>
             </field>
         </record>
