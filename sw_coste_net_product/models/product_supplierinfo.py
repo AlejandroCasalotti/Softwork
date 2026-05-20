@@ -87,9 +87,20 @@ class CosteNetRule(models.Model):
             rule.total_surcharge = surcharge
             rule.total_fixed = fixed
 
-    def create_inherited_view(self):
-        """Crea la vista heredada automáticamente"""
-        self.ensure_one()
+    def _register_hook(self):
+        """Crea la vista heredada automáticamente al instalar"""
+        super()._register_hook()
+        self._create_inherited_view()
+
+    def _create_inherited_view(self):
+        """Crea la vista heredada para product.supplierinfo"""
+        # Verificar si ya existe
+        existing = self.env['ir.ui.view'].search([
+            ('name', '=', 'product.supplierinfo.form.costenet'),
+            ('model', '=', 'product.supplierinfo'),
+        ])
+        if existing:
+            return True
         
         # Buscar la vista original
         original_view = self.env['ir.ui.view'].search([
@@ -118,8 +129,7 @@ class CosteNetRule(models.Model):
         }
         
         self.env['ir.ui.view'].create(view_data)
-        self.env.cr.commit()
-        _logger.info('Vista heredada creada')
+        _logger.info('Vista heredada creada correctamente')
         return True
 
 
