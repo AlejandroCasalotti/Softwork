@@ -52,6 +52,6 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <!--- Heredar vista de proveedor (sin inherit_id por ahora) --->
+    <!-- Heredar vista de proveedor (sin inherit_id por ahora) -->
 
 </odoo>
