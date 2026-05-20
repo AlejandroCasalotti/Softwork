@@ -2,6 +2,7 @@
 
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+from odoo.tools import _
 
 
 class CosteNetRule(models.Model):
