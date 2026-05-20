@@ -3,13 +3,8 @@
 {
     'name': 'Gestión de Precios de Proveedor',
     'version': '19.0.1.0.0',
-    'category': 'Ventas',
-    'summary': 'Sincroniza standard_price con precio de proveedor y márgenes',
-    'description': """
-        Este módulo permite:
-        1. Copiar el precio del proveedor al standard_price del producto (ambos editables)
-        2. Calcular el list_price basándose en el margen de venta del proveedor
-    """,
+    'category': 'Purchase',
+    'summary': 'Gestión de reglas de costos y márgenes de venta',
     'author': 'SW Sistemas',
     'company': 'SW Sistemas',
     'maintainer': 'SoftWork Arg',
@@ -21,6 +16,6 @@
     'demo': [],
     'license': 'AGPL-3',
     'installable': True,
+    'application': True,
     'auto_install': False,
-    'application': False,
 }

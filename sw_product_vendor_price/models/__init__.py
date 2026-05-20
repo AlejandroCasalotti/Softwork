@@ -1,3 +1,4 @@
 # -*- coding: utf-8 -*-
 
-from . import models
+from . import cost_rule
+from . import product_supplierinfo
