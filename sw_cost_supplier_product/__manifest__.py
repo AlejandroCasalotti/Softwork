@@ -15,6 +15,7 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['product', 'sw_price_rule_supplier'],
     'data': [
+        'security/ir.model.access.csv',
         'views/product_views.xml',
     ],
     'license': 'AGPL-3',
