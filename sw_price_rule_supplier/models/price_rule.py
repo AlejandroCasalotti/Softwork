@@ -18,7 +18,7 @@ class PriceRuleSupplier(models.Model):
         'price.rule.supplier.line', 'rule_id',
         string='Líneas', copy=True
     )
-    
+
     total_discount = fields.Float(
         string='Total Descuento (%)',
         compute='_compute_total',
@@ -50,7 +50,7 @@ class PriceRuleSupplier(models.Model):
         action = self.env['ir.actions.act_window'].search([
             ('name', '=', 'Reglas de Costo'),
         ], limit=1)
-        
+
         if not action:
             action = self.env['ir.actions.act_window'].create({
                 'name': 'Reglas de Costo',
@@ -58,19 +58,19 @@ class PriceRuleSupplier(models.Model):
                 'view_mode': 'list,form',
             })
             _logger.info('Acción creada')
-        
+
         # Crear menú
         menu = self.env['ir.ui.menu'].search([
             ('name', '=', 'Reglas de Costo'),
         ], limit=1)
-        
+
         if not menu:
             # Buscar menú de configuración de compras
             parent_menu = self.env['ir.ui.menu'].search([
                 ('name', '=', 'Configuration'),
                 ('parent_path', 'like', '%purchase%'),
             ], limit=1)
-            
+
             if parent_menu:
                 self.env['ir.ui.menu'].create({
                     'name': 'Reglas de Costo',
@@ -78,12 +78,12 @@ class PriceRuleSupplier(models.Model):
                     'parent_id': parent_menu.id,
                 })
                 _logger.info('Menú creado')
-        
+
         # Crear vista heredada
         view = self.env['ir.ui.view'].search([
             ('name', '=', 'product.supplierinfo.price.rule'),
         ], limit=1)
-        
+
         if not view:
             # Buscar vista original
             original = self.env['ir.ui.view'].search([
@@ -91,7 +91,7 @@ class PriceRuleSupplier(models.Model):
                 ('type', '=', 'form'),
                 ('inherit_id', '=', False),
             ], limit=1)
-            
+
             if original:
                 self.env['ir.ui.view'].create({
                     'name': 'product.supplierinfo.price.rule',
@@ -106,7 +106,7 @@ class PriceRuleSupplier(models.Model):
                     'active': True,
                 })
                 _logger.info('Vista heredada creada')
-        
+
         return True
 
 
@@ -129,12 +129,12 @@ class PriceRuleSupplierLine(models.Model):
 
 class ProductSupplierInfo(models.Model):
     _inherit = 'product.supplierinfo'
-    
+
     price_rule_id = fields.Many2one(
         'price.rule.supplier',
         string='Regla de Costo'
     )
-    
+
     net_price = fields.Float(
         string='Precio Neto',
         compute='_compute_net_price',
@@ -147,14 +147,14 @@ class ProductSupplierInfo(models.Model):
             if not record.price_rule_id or not record.price_rule_id.line_ids:
                 record.net_price = record.price
                 continue
-            
+
             current_price = record.price
             lines = record.price_rule_id.line_ids.sorted(key='sequence')
-            
+
             for line in lines:
                 if line.discount:
                     current_price = current_price - (current_price * line.discount / 100)
                 if line.tariff_extra:
                     current_price = current_price + line.tariff_extra
-            
+
             record.net_price = round(current_price, 2)
