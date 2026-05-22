@@ -2,7 +2,7 @@
 {
     'name': 'Costo Proveedor y Margen',
     'version': '19.0.1.0.0',
-    'category': 'Inventory',
+    'category': 'Product',
     'summary': 'Costo automático desde proveedor y margen de venta',
     'description': '''
         Extiende el módulo de reglas de costo:
