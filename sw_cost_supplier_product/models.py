@@ -57,15 +57,15 @@ class ProductProduct(models.Model):
             else:
                 product.supplier_cost_display = 0.0
 
-    def _register_hook(self):
-        super()._register_hook()
-        self._create_view()
-
-    def _create_view(self):
+    def crear_vista(self):
+        """Crear vista heredada - ejecutar desde Python Console"""
+        self.ensure_one()
+        
         view = self.env['ir.ui.view'].search([
             ('name', '=', 'product.product.form.cost.supplier'),
         ])
         if view:
+            _logger.info('Vista ya existe')
             return True
         
         original = self.env['ir.ui.view'].search([
@@ -74,24 +74,30 @@ class ProductProduct(models.Model):
             ('inherit_id', '=', False),
         ], limit=1)
         
-        if original:
-            self.env['ir.ui.view'].create({
-                'name': 'product.product.form.cost.supplier',
-                'model': 'product.product',
-                'inherit_id': original.id,
-                'arch': '''
-                    <xpath expr="//field[@name='standard_price']" position="after">
-                        <field name="use_supplier_cost"/>
-                        <field name="supplier_cost_display" string="Costo Proveedor" readonly="1"/>
-                        <field name="sale_margin"/>
-                    </xpath>
-                    <xpath expr="//field[@name='list_price']" position="attributes">
-                        <attribute name="readonly">1</attribute>
-                    </xpath>
-                ''',
-                'active': True,
-            })
-            _logger.info('Vista heredada del producto creada')
+        if not original:
+            _logger.warning('Vista original no encontrada')
+            return False
+        
+        self.env['ir.ui.view'].create({
+            'name': 'product.product.form.cost.supplier',
+            'model': 'product.product',
+            'inherit_id': original.id,
+            'arch': '''
+                <xpath expr="//field[@name='standard_price']" position="after">
+                    <field name="use_supplier_cost"/>
+                    <field name="supplier_cost_display" string="Costo Proveedor" readonly="1"/>
+                    <field name="sale_margin"/>
+                </xpath>
+                <xpath expr="//field[@name='list_price']" position="attributes">
+                    <attribute name="readonly">1</attribute>
+                </xpath>
+            ''',
+            'active': True,
+        })
+        _logger.info('Vista heredada creada')
+        
+        # Invalidar caché
+        self.env['ir.ui.view'].clear_caches()
         
         return True
 
