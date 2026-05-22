@@ -14,9 +14,7 @@
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
     'depends': ['product'],
-    'data': [
-        'views/product_views.xml',
-    ],
+    'data': [],
     'license': 'AGPL-3',
     'installable': True,
     'auto_install': False,
