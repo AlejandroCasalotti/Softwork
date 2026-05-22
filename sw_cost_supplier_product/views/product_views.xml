@@ -1,26 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-
-    <!-- Vista de producto - inherits de product.product_form_view -->
-    <record id="view_product_form_cost_supplier" model="ir.ui.view">
-        <field name="name">product.product.form.cost.supplier</field>
-        <field name="model">product.product</field>
-        <field name="inherit_id">product.product_form_view</field>
-        <field name="arch" type="xml">
-            <!-- Después de standard_price -->
-            <xpath expr="//field[@name='standard_price']" position="after">
-                <field name="use_supplier_cost"/>
-                <field name="supplier_cost_display" string="Costo Proveedor" 
-                       readonly="1"
-                       attrs="{'invisible': [('use_supplier_cost', '=', False)]}"/>
-                <field name="sale_margin"/>
-            </xpath>
-            
-            <!-- Hacer list_price de solo lectura -->
-            <xpath expr="//field[@name='list_price']" position="attributes">
-                <attribute name="readonly">1</attribute>
-            </xpath>
-        </field>
-    </record>
-
+    <!-- Herencia creada desde Python -->
 </odoo>

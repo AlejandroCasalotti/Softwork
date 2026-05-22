@@ -62,14 +62,12 @@ class ProductProduct(models.Model):
         self._create_view()
 
     def _create_view(self):
-        # Verificar si ya existe
         view = self.env['ir.ui.view'].search([
             ('name', '=', 'product.product.form.cost.supplier'),
         ])
         if view:
             return True
         
-        # Buscar vista original
         original = self.env['ir.ui.view'].search([
             ('model', '=', 'product.product'),
             ('type', '=', 'form'),
