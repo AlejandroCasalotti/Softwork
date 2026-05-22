@@ -13,7 +13,7 @@
     'company': 'SW Sistemas',
     'maintainer': 'SoftWork Arg',
     'website': 'https://www.swsistemas.com',
-    'depends': ['product', 'sw_price_rule_supplier'],
+    'depends': ['product'],
     'data': [
         'views/product_views.xml',
     ],
