@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Currency Rate</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="preload"
+          href="//apps.odoocdn.com/web/static/src/libs/fontawesome/fonts/fontawesome-webfont.woff2?v=4.7.0" as="font"
+          crossorigin="">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          integrity="sha512-pap9y..." crossorigin="anonymous" referrerpolicy="no-referrer"/>
+</head>
+<body>
+<section>
+    <div class="container"
+         style="font-family: 'Inter', sans-serif !important;background-color: #fff !important;">
+        <div class="row">
+            <div class="col-sm-12 col-md-12 col-lg-12 d-flex justify-content-between flex-wrap align-items-sm-center"
+                 style="border-bottom:1px solid rgba(0, 0, 0, 0.22)">
+                <div class="my-3">
+                    <img src="assets/images/PY_SQUAD_1.png"
+                         style="width:auto !important; height:35px !important">
+                </div>
+                <div class="my-3 d-flex align-items-center">
+                    <div style="
+                        display:inline-block;
+                        padding:5px 15px;
+                        border-radius:50px;
+                        color:#fff;
+                        font-weight:500;
+                        font-size:0.8rem;
+                        margin-right:8px;
+                        background-color:#017E84;">
+                        Community
+                    </div>
+                    <div style="
+                        display:inline-block;
+                        padding:5px 15px;
+                        border-radius:50px;
+                        color:#fff;
+                        font-weight:500;
+                        font-size:0.8rem;
+                        background-color:#875A7B;">
+                        Enterprise
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="oe_container" style="padding:10px 0; text-align:center; font-family:'Inter', sans-serif;">
+            <div class="oe_row oe_spaced">
+                <div class="oe_span12">
+                    <h1 style="
+                        font-size:36px;
+                        font-weight:900;
+                        color:#1A202C;
+                        margin-bottom:15px;
+                        ">
+                        <i class="fa fa-exchange" style="color:#0a948a; margin-right:8px;"></i>
+                        Currency Exchange Rate
+                    </h1>
+                    <p style="
+                        max-width:800px;
+                        margin:0 auto;
+                        margin-bottom:20px;
+                        color:#718096;
+                        font-size:16px;
+                        line-height:26px;
+                        ">
+                        Automatically fetch and manage daily currency exchange rates in Odoo using
+                        a scheduled background process. This module ensures accurate and up-to-date
+                        currency values across <strong>accounting, invoicing, and financial reporting</strong>
+                        without any manual intervention.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <section class="oe_container pb-5">
+    <div class="mt64 mb64">
+        <h2 class="text-center text-uppercase"
+            style="font-family: Montserrat, 'sans-serif' !important; font-size: 50px !important; color:#5154a5; font-weight: 900 !important;">
+            <span style="color:#0a948a;">Top Features</span>
+        </h2>
+        <div style="text-align: center;">
+            <p style="color:#717171; font-size:16px; line-height:1.6;">
+                Automatically keep your currency exchange rates accurate and up to date
+                with zero manual effort and seamless Odoo integration.
+            </p>
+        </div>
+
+        <div class="row">
+            <!-- Feature 1 -->
+            <div class="col-md-4 col-sm-12 mt32">
+                <div class="container shadow d-flex align-items-start justify-content-center"
+                     style="border-radius: 5px;padding: 33px 0px;min-height: 180px; margin: 15px auto;">
+                    <div class="col-md-9" style="padding-left:0; float:left; width:70%">
+                        <h3 style="color: #0a948a; font-weight: 700; font-size: 1.5rem;">
+                            <i class="fa fa-refresh" style="margin-right:6px;"></i>
+                            Automatic Daily Rate Updates
+                        </h3>
+                        <p style="color: #717171; font-size: 1rem;">
+                            Fetches and updates the latest currency exchange rates
+                            automatically every day using a scheduled cron job.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="col-md-4 col-sm-12 mt32">
+                <div class="container shadow d-flex align-items-start justify-content-center"
+                     style="border-radius: 5px;padding: 33px 0px;min-height: 180px; margin: 15px auto;">
+                    <div class="col-md-9" style="padding-left:0; float:left; width:70%">
+                        <h3 style="color: #0a948a; font-weight: 700; font-size: 1.5rem;">
+                            <i class="fa fa-cogs" style="margin-right:6px;"></i>
+                            Configurable API Integration
+                        </h3>
+                        <p style="color: #717171; font-size: 1rem;">
+                            Configure your exchange rate API key and base URL directly
+                            from Odoo settings for flexible and secure integration.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="col-md-4 col-sm-12 mt32">
+                <div class="container shadow d-flex align-items-start justify-content-center"
+                     style="border-radius: 5px;padding: 33px 0px;min-height: 180px; margin: 15px auto;">
+                    <div class="col-md-9" style="padding-left:0; float:left; width:70%">
+                        <h3 style="color: #0a948a; font-weight: 700; font-size: 1.5rem;">
+                            <i class="fa fa-line-chart" style="margin-right:6px;"></i>
+                            Accurate Financial Calculations
+                        </h3>
+                        <p style="color: #717171; font-size: 1rem;">
+                            Ensures reliable currency values across accounting,
+                            invoicing, and financial reports with up-to-date rates.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+    <div class="mb-4 bg-white"
+         style=" border: 1px solid #EBEEF2; border-radius: 6px; box-shadow: 0px 8px 20px -4px rgba(0, 0, 0, 0.10); border: 1px solid #EBEEF2;">
+        <style>
+            /* TAB NAVIGATION CUSTOM STYLES */
+            .parasut-nav-tabs .nav-link {
+                color: #0a948a !important;
+                font-weight: 600;
+                font-size: 16px;
+                border-radius: 6px;
+                padding: 10px 20px;
+                border: 1px solid transparent;
+                transition: 0.25s ease-in-out;
+            }
+
+            .parasut-nav-tabs .nav-link:hover {
+                background-color: #0a948a !important;
+                color: #ffffff !important;
+                border-color: #0a948a !important;
+            }
+
+            .parasut-nav-tabs .nav-link.active {
+                background-color: #0a948a !important;
+                color: #ffffff !important;
+                border-color: #0a948a !important;
+                font-weight: 700;
+            }
+        </style>
+        <div>
+            <ul class="nav nav-tabs justify-content-center bg-white py-2 parasut-nav-tabs"
+                id="myTab" role="tablist"
+                style="border-radius: 6px 6px 0 0; border: 1px solid #ddd;">
+
+                <li class="nav-item">
+                    <a aria-controls="overview"
+                       class="nav-link active"
+                       data-bs-toggle="tab"
+                       href="#overview"
+                       id="overview-tab"
+                       role="tab"
+                       aria-controls="overview"
+                       aria-selected="true">
+                        Screenshots
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="tab-content p-md-5 p-2 py-3" id="myTabContent Custom">
+            <div aria-labelledby="overview-tab"
+                 class="tab-pane fade show active" id="overview"
+                 role="tabpanel">
+                <div class="position-relative mb-4"
+                     style="border-radius:10px">
+                    <img alt="acc_bg"
+                         class="w-100 h-100 position-absolute img-fluid left_0"
+                         loading="lazy"
+                         src="//apps.odoocdn.com/apps/assets/17.0/ks_dashboard_ninja/ai-img/o3.png?007008f"
+                         style="">
+                </div>
+                <div class="position-relative mb-4"
+                     style="border-radius:10px; background-color:#f4f4f4">
+                    <div class="p-md-5 p-3 position-relative">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h1 style="font-weight:bold; font-size:calc(1.1rem + 1vw); line-height:120%; text-align:center; text-transform:capitalize; font-size: 40px; font-weight: 700;">
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">Get</span>
+                                    <span style="color:#4a948a; font-size:calc(1.1rem + 1vw)">Free Exchange Rate API Key</span>
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">from Provider</span>
+                                </h1>
+                            </div>
+
+                            <div class="col-md-12 mb-4">
+                                <p style="font-weight:400; font-size:16px; line-height:150%; text-align:center; color:var(--text-color-light)">
+                                    Visit <strong>https://www.exchangerate-api.com/</strong> and click on the
+                                    <strong>“Get Free API Key”</strong> button.
+                                    Simply register using your email address and the platform will instantly
+                                    provide you with a free API key.
+                                    This API key is required to fetch <strong>real-time currency exchange rates</strong>
+                                    and keep your Odoo system automatically updated.
+                                </p>
+                            </div>
+
+                            <div class="col-md-12 text-center">
+                                <div class="d-inline-block p-3 shadow-sm"
+                                     style="background-color:#fff; border-radius:10px">
+                                    <img alt="" class="img-fluid"
+                                         loading="lazy"
+                                         src="./assets/screenshots/img_1.png"
+                                         style="min-height: 1px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="position-relative mb-4"
+                     style="border-radius:10px; background-color:#f4f4f4">
+                    <div class="p-md-5 p-3 position-relative">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h1 style="font-weight:bold; font-size:calc(1.1rem + 1vw); line-height:120%; text-align:center; text-transform:capitalize; font-size: 40px; font-weight: 700;">
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        Install
+                                    </span>
+                                    <span style="color:#4a948a; font-size:calc(1.1rem + 1vw)">
+                                        Currency Exchange Rate
+                                    </span>
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        App in Odoo
+                                    </span>
+                                </h1>
+                            </div>
+
+                            <div class="col-md-12 mb-4">
+                                <p style="font-weight:400; font-size:16px; line-height:150%; text-align:center; color:var(--text-color-light)">
+                                    Open your Odoo backend and navigate to the <strong>Apps</strong> menu.
+                                    Search for <strong>Currency Exchange Rate</strong>, and you will find the
+                                    module listed as shown below.
+                                    Click on <strong>Install</strong> to enable automatic daily currency
+                                    exchange rate updates in your Odoo system.
+                                </p>
+                            </div>
+
+                            <div class="col-md-12 text-center">
+                                <div class="d-inline-block p-3 shadow-sm"
+                                     style="background-color:#fff; border-radius:10px">
+                                <img alt="" class="img-fluid"
+                                         loading="lazy"
+                                         src="./assets/screenshots/img_2.png"
+                                         style="min-height: 1px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="position-relative mb-4"
+                     style="border-radius:10px; background-color:#f4f4f4">
+                    <div class="p-md-5 p-3 position-relative">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h1 style="font-weight:bold; font-size:calc(1.1rem + 1vw); line-height:120%; text-align:center; text-transform:capitalize; font-size: 40px; font-weight: 700;">
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        Configure
+                                    </span>
+                                    <span style="color:#4a948a; font-size:calc(1.1rem + 1vw)">
+                                        Auto Currency Exchange Rate
+                                    </span>
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        Settings
+                                    </span>
+                                </h1>
+                            </div>
+
+                            <div class="col-md-12 mb-4">
+                                <p style="font-weight:400; font-size:16px; line-height:150%; text-align:center; color:var(--text-color-light)">
+                                    After installing the module, go to
+                                    <strong>Settings → General Settings</strong>.
+                                    In the <strong>Currency</strong> section, you will find a new field named
+                                    <strong>Auto Exchange Rate API Key</strong>.
+                                    <br><br>
+                                    Simply create your free API key from
+                                    <a href="https://www.exchangerate-api.com/" target="_blank"><strong>exchangerate-api.com</strong></a>
+                                    and paste it into this field.
+                                    Once saved, the system will automatically fetch and update
+                                    <strong>daily currency exchange rates</strong>
+                                    without any manual intervention.
+                                </p>
+                            </div>
+
+                            <div class="col-md-12 text-center">
+                                <div class="d-inline-block p-3 shadow-sm"
+                                     style="background-color:#fff; border-radius:10px">
+                                    <img alt="" class="img-fluid"
+                                         loading="lazy"
+                                         src="./assets/screenshots/img_3.png"
+                                         style="min-height: 1px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="position-relative mb-4"
+                     style="border-radius:10px; background-color:#f4f4f4">
+                    <div class="p-md-5 p-3 position-relative">
+                        <div class="row">
+                           <div class="col-md-12">
+                                <h1 style="font-weight:bold; font-size:calc(1.1rem + 1vw); line-height:120%; text-align:center; text-transform:capitalize; font-size: 40px; font-weight: 700;">
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        Automatic Daily
+                                    </span>
+                                    <span style="color:#4a948a; font-size:calc(1.1rem + 1vw)">
+                                        Currency Rate Update
+                                    </span>
+                                </h1>
+                           </div>
+                           <div class="col-md-12 mb-4">
+                                <p style="font-weight:400; font-size:16px; line-height:150%; text-align:center; color:var(--text-color-light)">
+                                    The module includes a built-in <strong>Scheduled Action</strong> that runs
+                                    <strong>automatically every day</strong>.
+                                    This background process connects to the configured exchange rate API and
+                                    fetches the <strong>latest currency exchange rates</strong> on a daily basis.
+                                    <br><br>
+                                    Once fetched, the rates are updated directly in Odoo,
+                                    ensuring your financial data always uses
+                                    <strong>accurate and up-to-date currency values</strong>
+                                    without requiring any manual updates.
+                                </p>
+                           </div>
+                           <div class="col-md-12 text-center">
+                                <div class="d-inline-block p-3 shadow-sm"
+                                     style="background-color:#fff; border-radius:10px">
+                                <img alt="" class="img-fluid"
+                                         loading="lazy"
+                                         src="./assets/screenshots/img_4.png"
+                                         style="min-height: 1px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="position-relative mb-4"
+                     style="border-radius:10px; background-color:#f4f4f4">
+                    <div class="p-md-5 p-3 position-relative">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <h1 style="font-weight:bold; font-size:calc(1.1rem + 1vw); line-height:120%; text-align:center; text-transform:capitalize; font-size: 40px; font-weight: 700;">
+                                    <span style="color:#121212; font-size:calc(1.1rem + 1vw)">
+                                        View Converted Rates in
+                                    </span>
+                                    <span style="color:#4a948a; font-size:calc(1.1rem + 1vw)">
+                                        Currency Rates
+                                    </span>
+                                </h1>
+                            </div>
+
+                            <div class="col-md-12 mb-4">
+                                <p style="font-weight:400; font-size:16px; line-height:150%; text-align:center; color:var(--text-color-light)">
+                                    Go to <strong>Accounting → Configuration → Currencies</strong> and open any currency.
+                                    Under the <strong>Rates</strong> tab, you will see the
+                                    <strong>automatically calculated exchange values</strong>
+                                    based on your company’s base currency.
+                                    <br><br>
+                                    Each currency shows its value converted
+                                    <strong>from the company currency to the selected currency</strong>
+                                    or vice versa, allowing you to easily track
+                                    <strong>accurate conversion rates</strong>
+                                    for daily financial operations and reporting.
+                                </p>
+                            </div>
+                            <div class="col-md-12 text-center">
+                                <div class="d-inline-block p-3 shadow-sm"
+                                     style="background-color:#fff; border-radius:10px">
+                                <img alt="" class="img-fluid"
+                                         loading="lazy"
+                                         src="./assets/screenshots/img_5.png"
+                                         style="min-height: 1px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="col-lg-12 d-flex flex-column justify-content-center align-items-center">
+            <div class="row" style="max-width:1540px">
+                <div class="col-lg-12 d-flex flex-column justify-content-center align-items-center">
+                    <h4 class="oe_slogan"
+                        style="font-family:'Montserrat', sans-serif !important; font-weight:600 !important; color:#000000 !important; font-size:2rem !important; margin-bottom:5px;">
+                        <b>For Support</b>
+                    </h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="row d-flex justify-content-center">
+            <div class="col-lg-12">
+                <div style="
+                        max-width: 1000px;
+                        width: 100%;
+                        margin: 0 auto; /* removed top/bottom margin */
+                        padding: 25px 35px;
+                        background-color: #f0f4f8;
+                        border-left: 6px solid #0a948a;
+                        border-radius: 12px;
+                        font-family: 'Inter', sans-serif;
+                        color: #003366;
+                        line-height: 1.6;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    ">
+                    <h3 style="
+                            font-size: 22px;
+                            font-weight: 700;
+                            margin-bottom: 12px;
+                        ">
+                        30 Days Free Support Included!
+                    </h3>
+                    <p style="font-size:16px; font-weight:500; margin:0;">
+                        We care about your success. This module comes with <strong>30 days of free support</strong> for
+                        any bugs, issues, or technical problems.
+                        If something doesn’t work as expected, just reach out, and we’ll fix it quickly to ensure
+                        everything runs smoothly.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mt-5"
+         style="background-color: #F9F9F9; padding: 30px; border-top: 1px solid #DADADA;">
+        <div class="row">
+            <div class="col-md-4 d-flex flex-column align-items-start">
+                <img src="assets/images/PY_SQUAD_1.png" alt="Company Logo" style="width: auto; height: 30px;">
+                <br/>
+                <span style="color: #0a948a;font-size: 24px;font-weight: 750;padding-bottom: 1rem;">NeedHelp?</span>
+                <p class="m-0" style="color:#718096;">Got questions or need help? Get in touch.</p>
+                <div style="font-weight: 400;"></div>
+            </div>
+
+            <div class="col-md-4 d-flex flex-column align-items-start">
+                <h3 style="font-size: 18px; color: #0a948a; font-weight: 750;">Contact Us</h3>
+                <p style="font-size: 16px; color: #555;"><span><img src="assets/images/email_icon.png" alt="Email" width="18px" style="margin-right: 8px;">Email:</span> contact@pysquad.com</p>
+                <p style="font-size: 16px; color: #555;"><span><img src="assets/images/phone.png" alt="Phone" width="14px" style="margin-right: 8px;">Phone:</span>+91 8160395422</p>
+                <p style="font-size: 16px; color: #555;"><span><img src="assets/images/watsapp.png" alt="WhatsApp" width="18px" style="margin-right: 8px;">WhatsApp:</span> +91 8160395422</p>
+            </div>
+
+            <div class="col-md-4 d-flex flex-column align-items-canter">
+                <h3 style="font-size: 18px; color: #0a948a; font-weight: 750;">Discover more at</h3>
+                <div class="d-block text-center mb-5" style="font-family: Inter, sans-serif;">
+                    <div class="btn-lg fw-bolder font-weight-bold d-inline-flex w-auto shadow-lg"
+                         style="padding: 0.3rem 1.4rem;
+                            border-radius: 50px;
+                            font-family: Inter, sans-serif;
+                            background-color: #FAF9F6;
+                            color: #000000;
+                            border: 2px inset rgba(100, 100, 100, 0.3);
+                            font-size: 0.95rem;">
+                        <p class="mb-0">www.pysquad.com/odoo-erp</p>
+                        <p class="mb-0">
+                            <img src="assets/images/copy.png" alt="Open link www.pysquad.com" class="ms-3 ml-3">
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

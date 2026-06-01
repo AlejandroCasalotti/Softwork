@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_auto_currency_rate" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.auto.currency.rate</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@id='languages']" position="after">
+                <block title="Auto Currency Rate" id="auto_currency_rate_settings">
+                    <setting id="auto_exchange_rate_key_setting"
+                             string="Auto Exchange Rate API Key"
+                             help="Enter API key for automatic currency rate updates">
+                        <field name="exchange_rate_api_key" class="o_light_label"/>
+                    </setting>
+
+                    <setting id="auto_api_base_url_setting"
+                             string="Currency Rate API Base URL"
+                             help="Enter the API base URL for exchange rates">
+                        <field name="api_base_url" class="o_light_label"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>
