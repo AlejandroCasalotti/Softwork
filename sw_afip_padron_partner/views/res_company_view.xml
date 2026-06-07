@@ -7,8 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <group string="Configuración AFIP" col="2">
-                    <field name="afip_crt" string="Certificado (.crt)"/>
-                    <field name="afip_key" string="Clave Privada (.key)"/>
+                    <field name="afip_environment"/>
                 </group>
             </xpath>
         </field>
