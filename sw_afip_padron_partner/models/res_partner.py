@@ -56,7 +56,7 @@ class ResPartner(models.Model):
         try:
             # Limpiar CUIT (solo números)
             cuit = ''.join(filter(str.isdigit, str(self.x_afip_cuit)))
-        except (ValueError, TypeError):
+        except:
             raise UserError(_('CUIT inválido'))
         
         if len(cuit) != 11:
@@ -66,6 +66,7 @@ class ResPartner(models.Model):
         try:
             datos_afip = self._consultar_padron_afip(cuit)
         except Exception as e:
+            _logger.error(f'Error consultando AFIP: {str(e)}')
             raise UserError(_(f'Error al consultar AFIP: {str(e)}'))
         
         if not datos_afip:
@@ -79,10 +80,12 @@ class ResPartner(models.Model):
             'x_last_update_padron': fields.Date.today(),
         }
         
-        # Actualizar datos principales si existen
-        if datos_afip.get('name'):
-            vals['name'] = datos_afip['name']
+        # Si el nombre actual está vacío o esgenérico, usar el de AFIP
+        if not self.name or self.name == '/':
+            if datos_afip.get('name'):
+                vals['name'] = datos_afip['name']
         
+        # Actualizar dirección
         if datos_afip.get('street'):
             vals['street'] = datos_afip['street']
         
@@ -98,10 +101,15 @@ class ResPartner(models.Model):
             if state_id:
                 vals['state_id'] = state_id
         
+        # Buscar país Argentina
+        pais_argentina = self.env.ref('base.ar')
+        if pais_argentina:
+            vals['country_id'] = pais_argentina.id
+        
         # Escribir los datos
         self.write(vals)
         
-        # Recargar la vista
+        # Mostrar mensaje de éxito
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'res.partner',
@@ -111,22 +119,25 @@ class ResPartner(models.Model):
         }
     
     # ============================================================
-    # MÉTODOS AUXILIARES
+    # MÉTODO DE CONSULTA A AFIP
     # ============================================================
     
     def _consultar_padron_afip(self, cuit):
         """
-        Consulta el Padrón AFIP usando pyafipws
+        Consulta el Padrón AFIP - ws_sr_padron_a4
         """
         # Obtener compañía
         company = self.env.company
         if not company:
             company = self.env['res.company'].search([], limit=1)
         
+        if not company:
+            raise UserError(_('No hay compañía configurada'))
+        
         # Obtener CUIT de la compañía
         try:
             company_cuit = ''.join(filter(str.isdigit, str(company.vat or '')))
-        except (ValueError, TypeError, AttributeError):
+        except:
             company_cuit = ''
         
         if not company_cuit:
@@ -135,94 +146,92 @@ class ResPartner(models.Model):
                 'Configure el VAT en: Configuración > Compañías'
             ))
         
-        # Intentar importar pyafipws
         try:
             from pyafipws.padron import PadronAFIP
         except ImportError:
-            _logger.warning('pyafipws no instalado, retornando datos de prueba')
-            return self._datos_prueba(cuit)
+            raise UserError(_(
+                'No está instalado pyafipws. '
+                'Instale con: pip install pyafipws'
+            ))
         
         try:
-            # Crear conexión al Padrón
+            # Crear el objeto PadronAFIP
             padron = PadronAFIP()
             padron.CUIT = company_cuit
             
-            # Configurar certificado desde la compañía
-            # (Esto depende de cómo tengas el certificado)
-            # Por ahora, intentamos conectar
-            padron.Conectar('production')  # o 'testing'
+            # Conectar al ambiente de testing o production
+            # (si no tiene certificado, usar testing)
+            try:
+                padron.Conectar('testing')  # o 'production'
+            except:
+                # Si falla, intentar sin certificado
+                pass
             
-            # Consultar
+            # Consultar el CUIT
             padron.Consultar(cuit)
             
-            # Procesar respuesta
+            # Extraer TODOS los datos
             datos = {
+                # Datos principales
                 'name': getattr(padron, 'denominacion', ''),
                 'estado': getattr(padron, 'estado', ''),
-                'direccion': getattr(padron, 'direccion', ''),
+                
+                # Dirección
+                'street': getattr(padron, 'direccion', ''),
                 'city': getattr(padron, 'localidad', ''),
-                'zip': getattr(padron, 'cod_postal', ''),
+                'zip': getattr(patron, 'cod_postal', ''),
                 'provincia': getattr(padron, 'provincia', ''),
+                
+                # Datos fiscales
+                'imp_iva': getattr(padron, 'imp_iva', 'N'),
+                'imp_ganancias': getattr(padron, 'imp_ganancias', 'NI'),
+                
+                # Monotributo
+                'monotributo': getattr(padron, 'monotributo', 'N'),
             }
             
-            # Procesar IVA
-            imp_iva = getattr(padron, 'imp_iva', 'N')
-            if imp_iva == 'S':
-                datos['imp_iva'] = 'AC'
-            elif imp_iva == 'N':
-                datos['imp_iva'] = 'NI'
-            else:
-                datos['imp_iva'] = imp_iva
-            
-            # Ganancias
-            datos['imp_ganancias'] = self._calcular_ganancias(
-                getattr(padron, 'impuestos', '')
-            )
+            # Procesar tipo de persona
+            tipo_persona = getattr(padron, 'tipo_persona', '')
+            if tipo_persona == 'FISISCA':
+                datos['tipo_persona'] = 'Física'
+            elif tipo_persona == 'JURIDICA':
+                datos['tipo_persona'] = 'Jurídica'
             
             return datos
             
         except Exception as e:
-            _logger.error(f'Error en AFIP: {str(e)}')
-            # Si hay error, retornar datos de prueba
-            return self._datos_prueba(cuit)
+            _logger.error(f'Error en consulta AFIP: {str(e)}')
+            # Si no puede conectar, buscar en datos locales de AFIP
+            return self._consultar_sin_certificado(cuit)
     
-    def _datos_prueba(self, cuit):
+    def _consultar_sin_certificado(self, cuit):
         """
-        Datos de prueba (para testing)
+        Intenta consultar de otra forma o retorna error
         """
-        return {
-            'name': f'RAZÓN SOCIAL {cuit[-4:]}',
-            'estado': 'ACTIVO',
-            'imp_iva': 'AC',
-            'imp_ganancias': 'AC',
-            'street': 'AV CORRIENTES 1234',
-            'city': 'CAPITAL FEDERAL',
-            'zip': 'C1043',
-            'provincia': 'CAPITAL FEDERAL',
-        }
-    
-    def _calcular_ganancias(self, impuestos_str):
-        """Calcula tipo de ganancias"""
-        if not impuestos_str:
-            return 'NI'
-        
+        # Intentar另一种 forma
         try:
-            if isinstance(impuestos_str, str):
-                impuestos = [int(x.strip()) for x in impuestos_str.split(',')]
-            else:
-                return 'NI'
-        except (ValueError, IndexError):
-            return 'NI'
+            import requests
+            
+            # URL de AFIP (puede variar)
+            url = f"https://wsfe.afip.gov.ar/WS_PADRONA/GetPersona?cuit={cuit}"
+            
+            # Headers
+            headers = {
+                'Content-Type': 'application/json',
+            }
+            
+            # Aunque esto probablemente no funcione sin certificación
+            # Es solo para mostrar la idea
+            
+        except:
+            pass
         
-        ganancias_inscripto = [10, 11]
-        ganancias_exento = [12]
-        
-        if set(ganancias_inscripto) & set(impuestos):
-            return 'AC'
-        elif set(ganancias_exento) & set(impuestos):
-            return 'EX'
-        
-        return 'NI'
+        # Si nada funciona, retornar datos de prueba
+        # pero告知ando al usuario que necesita certificado
+        raise UserError(_(
+            'No se pudo conectar a AFIP. '
+            'Necesita configurar el certificado AFIP en la compañía.'
+        ))
     
     def _buscar_provincia(self, nombre):
         """Busca provincia por nombre"""
@@ -238,13 +247,13 @@ class ResPartner(models.Model):
         if state:
             return state.id
         
-        # Casos especiales
-        if 'capital' in nombre.lower() or 'caba' in nombre.lower():
-            state = self.env['res.country.state'].search([
-                ('code', 'in', ['CABA', 'ABA']),
-                ('country_id.code', '=', 'AR'),
-            ], limit=1)
-            if state:
-                return state.id
+        # Buscar por código
+        state = self.env['res.country.state'].search([
+            ('code', '=', nombre[:2].upper()),
+            ('country_id.code', '=', 'AR'),
+        ], limit=1)
+        
+        if state:
+            return state.id
         
         return False
