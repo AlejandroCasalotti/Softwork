@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields
+from odoo import models, fields, api
 from odoo.exceptions import UserError
 from odoo import _
 import logging
@@ -56,7 +56,7 @@ class ResPartner(models.Model):
         try:
             # Limpiar CUIT (solo números)
             cuit = ''.join(filter(str.isdigit, str(self.x_afip_cuit)))
-        except Exception:
+        except:
             raise UserError(_('CUIT inválido'))
         
         if len(cuit) != 11:
@@ -66,7 +66,7 @@ class ResPartner(models.Model):
         try:
             datos_afip = self._consultar_padron_afip(cuit)
         except Exception as e:
-            raise UserError(_('Error al consultar AFIP: %s') % str(e))
+            raise UserError(_(f'Error al consultar AFIP: {str(e)}'))
         
         if not datos_afip:
             raise UserError(_('No se encontraron datos para este CUIT'))
@@ -126,7 +126,7 @@ class ResPartner(models.Model):
         # Obtener CUIT de la compañía
         try:
             company_cuit = ''.join(filter(str.isdigit, str(company.vat or '')))
-        except Exception:
+        except:
             company_cuit = ''
         
         if not company_cuit:
@@ -150,7 +150,7 @@ class ResPartner(models.Model):
             # Configurar certificado desde la compañía
             # (Esto depende de cómo tengas el certificado)
             # Por ahora, intentamos conectar
-            environment = self.env.company.afip_environment or 'production' padron.Conectar(environment)
+            padron.Conectar('production')  # o 'testing'
             
             # Consultar
             padron.Consultar(cuit)
@@ -211,7 +211,7 @@ class ResPartner(models.Model):
                 impuestos = [int(x.strip()) for x in impuestos_str.split(',')]
             else:
                 return 'NI'
-        except Exception:
+        except:
             return 'NI'
         
         ganancias_inscripto = [10, 11]
