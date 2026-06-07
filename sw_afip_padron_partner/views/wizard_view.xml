@@ -1,60 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Vista Form Wizard -->
     <record id="view_wizard_form" model="ir.ui.view">
         <field name="name">afip.padron.wizard.form</field>
         <field name="model">afip.padron.wizard</field>
         <field name="arch" type="xml">
             <form string="Actualizar desde Padrón AFIP">
                 <header>
-                    <!-- Estado Draft -->
                     <button name="action_search" 
-                            string="🔍 Buscar en Padrón AFIP" 
+                            string="Buscar en AFIP" 
                             type="object" 
                             class="oe_highlight"
                             invisible="state != 'draft'"/>
-                    
-                    <!-- Estado Confirm -->
                     <button name="action_confirm" 
-                            string="✅ Confirmar y Actualizar" 
+                            string="Confirmar" 
                             type="object" 
                             class="oe_highlight"
                             invisible="state != 'confirm'"/>
-                    
-                    <!-- Cerrar -->
-                    <button string="Cerrar" special="cancel" invisible="state == 'draft'"/>
-                    
-                    <!-- Estado -->
-                    <field name="state" widget="statusbar" 
-                           statusbar_visible="draft,search,confirm,done,error"/>
+                    <button string="Cerrar" special="cancel"/>
                 </header>
-                
                 <sheet>
-                    <!-- Error -->
-                    <group invisible="state != 'error'">
-                        <div class="alert alert-danger" role="alert">
-                            <field name="error_message"/>
-                        </div>
-                    </group>
-                    
-                    <!-- Búsqueda -->
                     <group invisible="state != 'draft'">
-                        <field name="cuit" placeholder="Ingrese CUIT sin guiones (ej: 20234567890)"/>
-                        <p class="text-muted">
-                            El CUIT debe tener 11 dígitos sin guiones.
-                        </p>
+                        <field name="cuit"/>
                     </group>
-                    
-                    <!-- Resultados -->
-                    <group string="Datos del Padrón AFIP" 
-                           invisible="state not in ('confirm', 'done')">
+                    <group invisible="state != 'confirm'">
                         <field name="denominacion" readonly="1"/>
-                        <field name="tipo_persona" readonly="1"/>
                         <field name="estado" readonly="1"/>
                         <field name="imp_iva" readonly="1"/>
                         <field name="imp_ganancias" readonly="1"/>
                         <field name="direccion" readonly="1"/>
                         <field name="localidad" readonly="1"/>
                         <field name="cod_postal" readonly="1"/>
-                        <field name="provincia" readonly="1"/>
-                        <field name="
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

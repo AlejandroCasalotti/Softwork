@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='vat']" position="after">
                 <button name="action_update_from_padron_afip" 
-                        string="🔍 Consultar AFIP" 
+                        string="Consultar AFIP" 
                         type="object"
                         class="oe_highlight"/>
             </xpath>
