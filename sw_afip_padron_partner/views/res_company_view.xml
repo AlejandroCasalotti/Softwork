@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_company_form_afip" model="ir.ui.view">
+        <field name="name">res.company.form.afip</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <group string="Configuración AFIP" col="2">
+                    <field name="afip_crt" string="Certificado (.crt)"/>
+                    <field name="afip_key" string="Clave Privada (.key)"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
