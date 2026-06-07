@@ -56,7 +56,7 @@ class ResPartner(models.Model):
         try:
             # Limpiar CUIT (solo números)
             cuit = ''.join(filter(str.isdigit, str(self.x_afip_cuit)))
-        except:
+        except (ValueError, TypeError):
             raise UserError(_('CUIT inválido'))
         
         if len(cuit) != 11:
@@ -126,7 +126,7 @@ class ResPartner(models.Model):
         # Obtener CUIT de la compañía
         try:
             company_cuit = ''.join(filter(str.isdigit, str(company.vat or '')))
-        except:
+        except (ValueError, TypeError, AttributeError):
             company_cuit = ''
         
         if not company_cuit:
@@ -211,7 +211,7 @@ class ResPartner(models.Model):
                 impuestos = [int(x.strip()) for x in impuestos_str.split(',')]
             else:
                 return 'NI'
-        except:
+        except (ValueError, IndexError):
             return 'NI'
         
         ganancias_inscripto = [10, 11]
