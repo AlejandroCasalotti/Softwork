@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Vista Form: Agregar campo CUIT y botón -->
+    <record id="view_res_partner_form_afip" model="ir.ui.view">
+        <field name="name">res.partner.form.afip</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <!-- Debajo del nombre -->
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="x_afip_cuit" 
+                       string="AFIP CUIT"
+                       placeholder="11 dígitos sin guiones"
+                       class="oe_inline"/>
+                <button name="action_update_from_padron_afip"
+                        string="🔄 Update From AFIP"
+                        type="object"
+                        class="oe_highlight oe_inline"
+                        invisible="x_afip_cuit == False"/>
+            </xpath>
+            
+            <!-- En hoja de información, agregar campos AFIP -->
+            <xpath expr="//field[@name='vat']" position="after">
+                <field name="x_estado_padron" readonly="1"/>
+                <field name="x_last_update_padron" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
