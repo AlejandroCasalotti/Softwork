@@ -7,12 +7,6 @@ import requests
 
 _logger = logging.getLogger(__name__)
 
-# APIs públicas conocidas (algunas pueden requerir registro)
-AFIP_APIS = [
-    # ejemplos - hay que verificar cuáles funcionan
-    "https://api.afip.gob.ar/servicios/paas/contribuyentes/v1/{cuit}",
-]
-
 
 class ResPartner(models.Model):
     _inherit = "res.partner"
@@ -37,7 +31,7 @@ class ResPartner(models.Model):
     activities_padron = fields.Char('Actividades')
 
     def update_constancia_from_padron_afip(self):
-        """Actualiza desde Padrón AFIP"""
+        """Actualiza desde Padrón AFIP usando API"""
         self.ensure_one()
         
         # Obtener CUIT del partner
@@ -54,15 +48,35 @@ class ResPartner(models.Model):
         if len(cuit) != 11:
             raise UserError(_('El CUIT debe tener 11 dígitos sin guiones'))
         
-        # Consultar AFIP
-        datos = self._consultar_afip(cuit)
+        # Consultar usando API
+        datos = self._consultar_afip_api(cuit)
         
         if not datos:
-            # Abrir página de AFIP como alternativa
-            return self._abrir_pagina_afip(cuit)
+            raise UserError(_(
+                '⚠️ No se pudo obtener datos de AFIP\n\n'
+                'Verifique el CUIT o intente más tarde.'
+            ))
         
         # Buscar provincia
-        state_id = self._buscar_provincia(datos.get('provincia', ''))
+        state_id = False
+        if datos.get('provincia'):
+            state = self.env['res.country.state'].search([
+                ('name', 'ilike', datos['provincia']),
+                ('country_id.code', '=', 'AR'),
+            ], limit=1)
+            if state:
+                state_id = state.id
+            else:
+                # Buscar por código comunes
+                mapas = {'santa fe': 'S', 'buenos aires': 'B', 'capital federal': 'CABA'}
+                nombre_lower = datos['provincia'].lower().strip()
+                if nombre_lower in mapas:
+                    state = self.env['res.country.state'].search([
+                        ('code', '=', mapas[nombre_lower]),
+                        ('country_id.code', '=', 'AR'),
+                    ], limit=1)
+                    if state:
+                        state_id = state.id
         
         # Actualizar datos
         vals = {
@@ -90,253 +104,38 @@ class ResPartner(models.Model):
             'target': 'current',
         }
     
-    def _abrir_pagina_afip(self, cuit):
-        """Abre la página de AFIP si no hay API"""
-        return {
-            'type': 'ir.actions.act_url',
-            'url': f'https://padronesar.afip.gob.ar/PadronConsumidorActivo/constancia?cuit={cuit}',
-            'target': 'new',
-        }
-    
-    def _buscar_provincia(self, nombre):
-        """Busca provincia por nombre"""
-        if not nombre:
-            return False
+    def _consultar_afip_api(self, cuit):
+        """Consulta AFIP usando API REST"""
         
-        # Buscar por nombre
-        state = self.env['res.country.state'].search([
-            ('name', 'ilike', nombre),
-            ('country_id.code', '=', 'AR'),
-        ], limit=1)
-        
-        if state:
-            return state.id
-        
-        # Mapeo común
-        mapas = {
-            'santa fe': 'S', 'buenos aires': 'B', 'capital federal': 'CABA',
-            'caba': 'CABA', 'rosario': 'S', 'mendoza': 'M', 'tucuman': 'T',
-            'cordoba': 'X', 'entre rios': 'E', 'corrientes': 'W', 'misiones': 'N',
-        }
-        
-        nombre_lower = nombre.lower().strip()
-        if nombre_lower in mapas:
-            state = self.env['res.country.state'].search([
-                ('code', '=', mapas[nombre_lower]),
-                ('country_id.code', '=', 'AR'),
-            ], limit=1)
-            if state:
-                return state.id
-        
-        return False
-    
-    def _consultar_afip(self, cuit):
-        """Consulta AFIP - intenta varias APIs"""
-        
-        # ============================================
-        # MÉTODO 1: API oficial de AFIP (si está habilitada)
-        # ============================================
-        datos = self._consultar_api_oficial(cuit)
-        if datos:
-            return datos
-        
-        # ============================================
-        # MÉTODO 2: APIs alternativas gratuitas
-        # ============================================
-        datos = self._consultar_apis_alternativas(cuit)
-        if datos:
-            return datos
-        
-        # ============================================
-        # MÉTODO 3: Web scraping (último intento)
-        # ============================================
-        datos = self._consultar_web_scraping(cuit)
-        if datos:
-            return datos
-        
-        # No se pudo obtener datos
-        return None
-    
-    def _consultar_api_oficial(self, cuit):
-        """Consulta la API oficial de AFIP"""
-        try:
-            # Obtener compañía para el token
-            company = self.env.company
-            if not company:
-                company = self.env['res.company'].search([], limit=1)
-            
-            if not company:
-                return None
-            
-            # La API oficial requiere token de AFIP
-            # No es pública, necesita habilitación
-            # Intentar de todas formas
-            url = f"https://afipapi.com.ar/ws/services/AA/auth/ws_sr_padron_a4_v1/contribuyentes/{cuit}"
-            
-            headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            }
-            
-            response = requests.get(url, headers=headers, timeout=15)
-            
-            if response.status_code == 200:
-                data = response.json()
-                return self._procesar_datos_afip(data)
-                
-        except Exception as e:
-            _logger.warning(f'API oficial error: {e}')
-        
-        return None
-    
-    def _consultar_apis_alternativas(self, cuit):
-        """Intenta APIs alternatives"""
-        
-        # Lista de APIs públicas conocidas
-        # NOTA: La mayoría son de pago o requieren registro
-        
-        apis_pruebas = [
-            # Estas son URLs de ejemplo - hay que verificar funcionan
-            # {"url": f"https://api.example.com/afip/cuit/{cuit}", "key": None},
+        # Intentar diferentes APIs públicas
+        apis = [
+            f"https://afipapi.com.ar/api/cuit/{cuit}",
+            f"https://api.factorial.com.ar/afip/cuit/{cuit}",
+            f"https://argencedata.com/api/v1/cuit/{cuit}",
         ]
         
-        for api_info in apis_pruebas:
+        for url in apis:
             try:
-                url = api_info.get('url', '')
-                api_key = api_info.get('key')
-                
-                headers = {'Content-Type': 'application/json'}
-                if api_key:
-                    headers['Authorization'] = f'Bearer {api_key}'
-                
-                response = requests.get(url, headers=headers, timeout=10)
-                
+                response = requests.get(url, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
                     if data.get('success') or data.get('data'):
-                        return self._procesar_datos_afip(data)
-                        
-            except Exception as e:
-                _logger.warning(f'API {url} error: {e}')
+                        return self._procesar_datos_api(data)
+            except:
                 continue
         
-        # Si no hay APIs disponibles, retornar None
-        _logger.info('No hay APIs públicas disponibles')
+        # Si no hay APIs disponibles, abrir página de AFIP
         return None
     
-    def _consultar_web_scraping(self,uit):
-        """Web scraping de Padrón AFIP"""
-        try:
-            session = requests.Session()
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-            }
-            
-            # Ir a la página del padrón
-            url = "https://padronesar.afip.gob.ar/PadronConsumidorActivo/"
-            
-            response = session.get(url, headers=headers, timeout=20)
-            
-            if response.status_code != 200:
-                return None
-            
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Buscar formulario
-            form = soup.find('form')
-            if not form:
-                return None
-            
-            action = form.get('action', '')
-            if action:
-                url_post = f"https://padronesar.afip.gob.ar{action}"
-            else:
-                url_post = "https://padronesar.afip.gob.ar/PadronConsumidorActivo/buscaContribuyente.html"
-            
-            # Buscar inputs del formulario
-            inputs = soup.find_all('input')
-            data = {}
-            for inp in inputs:
-                name = inp.get('name', '')
-                type_inp = inp.get('type', 'text')
-                if type_inp in ['text', 'hidden'] and 'cuit' in name.lower():
-                    data[name] = cuit
-            
-            # Enviar solicitud
-            response = session.post(url_post, data=data, headers=headers, timeout=20)
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Buscar datos en tablas
-                datos = self._extraer_datos_tabla(soup)
-                if datos:
-                    return datos
-                    
-        except Exception as e:
-            _logger.warning(f'Web scraping error: {e}')
-        
-        return None
-    
-    def _extraer_datos_tabla(self, soup):
-        """Extrae datos de las tablas HTML"""
-        try:
-            tables = soup.find_all('table')
-            
-            datos = {}
-            
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all(['td', 'th'])
-                    if len(cells) >= 2:
-                        key = cells[0].get_text(strip=True).lower()
-                        value = cells[1].get_text(strip=True)
-                        
-                        if 'denominacion' in key or 'nombre' in key:
-                            datos['name'] = value
-                        elif 'estado' in key:
-                            datos['estado'] = value
-                        elif 'domicilio' in key or 'direccion' in key:
-                            datos['direccion'] = value
-                        elif 'localidad' in key:
-                            datos['localidad'] = value
-                        elif 'codigo postal' in key or 'cp' in key:
-                            datos['cod_postal'] = value
-                        elif 'provincia' in key or 'jurisdiccion' in key:
-                            datos['provincia'] = value
-            
-            if datos.get('name'):
-                return datos
-                
-        except Exception as e:
-            _logger.warning(f'Extraer datos error: {e}')
-        
-        return None
-    
-    def _procesar_datos_afip(self, data):
-        """Procesa los datos de la API"""
-        if not data:
-            return None
-        
-        # Extraer data
-        if isinstance(data, dict):
-            if data.get('data'):
-                data = data['data']
-            elif data.get('GetPersonaResult'):
-                data = data['GetPersonaResult']
-        
-        if not data:
-            return None
+    def _procesar_datos_api(self, data):
+        """Procesa la respuesta de la API"""
+        if data.get('data'):
+            data = data['data']
         
         return {
-            'name': data.get('denominacion') or data.get('nombre') or data.get('name') or '',
+            'name': data.get('denominacion') or data.get('nombre') or '',
             'estado': data.get('estado') or 'Activo',
-            'direccion': data.get('direccion') or data.get('domicilio') or '',
+            'direccion': data.get('direccion') or '',
             'localidad': data.get('localidad') or '',
             'cod_postal': data.get('cod_postal') or data.get('cp') or '',
             'provincia': data.get('provincia') or '',
