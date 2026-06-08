@@ -45,76 +45,6 @@ class PriceRuleSupplier(models.Model):
             rule.total_discount = total_disc
             rule.total_tariff = total_tariff
 
-    def _register_hook(self):
-        super()._register_hook()
-        self._create_menu_and_view()
-
-    def _create_menu_and_view(self):
-        """Crea menú y vista heredada automáticamente"""
-        # Crear acción
-        action = self.env['ir.actions.act_window'].search([
-            ('name', '=', 'Reglas de Costo'),
-        ], limit=1)
-
-        if not action:
-            action = self.env['ir.actions.act_window'].create({
-                'name': 'Reglas de Costo',
-                'res_model': 'price.rule.supplier',
-                'view_mode': 'list,form',
-            })
-            _logger.info('Acción creada')
-
-        # Crear menú
-        menu = self.env['ir.ui.menu'].search([
-            ('name', '=', 'Reglas de Costo'),
-        ], limit=1)
-
-        if not menu:
-            # Buscar menú de configuración de compras
-            parent_menu = self.env['ir.ui.menu'].search([
-                ('name', '=', 'Configuration'),
-                ('parent_path', 'like', '%purchase%'),
-            ], limit=1)
-
-            if parent_menu:
-                self.env['ir.ui.menu'].create({
-                    'name': 'Reglas de Costo',
-                    'action': f'ir.actions.act_window,{action.id}',
-                    'parent_id': parent_menu.id,
-                })
-                _logger.info('Menú creado')
-
-        # Crear vista heredada
-        view = self.env['ir.ui.view'].search([
-            ('name', '=', 'product.supplierinfo.price.rule'),
-        ], limit=1)
-
-        if not view:
-            # Buscar vista original
-            original = self.env['ir.ui.view'].search([
-                ('model', '=', 'product.supplierinfo'),
-                ('type', '=', 'form'),
-                ('inherit_id', '=', False),
-            ], limit=1)
-
-            if original:
-                self.env['ir.ui.view'].create({
-                    'name': 'product.supplierinfo.price.rule',
-                    'model': 'product.supplierinfo',
-                    'inherit_id': original.id,
-                    'arch': '''
-                        <xpath expr="//field[@name='price']" position="after">
-                            <field name="price_rule_id"/>
-                            <field name="net_price" readonly="1"/>
-                            <field name="auto_update_standard" widget="boolean"/>
-                        </xpath>
-                    ''',
-                    'active': True,
-                })
-                _logger.info('Vista heredada creada')
-
-        return True
-
 
 class PriceRuleSupplierLine(models.Model):
     _name = 'price.rule.supplier.line'
@@ -143,7 +73,7 @@ class ProductSupplierInfo(models.Model):
 
     auto_update_standard = fields.Boolean(
         string='Actualizar Costo Estándar',
-        default=True,
+        default=False,
         help='Actualiza automáticamente el costo estándar del producto'
     )
 
@@ -179,13 +109,6 @@ class ProductSupplierInfo(models.Model):
         if 'price_rule_id' in vals or 'price' in vals or 'auto_update_standard' in vals:
             self._update_standard_price()
         
-        return result
-    
-    @api.model_create_single
-    def create(self, vals):
-        """Override create para actualizar standard_price"""
-        result = super(ProductSupplierInfo, self).create(vals)
-        result._update_standard_price()
         return result
 
     def _update_standard_price(self):
