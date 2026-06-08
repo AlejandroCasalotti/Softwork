@@ -14,6 +14,11 @@ class PriceRuleSupplier(models.Model):
 
     name = fields.Char(string='Nombre de Regla', required=True)
     active = fields.Boolean(string='Activa', default=True)
+    company_id = fields.Many2one(
+        'res.company', 
+        string='Compañía',
+        default=lambda self: self.env.company
+    )
     line_ids = fields.One2many(
         'price.rule.supplier.line', 'rule_id',
         string='Líneas', copy=True
@@ -101,6 +106,7 @@ class PriceRuleSupplier(models.Model):
                         <xpath expr="//field[@name='price']" position="after">
                             <field name="price_rule_id"/>
                             <field name="net_price" readonly="1"/>
+                            <field name="auto_update_standard" widget="boolean"/>
                         </xpath>
                     ''',
                     'active': True,
@@ -135,6 +141,12 @@ class ProductSupplierInfo(models.Model):
         string='Regla de Costo'
     )
 
+    auto_update_standard = fields.Boolean(
+        string='Actualizar Costo Estándar',
+        default=True,
+        help='Actualiza automáticamente el costo estándar del producto'
+    )
+
     net_price = fields.Float(
         string='Precio Neto',
         compute='_compute_net_price',
@@ -158,3 +170,78 @@ class ProductSupplierInfo(models.Model):
                     current_price = current_price + line.tariff_extra
 
             record.net_price = round(current_price, 2)
+
+    def write(self, vals):
+        """Override write para actualizar standard_price"""
+        result = super(ProductSupplierInfo, self).write(vals)
+        
+        # Actualizar standard_price si está habilitado
+        if 'price_rule_id' in vals or 'price' in vals or 'auto_update_standard' in vals:
+            self._update_standard_price()
+        
+        return result
+    
+    @api.model_create_single
+    def create(self, vals):
+        """Override create para actualizar standard_price"""
+        result = super(ProductSupplierInfo, self).create(vals)
+        result._update_standard_price()
+        return result
+
+    def _update_standard_price(self):
+        """
+        Actualiza el costo estándar del producto
+        
+        Lógica:
+        - Si net_price > 0: usa net_price
+        - Si net_price = 0: usa price (precio manual)
+        """
+        for record in self:
+            # Verificar si está habilitado
+            if not record.auto_update_standard:
+                continue
+            
+            # Obtener el precio para standard_price
+            standard_price = 0.0
+            
+            if record.net_price and record.net_price > 0:
+                # Usar net_price calculado
+                standard_price = record.net_price
+            elif record.price and record.price > 0:
+                # Usar price manual si net_price es 0
+                standard_price = record.price
+            
+            if not standard_price:
+                continue
+            
+            # Convertir moneda si es diferente
+            currency_supplier = record.currency_id
+            currency_company = record.company_id.currency_id if record.company_id else self.env.company.currency_id
+            
+            if currency_supplier and currency_company and currency_supplier != currency_company:
+                try:
+                    standard_price = currency_supplier._convert(
+                        standard_price,
+                        currency_company,
+                        record.company_id or self.env.company,
+                        fields.Date.today()
+                    )
+                except Exception as e:
+                    _logger.warning(f'Error convirtiendo moneda: {e}')
+            
+            # Actualizar standard_price en el producto
+            if record.product_tmpl_id:
+                try:
+                    record.product_tmpl_id.sudo().write({
+                        'standard_price': standard_price
+                    })
+                    
+                    # Actualizar cada variante
+                    for variant in record.product_tmpl_id.product_variant_ids:
+                        variant.sudo().write({
+                            'standard_price': standard_price
+                        })
+                    
+                    _logger.info(f'Standard price actualizado: {standard_price}')
+                except Exception as e:
+                    _logger.warning(f'Error actualizando standard_price: {e}')
