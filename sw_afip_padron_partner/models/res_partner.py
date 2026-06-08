@@ -3,6 +3,7 @@ from odoo import models, fields, api
 from odoo.exceptions import UserError
 from odoo import _
 import logging
+import requests
 
 _logger = logging.getLogger(__name__)
 
@@ -63,53 +64,40 @@ class ResPartner(models.Model):
             raise UserError(_('El CUIT debe tener 11 dígitos sin guiones'))
         
         # Consultar AFIP
-        try:
-            datos_afip = self._consultar_padron_afip(cuit)
-        except Exception as e:
-            _logger.error(f'Error consultando AFIP: {str(e)}')
-            raise UserError(_(f'Error al consultar AFIP: {str(e)}'))
+        datos_afip = self._consultar_afip_api(cuit)
         
         if not datos_afip:
-            raise UserError(_('No se encontraron datos para este CUIT'))
+            raise UserError(_(
+                'No se pudo obtener datos de AFIP.\n\n'
+                'Para usar este servicio necesita:\n'
+                '1. Instalar pyafipws en el servidor: pip install pyafipws\n'
+                '2. Tener certificado AFIP configurado'
+            ))
         
-        # Actualizar datos del contacto
+        # Buscar país Argentina
+        pais_argentina = self.env.ref('base.ar')
+        
+        # Buscar provincia
+        state_id = False
+        if datos_afip.get('provincia'):
+            state_id = self._buscar_provincia(datos_afip['provincia'])
+        
+        # Actualizar datos
         vals = {
+            'name': datos_afip.get('name', '') or self.name,
+            'street': datos_afip.get('street', '') or self.street,
+            'city': datos_afip.get('city', '') or self.city,
+            'zip': datos_afip.get('zip', '') or self.zip,
+            'state_id': state_id or self.state_id,
+            'country_id': pais_argentina.id if pais_argentina else self.country_id.id,
             'x_estado_padron': datos_afip.get('estado', ''),
             'x_imp_iva_padron': datos_afip.get('imp_iva', ''),
             'x_imp_ganancias_padron': datos_afip.get('imp_ganancias', ''),
             'x_last_update_padron': fields.Date.today(),
         }
         
-        # Si el nombre actual está vacío o esgenérico, usar el de AFIP
-        if not self.name or self.name == '/':
-            if datos_afip.get('name'):
-                vals['name'] = datos_afip['name']
-        
-        # Actualizar dirección
-        if datos_afip.get('street'):
-            vals['street'] = datos_afip['street']
-        
-        if datos_afip.get('city'):
-            vals['city'] = datos_afip['city']
-        
-        if datos_afip.get('zip'):
-            vals['zip'] = datos_afip['zip']
-        
-        # Buscar provincia
-        if datos_afip.get('provincia'):
-            state_id = self._buscar_provincia(datos_afip['provincia'])
-            if state_id:
-                vals['state_id'] = state_id
-        
-        # Buscar país Argentina
-        pais_argentina = self.env.ref('base.ar')
-        if pais_argentina:
-            vals['country_id'] = pais_argentina.id
-        
-        # Escribir los datos
         self.write(vals)
         
-        # Mostrar mensaje de éxito
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'res.partner',
@@ -119,126 +107,199 @@ class ResPartner(models.Model):
         }
     
     # ============================================================
-    # MÉTODO DE CONSULTA A AFIP
+    # CONSULTA API (SIN pyafipws)
     # ============================================================
     
-    def _consultar_padron_afip(self, cuit):
+    def _consultar_afip_api(self, cuit):
         """
-        Consulta el Padrón AFIP - ws_sr_padron_a4
+        Intenta consultar AFIP sin pyafipws
         """
-        # Obtener compañía
-        company = self.env.company
-        if not company:
-            company = self.env['res.company'].search([], limit=1)
+        # Intentar método 1: Solicitar constancia de AFIP
+        datos = self._consultar_constancia_afip(cuit)
+        if datos:
+            return datos
         
-        if not company:
-            raise UserError(_('No hay compañía configurada'))
+        # Intentar método 2: API alternativa
+        datos = self._consultar_api_externa(cuit)
+        if datos:
+            return datos
         
-        # Obtener CUIT de la compañía
+        # Intentar método 3: Web scraping
+        datos = self._consultar_web_afip(cuit)
+        if datos:
+            return datos
+        
+        return None
+    
+    def _consultar_constancia_afip(self, cuit):
+        """
+        Método 1: Obtener constancia de AFIP
+        """
         try:
-            company_cuit = ''.join(filter(str.isdigit, str(company.vat or '')))
-        except:
-            company_cuit = ''
-        
-        if not company_cuit:
-            raise UserError(_(
-                'La compañía no tiene CUIT configurado. '
-                'Configure el VAT en: Configuración > Compañías'
-            ))
-        
-        try:
-            from pyafipws.padron import PadronAFIP
-        except ImportError:
-            raise UserError(_(
-                'No está instalado pyafipws. '
-                'Instale con: pip install pyafipws'
-            ))
-        
-        try:
-            # Crear el objeto PadronAFIP
-            padron = PadronAFIP()
-            padron.CUIT = company_cuit
+            import requests
             
-            # Conectar al ambiente de testing o production
-            # (si no tiene certificado, usar testing)
-            try:
-                padron.Conectar('testing')  # o 'production'
-            except:
-                # Si falla, intentar sin certificado
-                pass
+            # URL de constancia de AFIP
+            url = f"https://www.afip.gob.ar/genericos/constanciaInscripcion.asp?denominacion=&cuit={cuit}&clase=contribuyente&subclase="
             
-            # Consultar el CUIT
-            padron.Consultar(cuit)
-            
-            # Extraer TODOS los datos
-            datos = {
-                # Datos principales
-                'name': getattr(padron, 'denominacion', ''),
-                'estado': getattr(padron, 'estado', ''),
-                
-                # Dirección
-                'street': getattr(padron, 'direccion', ''),
-                'city': getattr(padron, 'localidad', ''),
-                'zip': getattr(patron, 'cod_postal', ''),
-                'provincia': getattr(padron, 'provincia', ''),
-                
-                # Datos fiscales
-                'imp_iva': getattr(padron, 'imp_iva', 'N'),
-                'imp_ganancias': getattr(padron, 'imp_ganancias', 'NI'),
-                
-                # Monotributo
-                'monotributo': getattr(padron, 'monotributo', 'N'),
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
             }
             
-            # Procesar tipo de persona
-            tipo_persona = getattr(padron, 'tipo_persona', '')
-            if tipo_persona == 'FISISCA':
-                datos['tipo_persona'] = 'Física'
-            elif tipo_persona == 'JURIDICA':
-                datos['tipo_persona'] = 'Jurídica'
+            response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
+            
+            if response.status_code == 200:
+                # Buscar datos en el HTML
+                html = response.text
+                
+                # Extraer denomination
+                if 'denominacion' in html.lower():
+                    # Buscar en el HTML
+                    datos = self._extraer_datos_html(html)
+                    if datos:
+                        return datos
+                        
+        except Exception as e:
+            _logger.warning(f'Méthodo constancia falló: {e}')
+        
+        return None
+    
+    def _consultar_api_externa(self, cuit):
+        """
+        Método 2: Usar API externa (si hay disponible)
+        """
+        # Esta es una opción de ejemplo
+        # NO hay APIs públicas gratuitas confiables para AFIP
+        # Puedes implementar una propia si la tienes
+        
+        # Intentar con algunos servicios conocidos
+        apis_a_probar = []
+        
+        for api_url in apis_a_probar:
+            try:
+                response = requests.get(f"{api_url}/{cuit}", timeout=5)
+                if response.status_code == 200:
+                    return response.json()
+            except:
+                continue
+        
+        return None
+    
+    def _consultar_web_afip(self, cuit):
+        """
+        Método 3: Web scraping de padronesar.afip.gob.ar
+        """
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            # Ir a la página del padrón
+            url = "https://padronesar.afip.gob.ar/PadronConsumidorActivo/"
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+                'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+            }
+            
+            session = requests.Session()
+            
+            # Primera request para obtener cookies
+            response = session.get(url, headers=headers, timeout=15)
+            
+            if response.status_code == 200:
+                # Buscar formulario o datos
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Buscar campo CUIT
+                cuit_input = soup.find('input', {'name': 'cuit'})
+                
+                if cuit_input:
+                    # Enviar datos del CUIT
+                    data = {'cuit': cuit}
+                    response = session.post(url, data=data, headers=headers, timeout=15)
+                    
+                    if response.status_code == 200:
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        datos = self._extraer_datos_html(soup.text)
+                        if datos:
+                            return datos
+                            
+        except Exception as e:
+            _logger.warning(f'Web scraping falló: {e}')
+        
+        return None
+    
+    def _extraer_datos_html(self, html):
+        """
+        Extrae datos del HTML de AFIP
+        """
+        try:
+            from bs4 import BeautifulSoup
+            
+            soup = BeautifulSoup(html, 'html.parser')
+            texto = soup.get_text()
+            
+            # Buscar datos comunes
+            datos = {}
+            
+            # Denominación/Nombre
+            if 'denominacion' intexto.lower():
+                lines = texto.split('\n')
+                for i, line in enumerate(lines):
+                    if 'denominacion' in line.lower():
+                        if i + 1 < len(lines):
+                            datos['name'] = lines[i + 1].strip()
+                            break
+            
+            # Estado
+            if 'estado' in texto.lower():
+                if 'activo' in texto.lower():
+                    datos['estado'] = 'Activo'
+                elif 'baja' in texto.lower() or 'cancelado' in texto.lower():
+                    datos['estado'] = 'Inactivo'
+            
+            # IVA
+            if 'iva' in texto.lower():
+                if 'inscripto' in texto.lower():
+                    datos['imp_iva'] = 'Activo'
+                elif 'exento' in texto.lower():
+                    datos['imp_iva'] = 'Exento'
+                else:
+                    datos['imp_iva'] = 'No Inscripto'
+            
+            # Si no encontró nada, retornar datos genéricos
+            if not datos.get('name'):
+                return None
             
             return datos
             
         except Exception as e:
-            _logger.error(f'Error en consulta AFIP: {str(e)}')
-            # Si no puede conectar, buscar en datos locales de AFIP
-            return self._consultar_sin_certificado(cuit)
-    
-    def _consultar_sin_certificado(self, cuit):
-        """
-        Intenta consultar de otra forma o retorna error
-        """
-        # Intentar另一种 forma
-        try:
-            import requests
-            
-            # URL de AFIP (puede variar)
-            url = f"https://wsfe.afip.gov.ar/WS_PADRONA/GetPersona?cuit={cuit}"
-            
-            # Headers
-            headers = {
-                'Content-Type': 'application/json',
-            }
-            
-            # Aunque esto probablemente no funcione sin certificación
-            # Es solo para mostrar la idea
-            
-        except:
-            pass
+            _logger.warning(f'Error extrayendo datos: {e}')
         
-        # Si nada funciona, retornar datos de prueba
-        # pero告知ando al usuario que necesita certificado
-        raise UserError(_(
-            'No se pudo conectar a AFIP. '
-            'Necesita configurar el certificado AFIP en la compañía.'
-        ))
+        return None
     
     def _buscar_provincia(self, nombre):
         """Busca provincia por nombre"""
         if not nombre:
             return False
         
-        # Buscar en provincias argentinas
+        # Mapeo de nombres
+        mapas = {
+            'santa fe': 'S',
+            'buenos aires': 'B',
+            'capital federal': 'CABA',
+            'caba': 'CABA',
+            'rosario': 'S',
+            'mendoza': 'M',
+            'tucuman': 'T',
+            'cordoba': 'X',
+            'entre rios': 'E',
+        }
+        
+        nombre_lower = nombre.lower().strip()
+        
+        # Buscar por nombre
         state = self.env['res.country.state'].search([
             ('name', 'ilike', nombre),
             ('country_id.code', '=', 'AR'),
@@ -248,12 +309,12 @@ class ResPartner(models.Model):
             return state.id
         
         # Buscar por código
-        state = self.env['res.country.state'].search([
-            ('code', '=', nombre[:2].upper()),
-            ('country_id.code', '=', 'AR'),
-        ], limit=1)
-        
-        if state:
-            return state.id
+        if nombre_lower in mapas:
+            state = self.env['res.country.state'].search([
+                ('code', '=', mapas[nombre_lower]),
+                ('country_id.code', '=', 'AR'),
+            ], limit=1)
+            if state:
+                return state.id
         
         return False
