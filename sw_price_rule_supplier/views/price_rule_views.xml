@@ -65,9 +65,6 @@
                 <field name="net_price" readonly="1" force_save="1"/>
                 <field name="auto_update_standard"/>
             </xpath>
-            <xpath expr="//field[@name='date_planned']" position="after">
-                <field name="company_id" groups="base.group_multi_company"/>
-            </xpath>
         </field>
     </record>
 
