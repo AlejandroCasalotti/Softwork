@@ -9,6 +9,7 @@
             <list string="Reglas de Costo">
                 <field name="name"/>
                 <field name="active" widget="boolean_toggle"/>
+                <field name="company_id"/>
                 <field name="total_discount" string="Total Desc%"/>
                 <field name="total_tariff" string="Total Tarifa"/>
             </list>
@@ -25,6 +26,7 @@
                     <group>
                         <field name="name"/>
                         <field name="active"/>
+                        <field name="company_id"/>
                     </group>
                     <group>
                         <field name="total_discount" readonly="1"/>
@@ -52,6 +54,29 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- Heredar vista de proveedor (sin inherit_id por ahora) -->
+    <!-- Heredar vista de proveedor -->
+    <record id="view_supplierinfo_price_rule" model="ir.ui.view">
+        <field name="name">product.supplierinfo.price.rule</field>
+        <field name="model">product.supplierinfo</field>
+        <field name="inherit_id" ref="product.product_supplierinfo_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='price']" position="after">
+                <field name="price_rule_id"/>
+                <field name="net_price" readonly="1" force_save="1"/>
+                <field name="auto_update_standard"/>
+            </xpath>
+            <xpath expr="//field[@name='date_planned']" position="after">
+                <field name="company_id" groups="base.group_multi_company"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Menú en Purchase -->
+    <record id="menu_price_rule" model="ir.ui.menu">
+        <field name="name">Reglas de Costo</field>
+        <field name="action" ref="action_price_rule"/>
+        <field name="parent_id" ref="purchase.menu_purchase_config"/>
+        <field name="sequence">100</field>
+    </record>
 
 </odoo>
