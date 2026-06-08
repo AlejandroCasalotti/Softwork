@@ -63,6 +63,7 @@
             <xpath expr="//field[@name='price']" position="after">
                 <field name="price_rule_id"/>
                 <field name="net_price" readonly="1" force_save="1"/>
+                <field name="net_price_company" readonly="1" force_save="1"/>
                 <field name="auto_update_standard"/>
             </xpath>
         </field>

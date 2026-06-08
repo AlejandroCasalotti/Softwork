@@ -83,7 +83,14 @@ class ProductSupplierInfo(models.Model):
         digits='Product Price'
     )
 
-    @api.depends('price', 'price_rule_id', 'price_rule_id.line_ids')
+    net_price_company = fields.Float(
+        string='Precio Neto Empresa',
+        compute='_compute_net_price_company',
+        digits='Product Price',
+        help='Precio neto convertido a la moneda de la compañía'
+    )
+
+    @api.depends('price', 'price_rule_id', 'price_rule_id.line_ids', 'currency_id', 'company_id')
     def _compute_net_price(self):
         for record in self:
             if not record.price_rule_id or not record.price_rule_id.line_ids:
@@ -101,6 +108,40 @@ class ProductSupplierInfo(models.Model):
 
             record.net_price = round(current_price, 2)
 
+    @api.depends('net_price', 'currency_id', 'company_id')
+    def _compute_net_price_company(self):
+        """Convierte el precio neto a la moneda de la compañía"""
+        for record in self:
+            if not record.net_price:
+                record.net_price_company = 0.0
+                continue
+            
+            # Obtener monedas
+            currency_supplier = record.currency_id
+            company = record.company_id or self.env.company
+            currency_company = company.currency_id
+            
+            if not currency_supplier or not currency_company:
+                record.net_price_company = record.net_price
+                continue
+            
+            if currency_supplier == currency_company:
+                # Misma moneda, no necesita conversión
+                record.net_price_company = record.net_price
+            else:
+                # Convertir moneda
+                try:
+                    price_converted = currency_supplier._convert(
+                        record.net_price,
+                        currency_company,
+                        company,
+                        fields.Date.today()
+                    )
+                    record.net_price_company = round(price_converted, 2)
+                except Exception as e:
+                    _logger.warning(f'Error convirtiendo: {e}')
+                    record.net_price_company = record.net_price
+
     def write(self, vals):
         """Override write para actualizar standard_price"""
         result = super(ProductSupplierInfo, self).write(vals)
@@ -116,52 +157,52 @@ class ProductSupplierInfo(models.Model):
         Actualiza el costo estándar del producto
         
         Lógica:
-        - Si net_price > 0: usa net_price
-        - Si net_price = 0: usa price (precio manual)
+        - Si net_price > 0: usa net_price convertido
+        - Si net_price = 0: usa price (precio manual) convertido
+        - Convierte a la moneda de la compañía automáticamente
         """
         for record in self:
             # Verificar si está habilitado
             if not record.auto_update_standard:
                 continue
             
-            # Obtener el precio para standard_price
-            standard_price = 0.0
+            # Obtener el precio (ya convertido a moneda de la compañía)
+            standard_price = record.net_price_company
             
-            if record.net_price and record.net_price > 0:
-                # Usar net_price calculado
-                standard_price = record.net_price
-            elif record.price and record.price > 0:
-                # Usar price manual si net_price es 0
-                standard_price = record.price
+            if not standard_price or standard_price == 0:
+                # Si net_price es 0, usar price original
+                currency_supplier = record.currency_id
+                company = record.company_id or self.env.company
+                currency_company = company.currency_id
+                
+                if record.price and record.price > 0:
+                    if currency_supplier and currency_supplier != currency_company:
+                        try:
+                            standard_price = currency_supplier._convert(
+                                record.price,
+                                currency_company,
+                                company,
+                                fields.Date.today()
+                            )
+                        except:
+                            standard_price = record.price
+                    else:
+                        standard_price = record.price
             
-            if not standard_price:
+            if not standard_price or standard_price == 0:
                 continue
-            
-            # Convertir moneda si es diferente
-            currency_supplier = record.currency_id
-            currency_company = record.company_id.currency_id if record.company_id else self.env.company.currency_id
-            
-            if currency_supplier and currency_company and currency_supplier != currency_company:
-                try:
-                    standard_price = currency_supplier._convert(
-                        standard_price,
-                        currency_company,
-                        record.company_id or self.env.company,
-                        fields.Date.today()
-                    )
-                except Exception as e:
-                    _logger.warning(f'Error convirtiendo moneda: {e}')
             
             # Actualizar standard_price en el producto
             if record.product_tmpl_id:
                 try:
-                    record.product_tmpl_id.sudo().write({
+                    # Usar write normal (no sudo para mantener seguridad)
+                    record.product_tmpl_id.with_context(skip_auto_update=True).write({
                         'standard_price': standard_price
                     })
                     
                     # Actualizar cada variante
                     for variant in record.product_tmpl_id.product_variant_ids:
-                        variant.sudo().write({
+                        variant.with_context(skip_auto_update=True).write({
                             'standard_price': standard_price
                         })
                     
