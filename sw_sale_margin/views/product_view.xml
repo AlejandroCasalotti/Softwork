@@ -1,19 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-
-    <!-- Heredar vista de producto (Template) -->
-    <record id="view_product_template_sale_margin" model="ir.ui.view">
-        <field name="name">product.template.sale.margin</field>
+    <record id="view_product_margin" model="ir.ui.view">
+        <field name="name">product.template.margin</field>
         <field name="model">product.template</field>
         <field name="inherit_id" ref="product.product_template_form_view"/>
         <field name="arch" type="xml">
-            <!-- Agregar después de standard_price -->
-            <xpath expr="//field[@name='standard_price']" position="after">
+            <xpath expr="//field[@name='list_price']" position="before">
                 <field name="sale_margin"/>
-                <field name="list_price_auto" string="PrecioCalculado" readonly="1" force_save="1"/>
-                <field name="auto_update_list_price"/>
+                <field name="sale_price"/>
+                <button name="update_price" type="object" string="Actualizar Precio" class="oe_highlight"/>
             </xpath>
         </field>
     </record>
-
 </odoo>

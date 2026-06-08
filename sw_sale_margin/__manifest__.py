@@ -9,5 +9,4 @@
         'views/product_view.xml',
     ],
     'installable': True,
-    'application': False,
 }
