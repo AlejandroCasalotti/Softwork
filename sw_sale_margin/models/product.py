@@ -11,17 +11,17 @@ class ProductTemplate(models.Model):
 
     # Campo margen en template
     sale_margin = fields.Float(
-        string='Margen (%)',
+        string='Margen de venta',
         default=0.0,
         help='0 = usar precio manual, >0 = calcular automáticamente'
     )
 
     # Precio calculado (solo lectura)
     sale_price = fields.Float(
-        string='Precio Venta',
+        string='Precio calculado',
         compute='_compute_sale_price',
         store=True,
-        help='Precio calculado'
+        help='Precio de venta calculado'
     )
 
     @api.depends('standard_price', 'sale_margin')
@@ -55,14 +55,14 @@ class ProductProduct(models.Model):
 
     # Campo margen en variante
     sale_margin = fields.Float(
-        string='Margen (%)',
+        string='Margen de venta',
         default=0.0,
         help='0 = usar precio manual, >0 = calcular automáticamente'
     )
 
     # Precio calculado
     sale_price = fields.Float(
-        string='Precio Venta',
+        string='Precio calculado',
         compute='_compute_sale_price',
         store=True
     )
