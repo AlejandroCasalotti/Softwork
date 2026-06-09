@@ -9,19 +9,16 @@ _logger = logging.getLogger(__name__)
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    # Campo margen en template
     sale_margin = fields.Float(
-        string='Margen de venta',
+        string='Margen de venta %',
         default=0.0,
         help='0 = usar precio manual, >0 = calcular automáticamente'
     )
 
-    # Precio calculado (solo lectura)
     sale_price = fields.Float(
         string='Precio calculado',
         compute='_compute_sale_price',
-        store=True,
-        help='Precio de venta calculado'
+        store=True
     )
 
     @api.depends('standard_price', 'sale_margin')
@@ -37,7 +34,6 @@ class ProductTemplate(models.Model):
     def write(self, vals):
         result = super(ProductTemplate, self).write(vals)
         
-        # Actualizar list_price si cambia standard_price o sale_margin
         if 'standard_price' in vals or 'sale_margin' in vals:
             self._update_list_price()
         
@@ -47,20 +43,17 @@ class ProductTemplate(models.Model):
         for rec in self:
             if rec.sale_price > 0:
                 rec.list_price = rec.sale_price
-                _logger.info(f'list_price actualizado a: {rec.sale_price}')
 
 
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    # Campo margen en variante
     sale_margin = fields.Float(
-        string='Margen de venta',
+        string='Margen de venta %',
         default=0.0,
         help='0 = usar precio manual, >0 = calcular automáticamente'
     )
 
-    # Precio calculado
     sale_price = fields.Float(
         string='Precio calculado',
         compute='_compute_sale_price',

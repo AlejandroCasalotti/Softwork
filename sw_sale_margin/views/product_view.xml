@@ -8,8 +8,8 @@
         <field name="inherit_id" ref="product.product_template_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='standard_price']" position="after">
-                <field name="sale_margin" widget="percentage" digits="[3,2]"/>
-                <field name="sale_price" widget="monetary" options="{'currency_field': 'currency_id'}" force_save="1"/>
+                <field name="sale_margin"/>
+                <field name="sale_price" force_save="1"/>
             </xpath>
         </field>
     </record>
@@ -21,8 +21,8 @@
         <field name="inherit_id" ref="product.product_normal_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='standard_price']" position="after">
-                <field name="sale_margin" widget="percentage" digits="[3,2]"/>
-                <field name="sale_price" widget="monetary" options="{'currency_field': 'currency_id'}" force_save="1"/>
+                <field name="sale_margin"/>
+                <field name="sale_price" force_save="1"/>
             </xpath>
         </field>
     </record>
