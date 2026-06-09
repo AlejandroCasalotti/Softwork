@@ -32,7 +32,7 @@
                         <field name="total_discount" readonly="1"/>
                         <field name="total_tariff" readonly="1"/>
                     </group>
-                    <group string="Líneas de Descuento/Tarifa">
+                    <group string="Líneas">
                         <field name="line_ids" nolabel="1">
                             <list editable="bottom">
                                 <field name="sequence" widget="handle"/>
@@ -47,14 +47,14 @@
         </field>
     </record>
 
-    <!-- Acción de ventana -->
+    <!-- Acción -->
     <record id="action_price_rule" model="ir.actions.act_window">
         <field name="name">Reglas de Costo</field>
         <field name="res_model">price.rule.supplier</field>
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- Heredar vista de proveedor -->
+    <!-- Vista proveedor -->
     <record id="view_supplierinfo_price_rule" model="ir.ui.view">
         <field name="name">product.supplierinfo.price.rule</field>
         <field name="model">product.supplierinfo</field>
@@ -69,12 +69,11 @@
         </field>
     </record>
 
-    <!-- Menú en Purchase -->
+    <!-- Menú -->
     <record id="menu_price_rule" model="ir.ui.menu">
         <field name="name">Reglas de Costo</field>
         <field name="action" ref="action_price_rule"/>
         <field name="parent_id" ref="purchase.menu_purchase_config"/>
-        <field name="sequence">100</field>
     </record>
 
 </odoo>
