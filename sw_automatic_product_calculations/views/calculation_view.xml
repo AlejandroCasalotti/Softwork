@@ -49,14 +49,6 @@
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Menú métodos -->
-    <record id="menu_calculation_method" model="ir.ui.menu">
-        <field name="name">Métodos de Cálculo</field>
-        <field name="action" ref="action_calculation_method"/>
-        <field name="parent_id" ref="sale.menu_sales"/>
-        <field name="sequence">50</field>
-    </record>
-
     <!-- Botón en orden de venta -->
     <record id="view_sale_order_calculation" model="ir.ui.view">
         <field name="name">sale.order.calculation</field>
@@ -100,7 +92,7 @@
                             type="object"
                             class="oe_highlight"/>
                 </group>
-                <group string="Resultados" visible="result_ids">
+                <group string="Resultados">
                     <field name="result_ids" nolabel="1">
                         <list>
                             <field name="product_id"/>
