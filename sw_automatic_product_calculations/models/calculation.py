@@ -59,7 +59,6 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     def action_open_calculation_wizard(self):
-        """Abre el wizard de cálculo"""
         return {
             'type': 'ir.actions.act_window',
             'name': 'Cálculo Automático',
@@ -75,6 +74,7 @@ class SaleOrder(models.Model):
 class CalculationWizard(models.TransientModel):
     _name = 'calculation.wizard'
     _description = 'Wizard Cálculo Automático'
+    _inherit = 'ir.actions.act_window'
 
     order_id = fields.Many2one('sale.order', string='Orden de Venta')
     method_id = fields.Many2one(
@@ -107,14 +107,6 @@ class CalculationWizard(models.TransientModel):
         store=True
     )
 
-    result_product_ids = fields.Many2many(
-        'product.product',
-        string='Productos calculados'
-    )
-    result_quantity_ids = fields.Char(
-        string='Cantidades'
-    )
-
     @api.depends('method_id', 'length', 'width', 'height')
     def _compute_total(self):
         for rec in self:
@@ -127,61 +119,16 @@ class CalculationWizard(models.TransientModel):
     def _onchange_method_id(self):
         if self.method_id:
             self.method_type = self.method_id.method_type
-            self.length = 0.0
-            self.width = 0.0
-            self.height = 0.0
-
-    def compute_results(self):
-        """Calcula los resultados y muestra alert"""
-        self.ensure_one()
-        
-        if not self.method_id:
-            return {'warning': {'title': '-warning', 'message': 'Seleccione un método'}}
-        
-        if self.total_surface <= 0:
-            return {'warning': {'title': 'warning', 'message': 'Ingrese medidas válidas'}}
-        
-        _logger.info(f'Calculando para: {self.total_surface} {self.method_type}')
-        
-        # Calcular productos
-        product_names = []
-        quantities = []
-        
-        for line in self.method_id.line_ids:
-            qty = line.quantity_per_unit * self.total_surface
-            
-            if line.quantity_type == 'integer':
-                qty = int(qty)
-            
-            product_names.append(line.product_id.name)
-            quantities.append(str(qty))
-        
-        # Agregar producto destacado
-        if self.featured_product_id and self.featured_quantity > 0:
-            product_names.append(self.featured_product_id.name)
-            quantities.append(str(self.featured_quantity))
-        
-        # Mostrar resultado
-        result_text = '\n'.join([
-            f'{p}: {q}' for p, q in zip(product_names, quantities)
-        ])
-        
-        return {
-            'warning': {
-                'title': 'Resultado del Cálculo',
-                'message': result_text or 'Sin productos'
-            }
-        }
 
     def add_products(self):
         """Agrega los productos a la orden de venta"""
         self.ensure_one()
         
         if not self.order_id:
-            return
+            return {'type': 'ir.actions.act_window_close'}
         
         if self.total_surface <= 0:
-            return
+            return {'type': 'ir.actions.act_window_close'}
         
         # Crear líneas de venta
         for line in self.method_id.line_ids:
@@ -195,8 +142,7 @@ class CalculationWizard(models.TransientModel):
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': qty,
-                'product_uom': line.uom_id.id,
-                'price_unit': line.product_id.list_price,
+                'price_unit': line.product_id.list_price or 0,
             })
         
         # Agregar producto destacado
@@ -205,9 +151,7 @@ class CalculationWizard(models.TransientModel):
                 'order_id': self.order_id.id,
                 'product_id': self.featured_product_id.id,
                 'product_uom_qty': self.featured_quantity,
-                'product_uom': self.featured_product_id.uom_id.id if self.featured_product_id.uom_id else False,
-                'price_unit': self.featured_product_id.list_price,
+                'price_unit': self.featured_product_id.list_price or 0,
             })
         
-        # Cerrar wizard
         return {'type': 'ir.actions.act_window_close'}

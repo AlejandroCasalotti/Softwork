@@ -11,6 +11,7 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['sale', 'product', 'uom'],
     'data': [
+        'security/ir.model.access.csv',
         'views/calculation_view.xml',
     ],
     'license': 'AGPL-3',
