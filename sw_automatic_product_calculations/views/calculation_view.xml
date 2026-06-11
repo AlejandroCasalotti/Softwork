@@ -84,12 +84,6 @@
                     <field name="featured_product_id"/>
                     <field name="featured_quantity"/>
                 </group>
-                <group>
-                    <button name="compute_results" 
-                            string="Calcular" 
-                            type="object"
-                            class="oe_highlight"/>
-                </group>
                 <footer>
                     <button name="add_products" 
                             string="Agregar productos" 
