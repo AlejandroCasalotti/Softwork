@@ -49,18 +49,18 @@
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Botón en orden de venta -->
+    <!-- Botón en orden de venta (Smart Button) -->
     <record id="view_sale_order_calculation" model="ir.ui.view">
-        <field name="name">sale.order.calculation</field>
+        <field name="name">sale.order.calculation.btn</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//button[@name='action_add_product']" position="before">
-                <button name="action_open_calculation_wizard" 
-                        string="Cálculo automático" 
-                        type="object"
-                        icon="fa-calculator"/>
-            </xpath>
+            <div name="button_box" position="inside">
+                <button type="object" name="action_open_calculation_wizard"
+                        class="oe_stat_button" icon="fa-calculator">
+                    <field string="Cálculo" name="name" widget="statinfo"/>
+                </button>
+            </div>
         </field>
     </record>
 
@@ -110,6 +110,13 @@
                 </footer>
             </form>
         </field>
+    </record>
+
+    <!-- Menú Métodos de Cálculo -->
+    <record id="menu_calculation_method" model="ir.ui.menu">
+        <field name="name">Métodos de Cálculo</field>
+        <field name="action" ref="action_calculation_method"/>
+        <field name="parent_id" ref="sales_team.menu_sales"/>
     </record>
 
 </odoo>

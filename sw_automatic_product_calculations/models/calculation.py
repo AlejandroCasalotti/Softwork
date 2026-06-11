@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api, _
+from odoo import models, fields, api
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -43,8 +43,7 @@ class CalculationMethodLine(models.Model):
     quantity_per_unit = fields.Float(
         string='Cantidad por unidad',
         required=True,
-        default=1.0,
-        help='Cantidad por m² o m³'
+        default=1.0
     )
     uom_id = fields.Many2one(
         'uom.uom',
@@ -87,14 +86,12 @@ class CalculationWizard(models.TransientModel):
     method_type = fields.Selection([
         ('m2', 'Metros Cuadrados (m²)'),
         ('m3', 'Metros Cúbicos (m³)'),
-    ], string='Tipo de método')
+    ])
     
-    # Medidas
     length = fields.Float(string='Largo (mt)', default=0.0)
     width = fields.Float(string='Ancho (mt)', default=0.0)
-    height = fields.Float(string='Alto (mt)', default=0.0, help='Solo para m³')
+    height = fields.Float(string='Alto (mt)', default=0.0)
     
-    # Producto destacado
     featured_product_id = fields.Many2one(
         'product.product',
         string='Producto destacado'
@@ -104,9 +101,8 @@ class CalculationWizard(models.TransientModel):
         default=0.0
     )
     
-    # Resultado calculado
     total_surface = fields.Float(
-        string='Superficie total',
+        string='Total',
         compute='_compute_total',
         store=True
     )
@@ -132,10 +128,8 @@ class CalculationWizard(models.TransientModel):
             self.method_type = self.method_id.method_type
 
     def compute_results(self):
-        """Calcula los resultados"""
         self.ensure_one()
         
-        # Limpiar resultados anteriores
         self.result_ids.unlink()
         
         if not self.method_id or self.total_surface <= 0:
@@ -143,11 +137,9 @@ class CalculationWizard(models.TransientModel):
         
         results = []
         
-        # Calcular productos del método
         for line in self.method_id.line_ids:
             qty = line.quantity_per_unit * self.total_surface
             
-            # Ajustar según tipo
             if line.quantity_type == 'integer':
                 qty = int(qty)
             
@@ -157,7 +149,6 @@ class CalculationWizard(models.TransientModel):
                 'uom_id': line.uom_id.id,
             }))
         
-        # Agregar producto destacado si existe
         if self.featured_product_id and self.featured_quantity > 0:
             results.append((0, 0, {
                 'product_id': self.featured_product_id.id,
@@ -169,17 +160,14 @@ class CalculationWizard(models.TransientModel):
         return True
 
     def add_products(self):
-        """Agrega los productos a la orden de venta"""
         self.ensure_one()
         
         if not self.order_id or not self.result_ids:
             return
         
-        # Crear líneas de venta
         order_lines = []
         for result in self.result_ids:
             if result.product_id:
-                # Buscar o crear línea
                 order_lines.append((0, 0, {
                     'order_id': self.order_id.id,
                     'product_id': result.product_id.id,
@@ -189,7 +177,6 @@ class CalculationWizard(models.TransientModel):
                     'name': result.product_id.name,
                 }))
         
-        # Agregar líneas a la orden
         self.order_id.order_line = order_lines
         
         return {'type': 'ir.actions.act_window_close'}
