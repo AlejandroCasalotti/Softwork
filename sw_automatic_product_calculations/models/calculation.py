@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api
+from odoo import models, fields, api, _
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -26,7 +26,6 @@ class CalculationMethod(models.Model):
 class CalculationMethodLine(models.Model):
     _name = 'calculation.method.line'
     _description = 'Línea de Método de Cálculo'
-    _order = 'sequence'
 
     method_id = fields.Many2one(
         'calculation.method',
@@ -41,7 +40,7 @@ class CalculationMethodLine(models.Model):
         required=True
     )
     quantity_per_unit = fields.Float(
-        string='Cantidad por unidad',
+        string='Cantidad por m²/m³',
         required=True,
         default=1.0
     )
@@ -81,7 +80,8 @@ class CalculationWizard(models.TransientModel):
     method_id = fields.Many2one(
         'calculation.method',
         string='Método de cálculo',
-        required=True
+        required=True,
+        domain="[('active', '=', True)]"
     )
     method_type = fields.Selection([
         ('m2', 'Metros Cuadrados (m²)'),
@@ -102,16 +102,17 @@ class CalculationWizard(models.TransientModel):
     )
     
     total_surface = fields.Float(
-        string='Total',
+        string='Total m²/m³',
         compute='_compute_total',
         store=True
     )
-    
-    result_ids = fields.One2many(
-        'calculation.wizard.result',
-        'wizard_id',
-        string='Resultados',
-        readonly=True
+
+    result_product_ids = fields.Many2many(
+        'product.product',
+        string='Productos calculados'
+    )
+    result_quantity_ids = fields.Char(
+        string='Cantidades'
     )
 
     @api.depends('method_id', 'length', 'width', 'height')
@@ -126,16 +127,25 @@ class CalculationWizard(models.TransientModel):
     def _onchange_method_id(self):
         if self.method_id:
             self.method_type = self.method_id.method_type
+            self.length = 0.0
+            self.width = 0.0
+            self.height = 0.0
 
     def compute_results(self):
+        """Calcula los resultados y muestra alert"""
         self.ensure_one()
         
-        self.result_ids.unlink()
+        if not self.method_id:
+            return {'warning': {'title': '-warning', 'message': 'Seleccione un método'}}
         
-        if not self.method_id or self.total_surface <= 0:
-            return
+        if self.total_surface <= 0:
+            return {'warning': {'title': 'warning', 'message': 'Ingrese medidas válidas'}}
         
-        results = []
+        _logger.info(f'Calculando para: {self.total_surface} {self.method_type}')
+        
+        # Calcular productos
+        product_names = []
+        quantities = []
         
         for line in self.method_id.line_ids:
             qty = line.quantity_per_unit * self.total_surface
@@ -143,50 +153,61 @@ class CalculationWizard(models.TransientModel):
             if line.quantity_type == 'integer':
                 qty = int(qty)
             
-            results.append((0, 0, {
-                'product_id': line.product_id.id,
-                'quantity': qty,
-                'uom_id': line.uom_id.id,
-            }))
+            product_names.append(line.product_id.name)
+            quantities.append(str(qty))
         
+        # Agregar producto destacado
         if self.featured_product_id and self.featured_quantity > 0:
-            results.append((0, 0, {
-                'product_id': self.featured_product_id.id,
-                'quantity': self.featured_quantity,
-                'uom_id': self.featured_product_id.uom_id.id if self.featured_product_id.uom_id else False,
-            }))
+            product_names.append(self.featured_product_id.name)
+            quantities.append(str(self.featured_quantity))
         
-        self.result_ids = results
-        return True
+        # Mostrar resultado
+        result_text = '\n'.join([
+            f'{p}: {q}' for p, q in zip(product_names, quantities)
+        ])
+        
+        return {
+            'warning': {
+                'title': 'Resultado del Cálculo',
+                'message': result_text or 'Sin productos'
+            }
+        }
 
     def add_products(self):
+        """Agrega los productos a la orden de venta"""
         self.ensure_one()
         
-        if not self.order_id or not self.result_ids:
+        if not self.order_id:
             return
         
-        order_lines = []
-        for result in self.result_ids:
-            if result.product_id:
-                order_lines.append((0, 0, {
-                    'order_id': self.order_id.id,
-                    'product_id': result.product_id.id,
-                    'product_uom_qty': result.quantity,
-                    'product_uom': result.uom_id.id if result.uom_id else result.product_id.uom_id.id,
-                    'price_unit': result.product_id.list_price,
-                    'name': result.product_id.name,
-                }))
+        if self.total_surface <= 0:
+            return
         
-        self.order_id.order_line = order_lines
+        # Crear líneas de venta
+        for line in self.method_id.line_ids:
+            qty = line.quantity_per_unit * self.total_surface
+            
+            if line.quantity_type == 'integer':
+                qty = int(qty)
+            
+            # Crear línea
+            self.env['sale.order.line'].create({
+                'order_id': self.order_id.id,
+                'product_id': line.product_id.id,
+                'product_uom_qty': qty,
+                'product_uom': line.uom_id.id,
+                'price_unit': line.product_id.list_price,
+            })
         
+        # Agregar producto destacado
+        if self.featured_product_id and self.featured_quantity > 0:
+            self.env['sale.order.line'].create({
+                'order_id': self.order_id.id,
+                'product_id': self.featured_product_id.id,
+                'product_uom_qty': self.featured_quantity,
+                'product_uom': self.featured_product_id.uom_id.id if self.featured_product_id.uom_id else False,
+                'price_unit': self.featured_product_id.list_price,
+            })
+        
+        # Cerrar wizard
         return {'type': 'ir.actions.act_window_close'}
-
-
-class CalculationWizardResult(models.TransientModel):
-    _name = 'calculation.wizard.result'
-    _description = 'Resultado de Cálculo'
-
-    wizard_id = fields.Many2one('calculation.wizard', string='Wizard')
-    product_id = fields.Many2one('product.product', string='Producto')
-    quantity = fields.Float(string='Cantidad')
-    uom_id = fields.Many2one('uom.uom', string='UoM')

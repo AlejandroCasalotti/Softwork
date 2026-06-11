@@ -6,7 +6,7 @@
         <field name="name">calculation.method.tree</field>
         <field name="model">calculation.method</field>
         <field name="arch" type="xml">
-            <list string="Métodos de Cálculo">
+            <list string="Métodos">
                 <field name="name"/>
                 <field name="method_type"/>
                 <field name="active" widget="boolean_toggle"/>
@@ -19,7 +19,7 @@
         <field name="name">calculation.method.form</field>
         <field name="model">calculation.method</field>
         <field name="arch" type="xml">
-            <form string="Método de Cálculo">
+            <form string="Método">
                 <sheet>
                     <group>
                         <field name="name"/>
@@ -89,15 +89,6 @@
                             string="Calcular" 
                             type="object"
                             class="oe_highlight"/>
-                </group>
-                <group string="Resultados">
-                    <field name="result_ids" nolabel="1">
-                        <list>
-                            <field name="product_id"/>
-                            <field name="quantity"/>
-                            <field name="uom_id"/>
-                        </list>
-                    </field>
                 </group>
                 <footer>
                     <button name="add_products" 
