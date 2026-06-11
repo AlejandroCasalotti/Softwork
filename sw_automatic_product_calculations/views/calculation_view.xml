@@ -49,7 +49,7 @@
         <field name="view_mode">tree,form</field>
     </record>
 
-    <!-- Botón en orden de venta (Smart Button) -->
+    <!-- Botón en orden de venta -->
     <record id="view_sale_order_calculation" model="ir.ui.view">
         <field name="name">sale.order.calculation.btn</field>
         <field name="model">sale.order</field>
@@ -77,12 +77,10 @@
                 <group string="Medidas">
                     <field name="length"/>
                     <field name="width"/>
-                    <field name="height" 
-                           invisible="method_type != 'm3'"
-                           attrs="{'required': [('method_type', '=', 'm3')]}"/>
+                    <field name="height"/>
                     <field name="total_surface" string="Total" readonly="1"/>
                 </group>
-                <group string=" Producto destacado">
+                <group string="Producto destacado">
                     <field name="featured_product_id"/>
                     <field name="featured_quantity"/>
                 </group>
@@ -112,7 +110,7 @@
         </field>
     </record>
 
-    <!-- Menú Métodos de Cálculo -->
+    <!-- Menú -->
     <record id="menu_calculation_method" model="ir.ui.menu">
         <field name="name">Métodos de Cálculo</field>
         <field name="action" ref="action_calculation_method"/>
