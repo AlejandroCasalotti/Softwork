@@ -74,7 +74,6 @@ class SaleOrder(models.Model):
 class CalculationWizard(models.TransientModel):
     _name = 'calculation.wizard'
     _description = 'Wizard Cálculo Automático'
-    _inherit = 'ir.actions.act_window'
 
     order_id = fields.Many2one('sale.order', string='Orden de Venta')
     method_id = fields.Many2one(
@@ -121,7 +120,6 @@ class CalculationWizard(models.TransientModel):
             self.method_type = self.method_id.method_type
 
     def add_products(self):
-        """Agrega los productos a la orden de venta"""
         self.ensure_one()
         
         if not self.order_id:
@@ -130,14 +128,12 @@ class CalculationWizard(models.TransientModel):
         if self.total_surface <= 0:
             return {'type': 'ir.actions.act_window_close'}
         
-        # Crear líneas de venta
         for line in self.method_id.line_ids:
             qty = line.quantity_per_unit * self.total_surface
             
             if line.quantity_type == 'integer':
                 qty = int(qty)
             
-            # Crear línea
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
@@ -145,7 +141,6 @@ class CalculationWizard(models.TransientModel):
                 'price_unit': line.product_id.list_price or 0,
             })
         
-        # Agregar producto destacado
         if self.featured_product_id and self.featured_quantity > 0:
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
