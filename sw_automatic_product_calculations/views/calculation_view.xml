@@ -110,11 +110,4 @@
         </field>
     </record>
 
-    <!-- Menú -->
-    <record id="menu_calculation_method" model="ir.ui.menu">
-        <field name="name">Métodos de Cálculo</field>
-        <field name="action" ref="action_calculation_method"/>
-        <field name="parent_id" ref="sales_team.menu_sales"/>
-    </record>
-
 </odoo>
