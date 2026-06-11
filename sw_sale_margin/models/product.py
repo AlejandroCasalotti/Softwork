@@ -9,11 +9,11 @@ _logger = logging.getLogger(__name__)
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    # Activar/desactivar margen automático
+    # Activar margen automático
     active_sale_margin = fields.Boolean(
         string='Activar margen automático',
         default=True,
-        help='Si está desactivado, el list_price queda fijo'
+        help='Si está desactivado, el list_price queda manual'
     )
 
     # Margen de venta
@@ -33,17 +33,16 @@ class ProductTemplate(models.Model):
     @api.depends('standard_price', 'sale_margin', 'active_sale_margin')
     def _compute_sale_price(self):
         for rec in self:
-            if rec.standard_price and rec.sale_margin > 0 and rec.active_sale_margin:
+            # Solo calcula si está activado Y hay margen > 0
+            if rec.active_sale_margin and rec.standard_price and rec.sale_margin > 0:
                 rec.sale_price = rec.standard_price + (rec.standard_price * rec.sale_margin / 100)
-            elif rec.standard_price:
-                rec.sale_price = rec.standard_price
             else:
                 rec.sale_price = 0.0
 
     def write(self, vals):
         result = super(ProductTemplate, self).write(vals)
         
-        # Actualizar list_price solo si está activado
+        # Actualizar solo si está activado Y hay margen > 0
         if 'active_sale_margin' in vals or 'standard_price' in vals or 'sale_margin' in vals:
             self._update_list_price()
         
@@ -51,16 +50,17 @@ class ProductTemplate(models.Model):
 
     def _update_list_price(self):
         for rec in self:
-            # Solo actualizar si está activado Y hay margen > 0
-            if rec.active_sale_margin and rec.sale_price > 0:
+            # Solo actualiza si está activado Y margen > 0
+            if rec.active_sale_margin and rec.sale_margin > 0 and rec.sale_price > 0:
                 rec.list_price = rec.sale_price
                 _logger.info(f'list_price actualizado a: {rec.sale_price}')
+            # Si no cumple condiciones, no hace nada (deja el valor manual)
 
 
 class ProductProduct(models.Model):
     _inherit = 'product.product'
 
-    # Activar/desactivar
+    # Activar margen
     active_sale_margin = fields.Boolean(
         string='Activar margen automático',
         default=True
@@ -82,10 +82,8 @@ class ProductProduct(models.Model):
     @api.depends('standard_price', 'sale_margin', 'active_sale_margin')
     def _compute_sale_price(self):
         for rec in self:
-            if rec.standard_price and rec.sale_margin > 0 and rec.active_sale_margin:
+            if rec.active_sale_margin and rec.standard_price and rec.sale_margin > 0:
                 rec.sale_price = rec.standard_price + (rec.standard_price * rec.sale_margin / 100)
-            elif rec.standard_price:
-                rec.sale_price = rec.standard_price
             else:
                 rec.sale_price = 0.0
 
@@ -99,5 +97,6 @@ class ProductProduct(models.Model):
 
     def _update_list_price(self):
         for rec in self:
-            if rec.active_sale_margin and rec.sale_price > 0:
+            if rec.active_sale_margin and rec.sale_margin > 0 and rec.sale_price > 0:
                 rec.list_price = rec.sale_price
+            # Si no, no hace nada - deja el valor manual
