@@ -69,6 +69,30 @@ class CalculationMethodLine(models.Model):
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
+    calculation_method_id = fields.Many2one(
+        'calculation.method',
+        string='Método de cálculo'
+    )
+    
+    calc_length = fields.Float(string='Largo (mt)', default=0.0)
+    calc_width = fields.Float(string='Ancho (mt)', default=0.0)
+    calc_height = fields.Float(string='Alto (mt)', default=0.0)
+    calc_total = fields.Float(
+        string='Total m²/m³',
+        compute='_compute_calc_total',
+        store=True
+    )
+    
+    @api.depends('calculation_method_id', 'calc_length', 'calc_width', 'calc_height')
+    def _compute_calc_total(self):
+        for rec in self:
+            if rec.calculation_method_id and rec.calculation_method_id.method_type == 'm3':
+                rec.calc_total = rec.calc_length * rec.calc_width * rec.calc_height
+            elif rec.calculation_method_id:
+                rec.calc_total = rec.calc_length * rec.calc_width
+            else:
+                rec.calc_total = 0.0
+
     def action_open_calculation_wizard(self):
         return {
             'type': 'ir.actions.act_window',
@@ -80,6 +104,30 @@ class SaleOrder(models.Model):
                 'default_order_id': self.id,
             },
         }
+    
+    def action_calc_add_products(self):
+        """Agrega los productos calculados"""
+        self.ensure_one()
+        
+        if not self.calculation_method_id or self.calc_total <= 0:
+            return True
+        
+        method = self.calculation_method_id
+        
+        for line in method.line_ids:
+            qty = line.quantity_per_unit * self.calc_total
+            
+            if line.quantity_type == 'integer':
+                qty = int(qty)
+            
+            self.env['sale.order.line'].create({
+                'order_id': self.id,
+                'product_id': line.product_id.id,
+                'product_uom_qty': qty,
+                'price_unit': line.product_id.list_price or 0,
+            })
+        
+        return True
 
 
 class CalculationWizard(models.TransientModel):
@@ -117,3 +165,16 @@ class CalculationWizard(models.TransientModel):
         compute='_compute_total',
         store=True
     )
+
+    @api.depends('method_id', 'length', 'width', 'height')
+    def _compute_total(self):
+        for rec in self:
+            if rec.method_type == 'm3':
+                rec.total_surface = rec.length * rec.width * rec.height
+            else:
+                rec.total_surface = rec.length * rec.width
+
+    @api.onchange('method_id')
+    def _onchange_method_id(self):
+        if self.method_id:
+            self.method_type = self.method_id.method_type
