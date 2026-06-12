@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
-import logging
-
-_logger = logging.getLogger(__name__)
 
 
-class PaymentMethodLine(models.Model):
+class PaymentMultiMethodLine(models.Model):
     _name = 'payment.multi.method.line'
     _description = 'Línea de Método de Pago'
 
@@ -33,17 +30,14 @@ class PaymentMethodLine(models.Model):
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
-    # Líneas de pago múltiples
     multi_line_ids = fields.One2many(
         'payment.multi.method.line',
         'payment_id',
-        string='Métodos de Pago',
-        copy=True
+        string='Métodos de Pago'
     )
     
-    # Monto total
     multi_total = fields.Float(
-        string='Monto Total',
+        string='Total',
         compute='_compute_multi_total',
         store=True
     )
