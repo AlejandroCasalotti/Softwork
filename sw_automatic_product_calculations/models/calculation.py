@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import models, fields, api, _
+from odoo import models, fields, api
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -37,22 +37,35 @@ class CalculationMethodLine(models.Model):
     product_id = fields.Many2one(
         'product.product',
         string='Producto',
-        required=True
+        required=True,
+        domain="[('type', '=', 'consu')]"
     )
     quantity_per_unit = fields.Float(
         string='Cantidad por m²/m³',
         required=True,
         default=1.0
     )
-    uom_id = fields.Many2one(
-        'uom.uom',
-        string='Unidad de medida',
-        required=True
-    )
+    # Cantidad tipo (entero o fracción)
     quantity_type = fields.Selection([
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
+    
+    # UoM del producto (solo lectura, se guarda automáticamente)
+    uom_id = fields.Many2one(
+        'uom.uom',
+        string='Unidad',
+        compute='_compute_uom',
+        store=True
+    )
+    
+    @api.depends('product_id')
+    def _compute_uom(self):
+        for rec in self:
+            if rec.product_id:
+                rec.uom_id = rec.product_id.uom_id.id
+            else:
+                rec.uom_id = False
 
 
 class SaleOrder(models.Model):
@@ -93,7 +106,8 @@ class CalculationWizard(models.TransientModel):
     
     featured_product_id = fields.Many2one(
         'product.product',
-        string='Producto destacado'
+        string='Producto destacado',
+        domain="[('type', '=', 'consu')]"
     )
     featured_quantity = fields.Float(
         string='Cantidad destacada',
@@ -134,18 +148,25 @@ class CalculationWizard(models.TransientModel):
             if line.quantity_type == 'integer':
                 qty = int(qty)
             
+            # Usar la UoM del producto
+            product_uom = line.product_id.uom_id.id if line.product_id.uom_id else False
+            
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': qty,
+                'product_uom': product_uom,
                 'price_unit': line.product_id.list_price or 0,
             })
         
         if self.featured_product_id and self.featured_quantity > 0:
+            product_uom = self.featured_product_id.uom_id.id if self.featured_product_id.uom_id else False
+            
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': self.featured_product_id.id,
                 'product_uom_qty': self.featured_quantity,
+                'product_uom': product_uom,
                 'price_unit': self.featured_product_id.list_price or 0,
             })
         

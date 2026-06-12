@@ -32,8 +32,8 @@
                                 <field name="sequence" widget="handle"/>
                                 <field name="product_id"/>
                                 <field name="quantity_per_unit"/>
-                                <field name="uom_id"/>
                                 <field name="quantity_type"/>
+                                <field name="uom_id" readonly="1"/>
                             </list>
                         </field>
                     </group>
