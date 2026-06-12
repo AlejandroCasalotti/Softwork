@@ -45,13 +45,11 @@ class CalculationMethodLine(models.Model):
         required=True,
         default=1.0
     )
-    # Cantidad tipo (entero o fracción)
     quantity_type = fields.Selection([
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
     
-    # UoM del producto (solo lectura, se guarda automáticamente)
     uom_id = fields.Many2one(
         'uom.uom',
         string='Unidad',
@@ -119,55 +117,3 @@ class CalculationWizard(models.TransientModel):
         compute='_compute_total',
         store=True
     )
-
-    @api.depends('method_id', 'length', 'width', 'height')
-    def _compute_total(self):
-        for rec in self:
-            if rec.method_type == 'm3':
-                rec.total_surface = rec.length * rec.width * rec.height
-            else:
-                rec.total_surface = rec.length * rec.width
-
-    @api.onchange('method_id')
-    def _onchange_method_id(self):
-        if self.method_id:
-            self.method_type = self.method_id.method_type
-
-    def add_products(self):
-        self.ensure_one()
-        
-        if not self.order_id:
-            return {'type': 'ir.actions.act_window_close'}
-        
-        if self.total_surface <= 0:
-            return {'type': 'ir.actions.act_window_close'}
-        
-        for line in self.method_id.line_ids:
-            qty = line.quantity_per_unit * self.total_surface
-            
-            if line.quantity_type == 'integer':
-                qty = int(qty)
-            
-            # Usar la UoM del producto
-            product_uom = line.product_id.uom_id.id if line.product_id.uom_id else False
-            
-            self.env['sale.order.line'].create({
-                'order_id': self.order_id.id,
-                'product_id': line.product_id.id,
-                'product_uom_qty': qty,
-                'product_uom': product_uom,
-                'price_unit': line.product_id.list_price or 0,
-            })
-        
-        if self.featured_product_id and self.featured_quantity > 0:
-            product_uom = self.featured_product_id.uom_id.id if self.featured_product_id.uom_id else False
-            
-            self.env['sale.order.line'].create({
-                'order_id': self.order_id.id,
-                'product_id': self.featured_product_id.id,
-                'product_uom_qty': self.featured_quantity,
-                'product_uom': product_uom,
-                'price_unit': self.featured_product_id.list_price or 0,
-            })
-        
-        return {'type': 'ir.actions.act_window_close'}
