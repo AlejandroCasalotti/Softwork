@@ -33,7 +33,7 @@
                                 <field name="product_id"/>
                                 <field name="quantity_per_unit"/>
                                 <field name="quantity_type"/>
-                                <field name="uom_id" readonly="1"/>
+                                <field name="uom_id" readonly="1" force_save="1"/>
                             </list>
                         </field>
                     </group>
@@ -61,25 +61,6 @@
                     <field string="Cálculo" name="name" widget="statinfo"/>
                 </button>
             </div>
-        </field>
-    </record>
-
-    <!-- Campos en orden de venta -->
-    <record id="view_sale_order_calc_fields" model="ir.ui.view">
-        <field name="name">sale.order.calc.fields</field>
-        <field name="model">sale.order</field>
-        <field name="inherit_id" ref="sale.view_order_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="//field[@name='date_order']" position="after">
-                <group string="Cálculo de Materiales" colspan="2">
-                    <field name="calculation_method_id" placeholder="Seleccionar método"/>
-                    <field name="calc_length" placeholder="Largo"/>
-                    <field name="calc_width" placeholder="Ancho"/>
-                    <field name="calc_height" placeholder="Alto" invisible="calculation_method_id.method_type != 'm3'"/>
-                    <field name="calc_total" string="Total m²/m³" readonly="1"/>
-                </group>
-                <button string="Agregar Productos" type="object" name="action_calc_add_products" class="oe_highlight" invisible="not calculation_method_id"/>
-            </xpath>
         </field>
     </record>
 

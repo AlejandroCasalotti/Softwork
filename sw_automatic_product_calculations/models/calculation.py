@@ -37,8 +37,7 @@ class CalculationMethodLine(models.Model):
     product_id = fields.Many2one(
         'product.product',
         string='Producto',
-        required=True,
-        domain="[('type', '=', 'consu')]"
+        required=True
     )
     quantity_per_unit = fields.Float(
         string='Cantidad por m²/m³',
@@ -50,48 +49,23 @@ class CalculationMethodLine(models.Model):
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
     
+    # UoM calculada del producto (solo lectura)
     uom_id = fields.Many2one(
         'uom.uom',
         string='Unidad',
         compute='_compute_uom',
-        store=True
+        store=True,
+        readonly=True
     )
     
     @api.depends('product_id')
     def _compute_uom(self):
         for rec in self:
-            if rec.product_id:
-                rec.uom_id = rec.product_id.uom_id.id
-            else:
-                rec.uom_id = False
+            rec.uom_id = rec.product_id.uom_id.id if rec.product_id else False
 
 
 class SaleOrder(models.Model):
     _inherit = 'sale.order'
-
-    calculation_method_id = fields.Many2one(
-        'calculation.method',
-        string='Método de cálculo'
-    )
-    
-    calc_length = fields.Float(string='Largo (mt)', default=0.0)
-    calc_width = fields.Float(string='Ancho (mt)', default=0.0)
-    calc_height = fields.Float(string='Alto (mt)', default=0.0)
-    calc_total = fields.Float(
-        string='Total m²/m³',
-        compute='_compute_calc_total',
-        store=True
-    )
-    
-    @api.depends('calculation_method_id', 'calc_length', 'calc_width', 'calc_height')
-    def _compute_calc_total(self):
-        for rec in self:
-            if rec.calculation_method_id and rec.calculation_method_id.method_type == 'm3':
-                rec.calc_total = rec.calc_length * rec.calc_width * rec.calc_height
-            elif rec.calculation_method_id:
-                rec.calc_total = rec.calc_length * rec.calc_width
-            else:
-                rec.calc_total = 0.0
 
     def action_open_calculation_wizard(self):
         return {
@@ -104,30 +78,6 @@ class SaleOrder(models.Model):
                 'default_order_id': self.id,
             },
         }
-    
-    def action_calc_add_products(self):
-        """Agrega los productos calculados"""
-        self.ensure_one()
-        
-        if not self.calculation_method_id or self.calc_total <= 0:
-            return True
-        
-        method = self.calculation_method_id
-        
-        for line in method.line_ids:
-            qty = line.quantity_per_unit * self.calc_total
-            
-            if line.quantity_type == 'integer':
-                qty = int(qty)
-            
-            self.env['sale.order.line'].create({
-                'order_id': self.id,
-                'product_id': line.product_id.id,
-                'product_uom_qty': qty,
-                'price_unit': line.product_id.list_price or 0,
-            })
-        
-        return True
 
 
 class CalculationWizard(models.TransientModel):
@@ -152,8 +102,7 @@ class CalculationWizard(models.TransientModel):
     
     featured_product_id = fields.Many2one(
         'product.product',
-        string='Producto destacado',
-        domain="[('type', '=', 'consu')]"
+        string='Producto destacado'
     )
     featured_quantity = fields.Float(
         string='Cantidad destacada',
@@ -178,3 +127,35 @@ class CalculationWizard(models.TransientModel):
     def _onchange_method_id(self):
         if self.method_id:
             self.method_type = self.method_id.method_type
+
+    def add_products(self):
+        self.ensure_one()
+        
+        if not self.order_id:
+            return {'type': 'ir.actions.act_window_close'}
+        
+        if self.total_surface <= 0:
+            return {'type': 'ir.actions.act_window_close'}
+        
+        for line in self.method_id.line_ids:
+            qty = line.quantity_per_unit * self.total_surface
+            
+            if line.quantity_type == 'integer':
+                qty = int(qty)
+            
+            self.env['sale.order.line'].create({
+                'order_id': self.order_id.id,
+                'product_id': line.product_id.id,
+                'product_uom_qty': qty,
+                'price_unit': line.product_id.list_price or 0,
+            })
+        
+        if self.featured_product_id and self.featured_quantity > 0:
+            self.env['sale.order.line'].create({
+                'order_id': self.order_id.id,
+                'product_id': self.featured_product_id.id,
+                'product_uom_qty': self.featured_quantity,
+                'price_unit': self.featured_product_id.list_price or 0,
+            })
+        
+        return {'type': 'ir.actions.act_window_close'}
