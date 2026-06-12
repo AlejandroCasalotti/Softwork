@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 {
     'name': 'Pagos Múltiples',
     'version': '19.0.1.0.0',
