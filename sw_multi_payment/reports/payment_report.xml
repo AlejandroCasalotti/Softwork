@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_payment_receipt">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <div class="page">
+                    <div class="oe_structure"/>
+                    
+                    <!-- Encabezado -->
+                    <div class="row">
+                        <div class="col-12 text-center">
+                            <h2>COMPROBANTE DE PAGO</h2>
+                        </div>
+                    </div>
+                    
+                    <!-- Datos del pago -->
+                    <div class="row mt-4">
+                        <div class="col-6">
+                            <strong>Número de Pago:</strong>
+                            <span t-field="o.name"/>
+                        </div>
+                        <div class="col-6">
+                            <strong>Fecha:</strong>
+                            <span t-field="o.date" format="dd/MM/yyyy"/>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Cliente:</strong>
+                            <span t-field="o.partner_id.name"/>
+                        </div>
+                        <div class="col-6">
+                            <strong>Monto Total:</strong>
+                            <span t-field="o.amount" widget="monetary" t-options="{'currency': o.journal_id.currency_id.id}"/>
+                        </div>
+                    </div>
+                    
+                    <!-- Métodos de pago (si es múltiple) -->
+                    <t t-if="o.is_multi and o.method_line_ids">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h4>DETALLE DE PAGOS</h4>
+                            </div>
+                        </div>
+                        
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Método de Pago</th>
+                                    <th>Referencia</th>
+                                    <th class="text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.method_line_ids" t-as="line">
+                                    <td>
+                                        <span t-field="line.journal_id.name"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.reference"/>
+                                    </td>
+                                    <td class="text-right">
+                                        <span t-field="line.amount" widget="monetary" t-options="{'currency': line.journal_id.currency_id.id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2"><strong>TOTAL</strong></td>
+                                    <td class="text-right">
+                                        <strong>
+                                            <span t-field="o.total_amount" widget="monetary" t-options="{'currency': o.journal_id.currency_id.id}"/>
+                                        </strong>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </t>
+                    
+                    <!-- Pago único -->
+                    <t t-else="">
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <h4>MÉTODO DE PAGO</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>Método:</strong>
+                                <span t-field="o.journal_id.name"/>
+                            </div>
+                            <div class="col-6">
+                                <strong>Referencia:</strong>
+                                <span t-field="o.ref"/>
+                            </div>
+                        </div>
+                    </t>
+                    
+                    <!-- Footer -->
+                    <div class="row mt-4">
+                        <div class="col-12 text-center">
+                            <p>Gracias por su pago</p>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>
