@@ -85,6 +85,7 @@
                     <field name="featured_quantity"/>
                 </group>
                 <footer>
+                    <button string="Calcular y Agregar" type="object" name="action_calculate_and_add" class="oe_highlight"/>
                     <button string="Cancel" special="cancel"/>
                 </footer>
             </form>

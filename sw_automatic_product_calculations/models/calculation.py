@@ -49,7 +49,6 @@ class CalculationMethodLine(models.Model):
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
     
-    # UoM calculada del producto (solo lectura)
     uom_id = fields.Many2one(
         'uom.uom',
         string='Unidad',
@@ -127,8 +126,12 @@ class CalculationWizard(models.TransientModel):
     def _onchange_method_id(self):
         if self.method_id:
             self.method_type = self.method_id.method_type
+            self.length = 0.0
+            self.width = 0.0
+            self.height = 0.0
 
-    def add_products(self):
+    def action_calculate_and_add(self):
+        """Calcula y agrega los productos"""
         self.ensure_one()
         
         if not self.order_id:
@@ -137,6 +140,7 @@ class CalculationWizard(models.TransientModel):
         if self.total_surface <= 0:
             return {'type': 'ir.actions.act_window_close'}
         
+        # Agregar productos del método
         for line in self.method_id.line_ids:
             qty = line.quantity_per_unit * self.total_surface
             
@@ -150,6 +154,7 @@ class CalculationWizard(models.TransientModel):
                 'price_unit': line.product_id.list_price or 0,
             })
         
+        # Agregar producto destacado
         if self.featured_product_id and self.featured_quantity > 0:
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
