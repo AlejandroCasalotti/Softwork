@@ -6,39 +6,28 @@ from odoo import models, fields, api
 class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
-    # Línea de diarios adicionales
-    additional_journal_ids = fields.Many2many(
-        'account.journal',
-        'payment_additional_journal',
+    journal_line_ids = fields.One2many(
+        'account.payment.journal.line',
         'payment_id',
-        'journal_id',
-        string='Métodos de Pago Adicionales'
+        string='Métodos de Pago'
     )
     
-    # Monto por cada diario adicional
-    additional_amount_ids = fields.One2many(
-        'account.payment.additional',
-        'payment_id',
-        string='Detalle de Pagos'
-    )
-    
-    # Total
-    total_payment = fields.Float(
+    total_amount = fields.Float(
         string='Total',
-        compute='_compute_total_payment',
+        compute='_compute_total_amount',
         store=True
     )
 
-    @api.depends('amount', 'additional_amount_ids.amount')
-    def _compute_total_payment(self):
+    @api.depends('amount', 'journal_line_ids.amount')
+    def _compute_total_amount(self):
         for rec in self:
-            add_amount = sum(rec.additional_amount_ids.mapped('amount'))
-            rec.total_payment = rec.amount + add_amount
+            add_amount = sum(rec.journal_line_ids.mapped('amount'))
+            rec.total_amount = rec.amount + add_amount
 
 
-class PaymentAdditional(models.Model):
-    _name = 'account.payment.additional'
-    _description = 'Pago Adicional'
+class PaymentJournalLine(models.Model):
+    _name = 'account.payment.journal.line'
+    _description = 'Línea de Diario de Pago'
 
     payment_id = fields.Many2one(
         'account.payment',
@@ -46,6 +35,7 @@ class PaymentAdditional(models.Model):
         required=True,
         ondelete='cascade'
     )
+    sequence = fields.Integer(string='#', default=10)
     journal_id = fields.Many2one(
         'account.journal',
         string='Diario',
@@ -53,6 +43,7 @@ class PaymentAdditional(models.Model):
     )
     amount = fields.Float(
         string='Monto',
-        required=True
+        required=True,
+        default=0.0
     )
     reference = fields.Char(string='Referencia')
