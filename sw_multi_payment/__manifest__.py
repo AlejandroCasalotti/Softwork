@@ -10,7 +10,6 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['account'],
     'data': [
-        'security/ir.model.access.csv',
         'views/payment_view.xml',
     ],
     'license': 'AGPL-3',
