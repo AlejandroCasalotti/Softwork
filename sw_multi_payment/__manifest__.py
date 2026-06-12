@@ -10,7 +10,6 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['account'],
     'data': [
-        'reports/payment_report.xml',
         'views/payment_view.xml',
     ],
     'license': 'AGPL-3',
