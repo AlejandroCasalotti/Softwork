@@ -24,21 +24,4 @@
         </field>
     </record>
 
-    <!-- Acción para Pago Múltiple -->
-    <record id="action_account_payment_multi" model="ir.actions.act_window">
-        <field name="name">Pago Múltiple</field>
-        <field name="res_model">account.payment</field>
-        <field name="view_mode">tree,form</field>
-        <field name="domain">[('is_multi', '=', True)]</field>
-        <field name="context">{'default_payment_type': 'inbound', 'default_is_multi': True}</field>
-    </record>
-
-    <!-- Menú en Contabilidad -->
-    <record id="menu_account_payment_multi" model="ir.ui.menu">
-        <field name="name">Pagos Múltiples</field>
-        <field name="action" ref="action_account_payment_multi"/>
-        <field name="parent_id" ref="account.menu_account_action_payment"/>
-        <field name="sequence">20</field>
-    </record>
-
 </odoo>
