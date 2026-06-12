@@ -3,9 +3,42 @@
 from odoo import models, fields, api
 
 
-class PaymentMultiMethodLine(models.Model):
-    _name = 'payment.multi.method.line'
-    _description = 'Línea de Método de Pago'
+class AccountPayment(models.Model):
+    _inherit = 'account.payment'
+
+    # Línea de diarios adicionales
+    additional_journal_ids = fields.Many2many(
+        'account.journal',
+        'payment_additional_journal',
+        'payment_id',
+        'journal_id',
+        string='Métodos de Pago Adicionales'
+    )
+    
+    # Monto por cada diario adicional
+    additional_amount_ids = fields.One2many(
+        'account.payment.additional',
+        'payment_id',
+        string='Detalle de Pagos'
+    )
+    
+    # Total
+    total_payment = fields.Float(
+        string='Total',
+        compute='_compute_total_payment',
+        store=True
+    )
+
+    @api.depends('amount', 'additional_amount_ids.amount')
+    def _compute_total_payment(self):
+        for rec in self:
+            add_amount = sum(rec.additional_amount_ids.mapped('amount'))
+            rec.total_payment = rec.amount + add_amount
+
+
+class PaymentAdditional(models.Model):
+    _name = 'account.payment.additional'
+    _description = 'Pago Adicional'
 
     payment_id = fields.Many2one(
         'account.payment',
@@ -13,7 +46,6 @@ class PaymentMultiMethodLine(models.Model):
         required=True,
         ondelete='cascade'
     )
-    sequence = fields.Integer(string='#', default=10)
     journal_id = fields.Many2one(
         'account.journal',
         string='Diario',
@@ -21,28 +53,6 @@ class PaymentMultiMethodLine(models.Model):
     )
     amount = fields.Float(
         string='Monto',
-        required=True,
-        default=0.0
+        required=True
     )
     reference = fields.Char(string='Referencia')
-
-
-class AccountPayment(models.Model):
-    _inherit = 'account.payment'
-
-    multi_line_ids = fields.One2many(
-        'payment.multi.method.line',
-        'payment_id',
-        string='Métodos de Pago'
-    )
-    
-    multi_total = fields.Float(
-        string='Total',
-        compute='_compute_multi_total',
-        store=True
-    )
-
-    @api.depends('multi_line_ids.amount')
-    def _compute_multi_total(self):
-        for rec in self:
-            rec.multi_total = sum(rec.multi_line_ids.mapped('amount'))
