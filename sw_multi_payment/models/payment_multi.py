@@ -146,4 +146,3 @@ class PaymentMultiLine(models.Model):
     def _compute_journal_label(self):
         for rec in self:
             rec.journal_label = rec.journal_id.display_name if rec.journal_id else ""
-

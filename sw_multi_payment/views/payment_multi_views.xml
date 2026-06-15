@@ -41,7 +41,7 @@
                                 <field name="line_ids" nolabel="1" context="{'form_view_ref': 'payment_multi_lots_odoo19.view_payment_multi_form'}">
                                     <tree editable="false">
                                         <field name="payment_date"/>
-                                        <field name="journal_label"/>
+                                        <field name="journal_id"/>
                                         <field name="memo"/>
                                         <field name="amount"/>
                                     </tree>
@@ -71,3 +71,4 @@
         <menuitem id="menu_payment_multi" name="Multi" parent="menu_payment_multi_root" action="action_payment_multi" sequence="10"/>
     </data>
 </odoo>
+
