@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_payment_multi_receipt_document">
+        <t t-call="web.external_layout">
+            <t t-set="doc" t-value="doc"/>
+            <div class="page">
+                <h2 style="text-align:center; margin:0;">RECIBO DE PAGO</h2>
+                <div style="text-align:center; font-weight:bold;">
+                    <span t-esc="doc.name"/>
+                </div>
+
+                <div class="row" style="margin-top:20px;">
+                    <div class="col-6">
+                        <strong>Proveedor/Cliente:</strong>
+                        <div t-esc="doc.partner_id.display_name"/>
+                    </div>
+                    <div class="col-6">
+                        <strong>Fecha:</strong>
+                        <div t-esc="doc.payment_date"/>
+                    </div>
+                </div>
+
+                <table class="table table-sm" style="width:100%; margin-top:10px;">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Metodo de pago (Diario)</th>
+                            <th>Descripción (Memo)</th>
+                            <th class="text-end">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="doc.line_ids" t-as="l" t-key="l.id">
+                            <td t-esc="l.payment_date"/>
+                            <td t-esc="l.journal_label"/>
+                            <td t-esc="l.memo"/>
+                            <td class="text-end" t-esc="l.amount"/>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style="display:flex; justify-content:flex-end; margin-top:10px;">
+                    <div style="width:360px;">
+                        <div style="border-top:1px solid #000; padding-top:6px; font-weight:bold; text-align:right;">
+                            TOTAL PAGADO&nbsp;
+                            <span t-esc="doc.total_amount"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

@@ -10,7 +10,12 @@
     'website': 'https://www.swsistemas.com',
     'depends': ['account'],
     'data': [
-        'views/payment_view.xml',
+        "security/ir.model.access.csv",
+        "data/payment_multi_sequence.xml",
+        "views/payment_multi_views.xml",
+        "views/account_payment_views.xml",
+        "report/payment_multi_receipt_report.xml",
+        "report/payment_multi_receipt_templates.xml",
     ],
     'license': 'AGPL-3',
     'installable': True,
