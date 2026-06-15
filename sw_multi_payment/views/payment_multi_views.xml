@@ -44,6 +44,7 @@
                                         <field name="journal_id"/>
                                         <field name="memo"/>
                                         <field name="amount"/>
+
                                     </tree>
                                 </field>
                             </page>
@@ -71,4 +72,3 @@
         <menuitem id="menu_payment_multi" name="Multi" parent="menu_payment_multi_root" action="action_payment_multi" sequence="10"/>
     </data>
 </odoo>
-

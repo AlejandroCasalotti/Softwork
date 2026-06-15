@@ -85,6 +85,8 @@ class PaymentMulti(models.Model):
                 raise UserError(_("Todos los pagos deben tener la misma moneda para crear el Multi Pago."))
             if (p.company_id or self.env.company) != company:
                 raise UserError(_("Todos los pagos deben pertenecer a la misma compañía."))
+            # Se permite `journal_id` (diario/método de pago) distinto entre pagos.
+
 
         multi = self.create(
             {
@@ -111,7 +113,7 @@ class PaymentMulti(models.Model):
                     "memo": memo,
                     "amount": p.amount,
                     "currency_id": multi.currency_id.id,
-                    "journal_label": journal_name,
+
                 }
             )
 
@@ -134,15 +136,8 @@ class PaymentMultiLine(models.Model):
     payment_date = fields.Date(string="Fecha")
 
     journal_id = fields.Many2one("account.journal", string="Diario (Metodo de pago)")
-    journal_label = fields.Char(string="Metodo de pago (Diario)", compute="_compute_journal_label", store=True)
-
     memo = fields.Char(string="Descripción (Memo)")
 
     currency_id = fields.Many2one("res.currency", related="multi_id.currency_id", store=True, readonly=True)
 
     amount = fields.Monetary(string="Importe", currency_field="currency_id")
-
-    @api.depends("journal_id")
-    def _compute_journal_label(self):
-        for rec in self:
-            rec.journal_label = rec.journal_id.display_name if rec.journal_id else ""
