@@ -40,10 +40,10 @@
                             <page string="Detalle">
                                 <field name="line_ids" nolabel="1" context="{'form_view_ref': 'payment_multi_lots_odoo19.view_payment_multi_form'}">
                                     <tree editable="false">
+                                        <field name="journal_id"/>
                                         <field name="payment_date"/>
-                                        <field name="payment_date"/>
+                                        <field name="memo"/>
                                         <field name="amount"/>
-
                                     </tree>
                                 </field>
                             </page>
