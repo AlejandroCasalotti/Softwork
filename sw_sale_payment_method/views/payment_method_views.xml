@@ -5,11 +5,11 @@
             <field name="name">sale.payment.method.tree</field>
             <field name="model">sale.payment.method</field>
             <field name="arch" type="xml">
-                <tree string="Métodos de pago" default_order="sequence asc">
+                <list string="Métodos de pago" default_order="sequence asc">
                     <field name="sequence"/>
                     <field name="name"/>
                     <field name="percentage_increase"/>
-                </tree>
+                </list>
             </field>
         </record>
 
@@ -33,7 +33,8 @@
         <record id="action_sale_payment_method" model="ir.actions.act_window">
             <field name="name">Métodos de pago</field>
             <field name="res_model">sale.payment.method</field>
-            <field name="view_mode">tree,form</field>
+            <field name="view_mode">list,form</field>
+            
         </record>
 
         <menuitem id="menu_sale_payment_method_root" name="Métodos de pago" sequence="10"/>

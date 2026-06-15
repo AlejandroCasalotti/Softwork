@@ -3,7 +3,7 @@
     'name': 'Pagos Múltiples',
     'version': '19.0.1.0.0',
     'category': 'Sales',
-    'summary': 'Método de pago con recargo',
+    'summary': "Método de pago con recargo",
     'description': "Permite seleccionar un método de pago que incrementa el precio unitario en un porcentaje (también recalcula líneas existentes).",
     'author': 'SW Sistemas',
     'company': 'SW Sistemas',
