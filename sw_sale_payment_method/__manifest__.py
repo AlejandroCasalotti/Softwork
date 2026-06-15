@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 {
-    'name': 'Pagos Múltiples',
+    'name': 'Método de pago con recargo',
     'version': '19.0.1.0.0',
     'category': 'Sales',
     'summary': "Método de pago con recargo",
