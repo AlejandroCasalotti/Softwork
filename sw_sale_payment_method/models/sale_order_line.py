@@ -31,7 +31,7 @@ class SaleOrderLine(models.Model):
                 line.price_unit_base = line.price_unit
 
     def _apply_percentage_on_price(self, pct):
-        """Aplica pct sobre el precio base.
+        """Aplica pct sobre el precio base sin acumulación.
 
         Precio aumentado = price_unit_base * (1 + pct/100)
         Cuando pct = 0, vuelve al base.
@@ -39,7 +39,15 @@ class SaleOrderLine(models.Model):
         self.ensure_one() if len(self) == 1 else None
 
         for line in self:
-            # Mantener base como precio previo al recargo.
+            # Si no hay método, volver siempre al precio base original
+            # y limpiar base para que el próximo método tome el precio actual como nuevo base.
+            if not pct:
+                if line.price_unit_base:
+                    line.price_unit = line.price_unit_base
+                    line.price_unit_base = 0.0
+                continue
+
+            # Con método: fijar base solo una vez y aplicar sobre base (no acumulable).
             line._get_base_price_if_needed()
             base = line.price_unit_base
             factor = 1.0 + (pct or 0.0) / 100.0

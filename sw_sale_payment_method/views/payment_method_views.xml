@@ -37,8 +37,13 @@
             
         </record>
 
-        <menuitem id="menu_sale_payment_method_root" name="Métodos de pago" sequence="10"/>
-        <menuitem id="menu_sale_payment_method" name="Método de pago" parent="menu_sale_payment_method_root" action="action_sale_payment_method" sequence="10"/>
+        <menuitem
+            id="menu_sale_payment_method"
+            name="Métodos de pago"
+            parent="sale.menu_sale_config"
+            action="action_sale_payment_method"
+            sequence="50"
+        />
     </data>
 </odoo>
 

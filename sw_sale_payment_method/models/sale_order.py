@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import api, fields, models, _
+from odoo.exceptions import UserError
 
 
 class SaleOrder(models.Model):
@@ -11,6 +12,13 @@ class SaleOrder(models.Model):
         string="Método de pago",
         copy=False,
     )
+
+    def write(self, vals):
+        if "payment_method_id" in vals:
+            for order in self:
+                if order.state != "draft":
+                    raise UserError(_("No se puede modificar el método de pago si el pedido no está en borrador."))
+        return super().write(vals)
 
     def action_confirm(self):
         res = super().action_confirm()
