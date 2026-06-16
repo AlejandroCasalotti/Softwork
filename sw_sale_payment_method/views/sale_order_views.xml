@@ -7,7 +7,7 @@
             <field name="inherit_id" ref="sale.view_order_form"/>
             <field name="arch" type="xml">
 
-                <xpath expr="//field[@name='partner_invoice_id']" position="after">
+                <xpath expr="//field[@name='payment_term_id']" position="after">
                     <field name="payment_method_id" options="{'no_create_edit': True}"/>
                 </xpath>
             </field>
