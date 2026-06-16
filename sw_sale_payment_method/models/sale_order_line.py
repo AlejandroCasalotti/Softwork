@@ -75,4 +75,3 @@ class SaleOrderLine(models.Model):
                     line.price_unit_base = line.price_unit
 
         return res
-

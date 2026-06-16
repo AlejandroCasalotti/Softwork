@@ -46,4 +46,3 @@ class SaleOrder(models.Model):
 
             for line in order.order_line:
                 line._apply_percentage_on_price(pct)
-
