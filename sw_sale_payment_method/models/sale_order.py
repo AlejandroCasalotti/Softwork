@@ -35,9 +35,9 @@ class SaleOrder(models.Model):
 
     @api.onchange("payment_method_id")
     def _onchange_payment_method_id(self):
-        # Se recalculan líneas existentes en el formulario (también aplica a nuevas líneas
-        # vía onchange en line).
-        self._apply_price_increase_on_lines()
+        # Evitamos recalcular aquí para no duplicar efecto con write() al guardar.
+        # El recálculo definitivo se aplica en backend en write().
+        return
 
     def _apply_price_increase_on_lines(self):
         for order in self:

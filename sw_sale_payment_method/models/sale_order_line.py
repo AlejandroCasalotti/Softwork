@@ -55,22 +55,25 @@ class SaleOrderLine(models.Model):
 
     @api.onchange("order_id.payment_method_id")
     def _onchange_order_payment_method_id(self):
-        for line in self:
-            if not line.order_id:
-                continue
-            pct = line.order_id.payment_method_id.percentage_increase if line.order_id.payment_method_id else 0.0
-            line._apply_percentage_on_price(pct)
+        # Evitamos doble recálculo (UI + write de order). El cálculo definitivo
+        # se realiza al guardar desde sale.order.write().
+        return
 
     def write(self, vals):
-        # Si el usuario edita price_unit manualmente cuando no hay método,
-        # refrescamos base.
         res = super().write(vals)
 
-        # Recalcular/ajustar base cuando cambia el price_unit por el usuario.
-        # (En escenarios normales, el recálculo usa la base y setea price_unit.)
+        # Si el usuario modifica price_unit manualmente, mantener consistencia base.
         if "price_unit" in vals and "order_id" not in vals:
             for line in self:
-                if not line.order_id.payment_method_id:
+                method = line.order_id.payment_method_id
+                pct = method.percentage_increase if method else 0.0
+                factor = 1.0 + (pct or 0.0) / 100.0
+
+                if method:
+                    # Guardamos base matemática para evitar acumulación en próximos guardados.
+                    line.price_unit_base = line.price_unit / factor if factor else line.price_unit
+                else:
+                    # Sin método, el precio actual es el base real.
                     line.price_unit_base = line.price_unit
 
         return res
