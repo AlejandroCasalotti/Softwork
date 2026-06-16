@@ -14,11 +14,20 @@ class SaleOrder(models.Model):
     )
 
     def write(self, vals):
-        if "payment_method_id" in vals:
+        changing_method = "payment_method_id" in vals
+        if changing_method:
             for order in self:
                 if order.state != "draft":
                     raise UserError(_("No se puede modificar el método de pago si el pedido no está en borrador."))
-        return super().write(vals)
+
+        res = super().write(vals)
+
+        # También aplicar en backend (no solo onchange de UI), para evitar acumulación
+        # y garantizar reversión al precio original al quitar método.
+        if changing_method:
+            self._apply_price_increase_on_lines()
+
+        return res
 
     def action_confirm(self):
         res = super().action_confirm()
