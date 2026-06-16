@@ -2,3 +2,8 @@
 	path = AlejandroCasalotti/Softwork
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = sw_payment_method
+
+[submodule "sw_sale_margin"]
+	path = sw_sale_margin
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_sale_margin
