@@ -14,6 +14,7 @@ class SaleOrderLine(models.Model):
 
     price_unit_currency_id = fields.Many2one(
         "res.currency",
+        string="Moneda del precio base",
         related="order_id.currency_id",
         store=False,
         readonly=True,
