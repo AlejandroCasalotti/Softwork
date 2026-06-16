@@ -15,7 +15,7 @@ class SaleOrderLine(models.Model):
     price_unit_currency_id = fields.Many2one(
         "res.currency",
         related="order_id.currency_id",
-        store=True,
+        store=False,
         readonly=True,
     )
 
@@ -36,8 +36,6 @@ class SaleOrderLine(models.Model):
         Precio aumentado = price_unit_base * (1 + pct/100)
         Cuando pct = 0, vuelve al base.
         """
-        self.ensure_one() if len(self) == 1 else None
-
         for line in self:
             # Si no hay método, volver siempre al precio base original
             # y limpiar base para que el próximo método tome el precio actual como nuevo base.

@@ -14,17 +14,8 @@ class SalePaymentMethod(models.Model):
     percentage_increase = fields.Float(string="% a aumentar", required=True, default=0.0)
     sequence = fields.Integer(string="Secuencia", default=10)
 
-    _sql_constraints = [
-        (
-            "percentage_increase_non_negative",
-            "CHECK(percentage_increase >= 0)",
-            "El porcentaje debe ser >= 0.",
-        )
-    ]
-
     @api.constrains("percentage_increase")
     def _check_percentage_increase(self):
         for rec in self:
             if rec.percentage_increase < 0:
                 raise ValidationError(_("El porcentaje debe ser >= 0."))
-
