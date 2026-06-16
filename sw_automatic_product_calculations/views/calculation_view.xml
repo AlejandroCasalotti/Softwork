@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Vista lista métodos -->
+    <record id="view_calculation_method_tree" model="ir.ui.view">
+        <field name="name">calculation.method.tree</field>
+        <field name="model">calculation.method</field>
+        <field name="arch" type="xml">
+            <list string="Métodos">
+                <field name="name"/>
+                <field name="method_type"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista formulario métodos -->
+    <record id="view_calculation_method_form" model="ir.ui.view">
+        <field name="name">calculation.method.form</field>
+        <field name="model">calculation.method</field>
+        <field name="arch" type="xml">
+            <form string="Método">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="method_type"/>
+                        <field name="active"/>
+                    </group>
+                    <group string="Productos">
+                        <field name="line_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="product_id"/>
+                                <field name="quantity_per_unit"/>
+                                <field name="quantity_type"/>
+                                <field name="uom_id" readonly="1" force_save="1"/>
+                            </list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Acción métodos -->
+    <record id="action_calculation_method" model="ir.actions.act_window">
+        <field name="name">Métodos de Cálculo</field>
+        <field name="res_model">calculation.method</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Botón en orden de venta -->
+    <record id="view_sale_order_calculation" model="ir.ui.view">
+        <field name="name">sale.order.calculation.btn</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button type="object" name="action_open_calculation_wizard"
+                        class="oe_stat_button" icon="fa-calculator">
+                    <field string="Cálculo" name="name" widget="statinfo"/>
+                </button>
+            </div>
+        </field>
+    </record>
+
+    <!-- Wizard -->
+    <record id="view_calculation_wizard_form" model="ir.ui.view">
+        <field name="name">calculation.wizard.form</field>
+        <field name="model">calculation.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cálculo Automático">
+                <group>
+                    <field name="method_id"/>
+                    <field name="method_type" invisible="1"/>
+                </group>
+                <group string="Medidas">
+                    <field name="length"/>
+                    <field name="width"/>
+                    <field name="height"/>
+                    <field name="total_surface" string="Total" readonly="1"/>
+                </group>
+                <group string="Producto destacado">
+                    <field name="featured_product_id"/>
+                    <field name="featured_quantity"/>
+                </group>
+                <footer>
+                    <button string="Calcular y Agregar" type="object" name="action_calculate_and_add" class="oe_highlight"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>
