@@ -8,7 +8,7 @@ from odoo.http import request
 
 class SwAutomaticCalculationController(http.Controller):
 
-    @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
+    @http.route("/sw/calculation/add_to_cart", type="json", auth="public", website=True, csrf=False)
     def sw_calculation_add_to_cart(self, product_template_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, **kwargs):
         product_template_id = int(product_template_id or 0)
         length = float(length or 0.0)
