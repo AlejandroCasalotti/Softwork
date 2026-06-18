@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-
 {
-    'name': 'Cálculos Automáticos',
+    'name': 'Cálculos Automáticos Ventas y Web',
     'version': '19.0.1.0.0',
     'category': 'Sales',
     'summary': 'Calculo de materiales en orden de venta',
@@ -25,3 +23,4 @@
     'installable': True,
     'auto_install': False,
     'application': False,
+}
