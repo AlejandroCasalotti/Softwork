@@ -17,3 +17,8 @@
 	path = sw_automatic_product_calculations
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = sw_automatic_product_calculations
+
+[submodule "web_search_with_and"]
+	path = web_search_with_and
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = app-web_search_with_and
