@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_price_rule_supplier,access.price.rule.supplier,model_price_rule_supplier,base.group_user,1,1,1,1
+access_price_rule_supplier_line_all,access.price.rule.supplier.line.all,model_price_rule_supplier_line,base.group_user,1,1,1,1

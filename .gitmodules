@@ -1,0 +1,24 @@
+[submodule "AlejandroCasalotti/Softwork"]
+	path = AlejandroCasalotti/Softwork
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_payment_method
+
+[submodule "sw_sale_margin"]
+	path = sw_sale_margin
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_sale_margin
+
+[submodule "sw_increase_price_supplier"]
+	path = sw_increase_price_supplier
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_increase_price_supplier
+
+[submodule "sw_automatic_product_calculations"]
+	path = sw_automatic_product_calculations
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_automatic_product_calculations
+
+[submodule "web_search_with_and"]
+	path = web_search_with_and
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = app-web_search_with_and
