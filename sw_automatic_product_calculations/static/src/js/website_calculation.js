@@ -1,7 +1,6 @@
 /** @odoo-module **/
 
 import publicWidget from "@web/legacy/js/public/public_widget";
-import { jsonrpc } from "@web/core/network/rpc_service";
 
 publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
     selector: ".o_sw_calc_box",
@@ -67,7 +66,7 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         const totalSurface = parseFloat(this.el.querySelector(".o_sw_calc_total_surface")?.value || "0");
 
         try {
-            const response = await jsonrpc("/sw/calculation/add_to_cart", {
+            const response = await this.rpc("/sw/calculation/add_to_cart", {
                 product_template_id: productTemplateId,
                 length,
                 width,
