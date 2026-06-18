@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_form_inherit_sw_calculation" model="ir.ui.view">
+        <field name="name">product.template.form.sw.calculation</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[field[@name='sale_ok']]" position="inside">
+                <field name="website_enable_calculator"/>
+                <field name="website_calculation_method_id" options="{'no_create_edit': True}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

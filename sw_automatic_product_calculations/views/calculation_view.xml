@@ -46,7 +46,7 @@
     <record id="action_calculation_method" model="ir.actions.act_window">
         <field name="name">Métodos de Cálculo</field>
         <field name="res_model">calculation.method</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <!-- Botón en orden de venta -->

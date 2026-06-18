@@ -2,6 +2,7 @@
 
 from odoo import models, fields, api
 import logging
+import math
 
 _logger = logging.getLogger(__name__)
 
@@ -61,6 +62,22 @@ class CalculationMethodLine(models.Model):
     def _compute_uom(self):
         for rec in self:
             rec.uom_id = rec.product_id.uom_id.id if rec.product_id else False
+
+
+class ProductTemplate(models.Model):
+    _inherit = 'product.template'
+
+    website_enable_calculator = fields.Boolean(
+        string='Habilitar cálculo en sitio web',
+        default=False,
+        help='Si está activo, este producto mostrará el bloque de cálculo automático en la web.',
+    )
+    website_calculation_method_id = fields.Many2one(
+        'calculation.method',
+        string='Método de cálculo web',
+        domain="[('active', '=', True)]",
+        help='Método fijo para cálculo en la vista del producto del sitio web.',
+    )
 
 
 class SaleOrder(models.Model):
@@ -145,7 +162,7 @@ class CalculationWizard(models.TransientModel):
             qty = line.quantity_per_unit * self.total_surface
             
             if line.quantity_type == 'integer':
-                qty = int(qty)
+                qty = math.ceil(qty)
             
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
