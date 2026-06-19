@@ -87,6 +87,16 @@ class ProductTemplate(models.Model):
         domain="[('active', '=', True)]",
         help='Métodos disponibles para que el cliente elija en el sitio web.',
     )
+    website_m2_factor = fields.Float(
+        string='Equivalencia m² (unidades por m²)',
+        default=1.0,
+        help='Cantidad de unidades del producto por cada 1 m² en el cálculo web.',
+    )
+    website_m3_factor = fields.Float(
+        string='Equivalencia m³ (unidades por m³)',
+        default=1.0,
+        help='Cantidad de unidades del producto por cada 1 m³ en el cálculo web.',
+    )
 
 
 class SaleOrder(models.Model):

@@ -6,9 +6,16 @@
         <field name="inherit_id" ref="sale.product_template_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='list_price']" position="after">
+                <label for="website_enable_calculator"/>
                 <field name="website_enable_calculator"/>
+                <label for="website_calculation_method_id"/>
                 <field name="website_calculation_method_id" options="{'no_create_edit': True}"/>
+                <label for="website_calculation_method_ids" groups="base.group_user"/>
                 <field name="website_calculation_method_ids" widget="many2many_tags" options="{'no_create_edit': True}" groups="base.group_user"/>
+                <label for="website_m2_factor"/>
+                <field name="website_m2_factor"/>
+                <label for="website_m3_factor"/>
+                <field name="website_m3_factor"/>
             </xpath>
         </field>
     </record>

@@ -74,7 +74,8 @@ class SwAutomaticCalculationController(http.Controller):
                 if featured_line.quantity_type == "integer":
                     featured_qty = float(math.ceil(featured_qty))
             else:
-                featured_qty = total_surface
+                factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
+                featured_qty = total_surface * (factor or 0.0)
 
             if featured_qty > 0:
                 computed_lines.append({
@@ -133,8 +134,9 @@ class SwAutomaticCalculationController(http.Controller):
         if not isinstance(selected_lines, list):
             return {"ok": False, "message": "Formato de líneas inválido."}
 
-        method_products = set(ctx["method"].line_ids.mapped("product_id").ids)
-        method_products.add(ctx["template"].product_variant_id.id)
+        method_products = set(ctx["method"].sudo().line_ids.mapped("product_id").ids)
+        if ctx["template"].product_variant_id:
+            method_products.add(ctx["template"].product_variant_id.id)
 
         added_lines = []
         for line in selected_lines:
@@ -153,7 +155,7 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            order._cart_update(
+            order.sudo()._cart_update(
                 product_id=product_id,
                 add_qty=qty,
                 set_qty=0,
