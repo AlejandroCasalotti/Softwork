@@ -8,8 +8,7 @@ from odoo.http import request
 
 class SwAutomaticCalculationController(http.Controller):
 
-    @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
-    def sw_calculation_add_to_cart(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, **kwargs):
+    def _resolve_context(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0):
         product_template_id = int(product_template_id or 0)
         method_id = int(method_id or 0)
         length = float(length or 0.0)
@@ -54,25 +53,14 @@ class SwAutomaticCalculationController(http.Controller):
                 return {"ok": False, "message": "Alto debe ser mayor a cero para cálculo m3 o debe informar Total."}
             total_surface = length * width * (height if method.method_type == "m3" else 1.0)
 
-        order = request.website.sale_get_order(force_create=True)
-        if not order:
-            return {"ok": False, "message": "No se pudo obtener el carrito."}
-
-        added_lines = []
-
+        computed_lines = []
         for line in method.line_ids:
             qty = (line.quantity_per_unit or 0.0) * total_surface
             if line.quantity_type == "integer":
                 qty = float(math.ceil(qty))
             if qty <= 0:
                 continue
-
-            order._cart_update(
-                product_id=line.product_id.id,
-                add_qty=qty,
-                set_qty=0,
-            )
-            added_lines.append({
+            computed_lines.append({
                 "product_id": line.product_id.id,
                 "product_name": line.product_id.display_name,
                 "qty": qty,
@@ -89,12 +77,7 @@ class SwAutomaticCalculationController(http.Controller):
                 featured_qty = total_surface
 
             if featured_qty > 0:
-                order._cart_update(
-                    product_id=featured_product.id,
-                    add_qty=featured_qty,
-                    set_qty=0,
-                )
-                added_lines.append({
+                computed_lines.append({
                     "product_id": featured_product.id,
                     "product_name": featured_product.display_name,
                     "qty": featured_qty,
@@ -102,9 +85,93 @@ class SwAutomaticCalculationController(http.Controller):
 
         return {
             "ok": True,
-            "message": "Productos agregados al carrito.",
-            "method_type": method.method_type,
+            "template": template,
+            "method": method,
             "total_surface": total_surface,
+            "computed_lines": computed_lines,
+        }
+
+    @http.route("/sw/calculation/preview", type="jsonrpc", auth="public", website=True, csrf=False)
+    def sw_calculation_preview(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, **kwargs):
+        ctx = self._resolve_context(
+            product_template_id=product_template_id,
+            method_id=method_id,
+            length=length,
+            width=width,
+            height=height,
+            total_surface=total_surface,
+        )
+        if not ctx.get("ok"):
+            return ctx
+
+        return {
+            "ok": True,
+            "message": "Cálculo realizado.",
+            "method_type": ctx["method"].method_type,
+            "total_surface": ctx["total_surface"],
+            "added_lines": ctx["computed_lines"],
+        }
+
+    @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
+    def sw_calculation_add_to_cart(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, lines=None, **kwargs):
+        ctx = self._resolve_context(
+            product_template_id=product_template_id,
+            method_id=method_id,
+            length=length,
+            width=width,
+            height=height,
+            total_surface=total_surface,
+        )
+        if not ctx.get("ok"):
+            return ctx
+
+        order = request.website.sale_get_order(force_create=True)
+        if not order:
+            return {"ok": False, "message": "No se pudo obtener el carrito."}
+
+        selected_lines = lines or ctx["computed_lines"]
+        if not isinstance(selected_lines, list):
+            return {"ok": False, "message": "Formato de líneas inválido."}
+
+        method_products = set(ctx["method"].line_ids.mapped("product_id").ids)
+        method_products.add(ctx["template"].product_variant_id.id)
+
+        added_lines = []
+        for line in selected_lines:
+            try:
+                product_id = int((line or {}).get("product_id") or 0)
+                qty = float((line or {}).get("qty") or 0.0)
+            except Exception:
+                continue
+
+            if product_id <= 0 or qty <= 0:
+                continue
+            if product_id not in method_products:
+                continue
+
+            product = request.env["product.product"].sudo().browse(product_id)
+            if not product.exists():
+                continue
+
+            order._cart_update(
+                product_id=product_id,
+                add_qty=qty,
+                set_qty=0,
+            )
+            added_lines.append({
+                "product_id": product.id,
+                "product_name": product.display_name,
+                "qty": qty,
+            })
+
+        if not added_lines:
+            return {"ok": False, "message": "No hay líneas válidas para agregar al carrito."}
+
+        return {
+            "ok": True,
+            "message": "Productos agregados al carrito.",
+            "method_type": ctx["method"].method_type,
+            "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
             "cart_quantity": order.cart_quantity,
         }
