@@ -130,6 +130,8 @@ class SwAutomaticCalculationController(http.Controller):
         if not order:
             return {"ok": False, "message": "No se pudo obtener el carrito."}
 
+        partner = request.env.user.partner_id
+
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
             return {"ok": False, "message": "Formato de líneas inválido."}
@@ -155,11 +157,22 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            request.website.sale_get_order(force_create=True)._cart_update(
-                product_id=product_id,
-                add_qty=qty,
-                set_qty=0,
-            )
+            existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
+            if existing_line:
+                existing_line.sudo().write({
+                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
+                })
+            else:
+                request.env["sale.order.line"].sudo().create({
+                    "order_id": order.id,
+                    "product_id": product_id,
+                    "product_uom_qty": qty,
+                    "name": product.display_name,
+                    "price_unit": product.lst_price,
+                    "customer_lead": 0.0,
+                    "product_uom": product.uom_id.id,
+                    "order_partner_id": partner.id,
+                })
             added_lines.append({
                 "product_id": product.id,
                 "product_name": product.display_name,
