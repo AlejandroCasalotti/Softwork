@@ -175,5 +175,5 @@ class SwAutomaticCalculationController(http.Controller):
             "method_type": ctx["method"].method_type,
             "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
-            "cart_quantity": order.cart_quantity,
+            "cart_quantity": request.website.sale_get_order().cart_quantity,
         }
