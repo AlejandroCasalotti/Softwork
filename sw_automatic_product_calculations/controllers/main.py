@@ -155,7 +155,7 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            order.sudo()._cart_update(
+            request.website.sale_get_order(force_create=True)._cart_update(
                 product_id=product_id,
                 add_qty=qty,
                 set_qty=0,
