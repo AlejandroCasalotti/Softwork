@@ -177,7 +177,8 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
             this._showResult("Productos agregados al carrito.");
             window.location.reload();
         } catch (e) {
-            this._showError("Error al comunicarse con el servidor.");
+            const debugMessage = (e && (e.message || e.toString())) || "Error desconocido.";
+            this._showError(`Error al comunicarse con el servidor. ${debugMessage}`);
         }
     },
 });
