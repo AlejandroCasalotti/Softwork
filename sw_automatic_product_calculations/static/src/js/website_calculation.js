@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import publicWidget from "@web/legacy/js/public/public_widget";
-import { jsonrpc } from "@web/core/network/rpc_service";
+import { rpc } from "@web/core/network/rpc";
 
 publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
     selector: ".o_sw_calc_box",
@@ -147,7 +147,7 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         this._clearMessages();
 
         try {
-            const response = await jsonrpc("/sw/calculation/preview", this._collectPayload());
+            const response = await rpc("/sw/calculation/preview", this._collectPayload());
             if (!response || !response.ok) {
                 this._showError((response && response.message) || "No se pudo realizar el cálculo.");
                 return;
@@ -168,7 +168,7 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         payload.lines = this._getEditedLines();
 
         try {
-            const response = await jsonrpc("/sw/calculation/add_to_cart", payload);
+            const response = await rpc("/sw/calculation/add_to_cart", payload);
             if (!response || !response.ok) {
                 this._showError((response && response.message) || "No se pudo agregar al carrito.");
                 return;
