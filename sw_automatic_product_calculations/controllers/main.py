@@ -9,8 +9,9 @@ from odoo.http import request
 class SwAutomaticCalculationController(http.Controller):
 
     @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
-    def sw_calculation_add_to_cart(self, product_template_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, **kwargs):
+    def sw_calculation_add_to_cart(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, **kwargs):
         product_template_id = int(product_template_id or 0)
+        method_id = int(method_id or 0)
         length = float(length or 0.0)
         width = float(width or 0.0)
         height = float(height or 0.0)
@@ -23,10 +24,26 @@ class SwAutomaticCalculationController(http.Controller):
         if not template.exists():
             return {"ok": False, "message": "Producto no encontrado."}
 
-        if not template.website_enable_calculator or not template.website_calculation_method_id:
+        if not template.website_enable_calculator:
             return {"ok": False, "message": "Este producto no tiene cálculo web habilitado."}
 
-        method = template.website_calculation_method_id.sudo()
+        allowed_methods = template.website_calculation_method_ids
+        if not allowed_methods and template.website_calculation_method_id:
+            allowed_methods = template.website_calculation_method_id
+
+        if not allowed_methods:
+            return {"ok": False, "message": "Este producto no tiene métodos de cálculo configurados."}
+
+        if method_id > 0:
+            method = request.env["calculation.method"].sudo().browse(method_id)
+            if not method.exists():
+                return {"ok": False, "message": "Método de cálculo no encontrado."}
+            if method not in allowed_methods:
+                return {"ok": False, "message": "El método seleccionado no está permitido para este producto."}
+        else:
+            method = allowed_methods[0]
+
+        method = method.sudo()
         if not method.active:
             return {"ok": False, "message": "El método de cálculo no está activo."}
 

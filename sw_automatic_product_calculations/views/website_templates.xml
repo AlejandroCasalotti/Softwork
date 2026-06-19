@@ -2,12 +2,23 @@
 <odoo>
     <template id="product_page_calculation_block" inherit_id="website_sale.product" name="Website Product Calculation Block">
         <xpath expr="//div[@id='product_details']//form" position="inside">
-            <t t-if="product and product.website_enable_calculator and product.website_calculation_method_id">
-                <div class="card mt-3 o_sw_calc_box" t-att-data-product-template-id="product.id" t-att-data-method-type="product.website_calculation_method_id.method_type">
+            <t t-if="product and product.website_enable_calculator and (product.website_calculation_method_ids or product.website_calculation_method_id)">
+                <t t-set="website_methods" t-value="product.website_calculation_method_ids or product.website_calculation_method_id"/>
+                <div class="card mt-3 o_sw_calc_box" t-att-data-product-template-id="product.id">
                     <div class="card-body">
                         <h5 class="card-title mb-3">Cálculo automático</h5>
 
                         <div class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label">Método de cálculo</label>
+                                <select class="form-select o_sw_calc_method">
+                                    <t t-foreach="website_methods" t-as="m">
+                                        <option t-att-value="m.id" t-att-data-method-type="m.method_type">
+                                            <t t-esc="m.name"/> (<t t-esc="m.method_type"/>)
+                                        </option>
+                                    </t>
+                                </select>
+                            </div>
                             <div class="col-3">
                                 <label class="form-label">Largo (m)</label>
                                 <input type="number" step="0.01" min="0" class="form-control o_sw_calc_length"/>

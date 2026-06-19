@@ -78,6 +78,15 @@ class ProductTemplate(models.Model):
         domain="[('active', '=', True)]",
         help='Método fijo para cálculo en la vista del producto del sitio web.',
     )
+    website_calculation_method_ids = fields.Many2many(
+        'calculation.method',
+        'product_template_calculation_method_rel',
+        'product_tmpl_id',
+        'method_id',
+        string='Métodos de cálculo web (selección cliente)',
+        domain="[('active', '=', True)]",
+        help='Métodos disponibles para que el cliente elija en el sitio web.',
+    )
 
 
 class SaleOrder(models.Model):

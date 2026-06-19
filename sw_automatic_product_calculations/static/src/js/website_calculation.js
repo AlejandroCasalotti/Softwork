@@ -1,11 +1,13 @@
 /** @odoo-module **/
 
 import publicWidget from "@web/legacy/js/public/public_widget";
+import { jsonrpc } from "@web/core/network/rpc_service";
 
 publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
     selector: ".o_sw_calc_box",
     events: {
         "click .o_sw_calc_add_to_cart": "_onClickCalculateAndAdd",
+        "change .o_sw_calc_method": "_onChangeMethod",
     },
 
     start() {
@@ -13,8 +15,21 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         return this._super(...arguments);
     },
 
+    _getSelectedMethodType() {
+        const methodSelect = this.el.querySelector(".o_sw_calc_method");
+        if (!methodSelect) {
+            return "m2";
+        }
+        const selected = methodSelect.options[methodSelect.selectedIndex];
+        return selected?.dataset?.methodType || "m2";
+    },
+
+    _onChangeMethod() {
+        this._toggleHeightVisibility();
+    },
+
     _toggleHeightVisibility() {
-        const methodType = this.el.dataset.methodType;
+        const methodType = this._getSelectedMethodType();
         const heightWrap = this.el.querySelector(".o_sw_calc_height_wrap");
         const totalLabel = this.el.querySelector(".o_sw_calc_total_label");
         if (totalLabel) {
@@ -60,14 +75,16 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         ev.preventDefault();
 
         const productTemplateId = parseInt(this.el.dataset.productTemplateId || "0", 10);
+        const methodId = parseInt(this.el.querySelector(".o_sw_calc_method")?.value || "0", 10);
         const length = parseFloat(this.el.querySelector(".o_sw_calc_length")?.value || "0");
         const width = parseFloat(this.el.querySelector(".o_sw_calc_width")?.value || "0");
         const height = parseFloat(this.el.querySelector(".o_sw_calc_height")?.value || "0");
         const totalSurface = parseFloat(this.el.querySelector(".o_sw_calc_total_surface")?.value || "0");
 
         try {
-            const response = await this.rpc("/sw/calculation/add_to_cart", {
+            const response = await jsonrpc("/sw/calculation/add_to_cart", {
                 product_template_id: productTemplateId,
+                method_id: methodId,
                 length,
                 width,
                 height,
