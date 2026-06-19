@@ -4,7 +4,6 @@ import math
 
 from odoo import http
 from odoo.http import request
-from odoo.addons.website_sale.controllers.main import WebsiteSale
 
 
 class SwAutomaticCalculationController(http.Controller):
@@ -127,7 +126,7 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = WebsiteSale().sale_get_order(force_create=True)
+        order = request.website.sale_get_order(force_create=True)
         if not order:
             return {"ok": False, "message": "No se pudo obtener el carrito."}
 
@@ -189,5 +188,5 @@ class SwAutomaticCalculationController(http.Controller):
             "method_type": ctx["method"].method_type,
             "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
-            "cart_quantity": WebsiteSale().sale_get_order().cart_quantity,
+            "cart_quantity": request.website.sale_get_order().cart_quantity,
         }
