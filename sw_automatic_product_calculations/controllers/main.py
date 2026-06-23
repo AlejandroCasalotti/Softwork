@@ -63,6 +63,7 @@ class SwAutomaticCalculationController(http.Controller):
             computed_lines.append({
                 "product_id": line.product_id.id,
                 "product_name": line.product_id.display_name,
+                "product_image_url": f"/web/image/product.product/{line.product_id.id}/image_128",
                 "qty": qty,
             })
 
@@ -81,6 +82,7 @@ class SwAutomaticCalculationController(http.Controller):
                 computed_lines.append({
                     "product_id": featured_product.id,
                     "product_name": featured_product.display_name,
+                    "product_image_url": f"/web/image/product.product/{featured_product.id}/image_128",
                     "qty": featured_qty,
                 })
 
@@ -126,33 +128,9 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        website_partner = getattr(request.website, "partner_id", False)
-        if not website_partner:
-            return {"ok": False, "message": "No se pudo resolver partner del website."}
-
-        order = request.env["sale.order"].sudo().search([
-            ("partner_id", "=", website_partner.id),
-            ("state", "=", "draft"),
-        ], limit=1)
-
-        if not order:
-            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
-            default_company = request.env.company
-            order_vals = {
-                "partner_id": website_partner.id,
-                "company_id": default_company.id,
-            }
-            if default_pricelist:
-                order_vals["pricelist_id"] = default_pricelist.id
-            if getattr(request.website, "id", False):
-                order_vals["website_id"] = request.website.id
-
-            order = request.env["sale.order"].sudo().create(order_vals)
-
+        order = request.website.sale_get_order(force_create=True)
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
-
-        partner = request.env.user.partner_id
 
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
@@ -179,25 +157,14 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
-            if existing_line:
-                existing_line.sudo().write({
-                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
-                })
-            else:
-                request.env["sale.order.line"].sudo().create({
-                    "order_id": order.id,
-                    "product_id": product_id,
-                    "product_uom_qty": qty,
-                    "name": product.display_name,
-                    "price_unit": product.lst_price,
-                    "customer_lead": 0.0,
-                    "product_uom_id": product.uom_id.id,
-                    "order_partner_id": partner.id,
-                })
+            order._cart_update(
+                product_id=product_id,
+                add_qty=qty,
+            )
             added_lines.append({
                 "product_id": product.id,
                 "product_name": product.display_name,
+                "product_image_url": f"/web/image/product.product/{product.id}/image_128",
                 "qty": qty,
             })
 

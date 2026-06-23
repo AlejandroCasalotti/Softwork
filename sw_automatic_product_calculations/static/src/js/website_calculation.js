@@ -115,8 +115,13 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>
-                    ${line.product_name}
-                    <input type="hidden" class="o_sw_line_product_id" value="${line.product_id}"/>
+                    <div class="d-flex align-items-center gap-2">
+                        <img src="${line.product_image_url || ""}" alt="${line.product_name || ""}" class="o_sw_calc_product_thumb"/>
+                        <div>
+                            ${line.product_name}
+                            <input type="hidden" class="o_sw_line_product_id" value="${line.product_id}"/>
+                        </div>
+                    </div>
                 </td>
                 <td>
                     <input type="number" step="0.01" min="0" class="form-control form-control-sm o_sw_line_qty" value="${line.qty}"/>
