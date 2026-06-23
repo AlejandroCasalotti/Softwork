@@ -126,7 +126,18 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = request.website.sale_get_order(force_create=True)
+        order = request.env["sale.order"].sudo().search([
+            ("partner_id", "=", request.website.partner_id.id),
+            ("state", "=", "draft"),
+        ], limit=1)
+
+        if not order:
+            order = request.env["sale.order"].sudo().create({
+                "partner_id": request.website.partner_id.id,
+                "website_id": request.website.id,
+                "pricelist_id": request.website.pricelist_id.id,
+                "company_id": request.website.company_id.id,
+            })
         if not order:
             return {"ok": False, "message": "No se pudo obtener el carrito."}
 
@@ -188,5 +199,5 @@ class SwAutomaticCalculationController(http.Controller):
             "method_type": ctx["method"].method_type,
             "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
-            "cart_quantity": request.website.sale_get_order().cart_quantity,
+            "cart_quantity": order.cart_quantity,
         }
