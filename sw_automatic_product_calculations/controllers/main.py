@@ -128,7 +128,28 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = request.website.sale_get_order(force_create=True)
+        order = request.env["sale.order"].sudo().search([
+            ("partner_id", "=", request.website.partner_id.id),
+            ("state", "=", "draft"),
+            ("website_id", "=", request.website.id),
+        ], limit=1)
+
+        if not order:
+            website_partner = request.website.partner_id
+            if not website_partner:
+                return {"ok": False, "message": "No se pudo resolver partner del website."}
+
+            default_pricelist = request.website.pricelist_id or request.env["product.pricelist"].sudo().search([], limit=1)
+            order_vals = {
+                "partner_id": website_partner.id,
+                "company_id": request.website.company_id.id or request.env.company.id,
+                "website_id": request.website.id,
+            }
+            if default_pricelist:
+                order_vals["pricelist_id"] = default_pricelist.id
+
+            order = request.env["sale.order"].sudo().create(order_vals)
+
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
 
@@ -157,10 +178,23 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            order._cart_update(
-                product_id=product_id,
-                add_qty=qty,
-            )
+            existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
+            if existing_line:
+                existing_line.sudo().write({
+                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
+                })
+            else:
+                request.env["sale.order.line"].sudo().create({
+                    "order_id": order.id,
+                    "product_id": product_id,
+                    "product_uom_qty": qty,
+                    "name": product.display_name,
+                    "price_unit": product.lst_price,
+                    "customer_lead": 0.0,
+                    "product_uom_id": product.uom_id.id,
+                    "order_partner_id": order.partner_id.id,
+                })
+
             added_lines.append({
                 "product_id": product.id,
                 "product_name": product.display_name,
