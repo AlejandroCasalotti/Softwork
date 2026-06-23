@@ -198,7 +198,7 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
                 });
             }
 
-            window.location.href = "/shop/cart";
+            // Mantener al usuario en la misma página para que vea el mensaje de agregado.
         } catch (e) {
             const debugMessage = (e && (e.message || e.toString())) || "Error desconocido.";
             this._showError(`Error al comunicarse con el servidor. ${debugMessage}`);

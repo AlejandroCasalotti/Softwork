@@ -156,8 +156,6 @@ class SwAutomaticCalculationController(http.Controller):
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
 
-        request.session["sale_order_id"] = order.id
-
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
             return {"ok": False, "message": "Formato de líneas inválido."}
@@ -210,7 +208,6 @@ class SwAutomaticCalculationController(http.Controller):
         if not added_lines:
             return {"ok": False, "message": "No hay líneas válidas para agregar al carrito."}
 
-        request.session["sale_order_id"] = order.id
         request.session["website_sale_cart_quantity"] = order.cart_quantity
 
         return {
