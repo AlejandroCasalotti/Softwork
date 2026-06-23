@@ -130,9 +130,41 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = request.website.sale_get_order(force_create=True)
+        order = None
+        sale_order_id = request.session.get("sale_order_id")
+        if sale_order_id:
+            order = request.env["sale.order"].sudo().browse(sale_order_id)
+            if not order.exists() or order.state != "draft":
+                order = None
+
+        if not order:
+            order = request.env["sale.order"].sudo().search([
+                ("partner_id", "=", request.website.partner_id.id),
+                ("state", "=", "draft"),
+                ("website_id", "=", request.website.id),
+            ], limit=1)
+
+        if not order:
+            website_partner = request.website.partner_id
+            if not website_partner:
+                return {"ok": False, "message": "No se pudo resolver partner del website."}
+
+            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
+            order_vals = {
+                "partner_id": website_partner.id,
+                "company_id": request.env.company.id,
+            }
+            if getattr(request.website, "id", False):
+                order_vals["website_id"] = request.website.id
+            if default_pricelist:
+                order_vals["pricelist_id"] = default_pricelist.id
+
+            order = request.env["sale.order"].sudo().create(order_vals)
+
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
+
+        request.session["sale_order_id"] = order.id
 
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
