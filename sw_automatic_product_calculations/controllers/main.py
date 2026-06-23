@@ -4,9 +4,10 @@ import math
 
 from odoo import http
 from odoo.http import request
+from odoo.addons.website_sale.controllers.main import WebsiteSale
 
 
-class SwAutomaticCalculationController(http.Controller):
+class SwAutomaticCalculationController(WebsiteSale):
 
     def _resolve_context(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0):
         product_template_id = int(product_template_id or 0)
@@ -128,29 +129,7 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = request.env["sale.order"].sudo().search([
-            ("partner_id", "=", request.website.partner_id.id),
-            ("state", "=", "draft"),
-            ("website_id", "=", request.website.id),
-        ], limit=1)
-
-        if not order:
-            website_partner = request.website.partner_id
-            if not website_partner:
-                return {"ok": False, "message": "No se pudo resolver partner del website."}
-
-            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
-            order_vals = {
-                "partner_id": website_partner.id,
-                "company_id": request.env.company.id,
-            }
-            if getattr(request.website, "id", False):
-                order_vals["website_id"] = request.website.id
-            if default_pricelist:
-                order_vals["pricelist_id"] = default_pricelist.id
-
-            order = request.env["sale.order"].sudo().create(order_vals)
-
+        order = self.sale_get_order(force_create=True)
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
 
@@ -179,22 +158,7 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
-            if existing_line:
-                existing_line.sudo().write({
-                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
-                })
-            else:
-                request.env["sale.order.line"].sudo().create({
-                    "order_id": order.id,
-                    "product_id": product_id,
-                    "product_uom_qty": qty,
-                    "name": product.display_name,
-                    "price_unit": product.lst_price,
-                    "customer_lead": 0.0,
-                    "product_uom_id": product.uom_id.id,
-                    "order_partner_id": order.partner_id.id,
-                })
+            order._cart_update(product_id=product_id, add_qty=qty)
 
             added_lines.append({
                 "product_id": product.id,
