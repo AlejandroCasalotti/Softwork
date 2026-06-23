@@ -97,6 +97,10 @@ class ProductTemplate(models.Model):
         default=1.0,
         help='Cantidad de unidades del producto por cada 1 m³ en el cálculo web.',
     )
+    website_featured_qty_type = fields.Selection([
+        ('integer', 'Entero'),
+        ('fractional', 'Fracción'),
+    ], string='Tipo cantidad producto destacado', default='fractional')
 
 
 class SaleOrder(models.Model):

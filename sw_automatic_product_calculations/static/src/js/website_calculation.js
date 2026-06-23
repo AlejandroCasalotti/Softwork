@@ -180,7 +180,25 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
             }
 
             this._showResult("Productos agregados al carrito.");
-            window.location.reload();
+
+            if (response.cart_quantity !== undefined) {
+                const cartQty = parseInt(response.cart_quantity, 10) || 0;
+                const cartBadge = document.querySelector(".my_cart_quantity");
+                if (cartBadge) {
+                    cartBadge.textContent = cartQty;
+                    cartBadge.classList.toggle("d-none", cartQty <= 0);
+                }
+            }
+
+            if (this.displayNotification) {
+                this.displayNotification({
+                    type: "success",
+                    title: "Carrito",
+                    message: "El producto se ha añadido al carrito.",
+                });
+            }
+
+            window.location.href = "/shop/cart";
         } catch (e) {
             const debugMessage = (e && (e.message || e.toString())) || "Error desconocido.";
             this._showError(`Error al comunicarse con el servidor. ${debugMessage}`);

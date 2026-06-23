@@ -77,6 +77,8 @@ class SwAutomaticCalculationController(http.Controller):
             else:
                 factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
                 featured_qty = total_surface * (factor or 0.0)
+                if template.website_featured_qty_type == "integer":
+                    featured_qty = float(math.ceil(featured_qty))
 
             if featured_qty > 0:
                 computed_lines.append({
