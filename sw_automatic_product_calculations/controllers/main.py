@@ -192,7 +192,7 @@ class SwAutomaticCalculationController(http.Controller):
                     "name": product.display_name,
                     "price_unit": product.lst_price,
                     "customer_lead": 0.0,
-                    "product_uom": product.uom_id.id,
+                    "product_uom_id": product.uom_id.id,
                     "order_partner_id": partner.id,
                 })
             added_lines.append({
