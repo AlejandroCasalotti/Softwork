@@ -139,12 +139,13 @@ class SwAutomaticCalculationController(http.Controller):
             if not website_partner:
                 return {"ok": False, "message": "No se pudo resolver partner del website."}
 
-            default_pricelist = request.website.pricelist_id or request.env["product.pricelist"].sudo().search([], limit=1)
+            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
             order_vals = {
                 "partner_id": website_partner.id,
-                "company_id": request.website.company_id.id or request.env.company.id,
-                "website_id": request.website.id,
+                "company_id": request.env.company.id,
             }
+            if getattr(request.website, "id", False):
+                order_vals["website_id"] = request.website.id
             if default_pricelist:
                 order_vals["pricelist_id"] = default_pricelist.id
 
