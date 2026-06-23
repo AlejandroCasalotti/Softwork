@@ -126,20 +126,31 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
+        website_partner = getattr(request.website, "partner_id", False)
+        if not website_partner:
+            return {"ok": False, "message": "No se pudo resolver partner del website."}
+
         order = request.env["sale.order"].sudo().search([
-            ("partner_id", "=", request.website.partner_id.id),
+            ("partner_id", "=", website_partner.id),
             ("state", "=", "draft"),
         ], limit=1)
 
         if not order:
-            order = request.env["sale.order"].sudo().create({
-                "partner_id": request.website.partner_id.id,
-                "website_id": request.website.id,
-                "pricelist_id": request.website.pricelist_id.id,
-                "company_id": request.website.company_id.id,
-            })
+            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
+            default_company = request.env.company
+            order_vals = {
+                "partner_id": website_partner.id,
+                "company_id": default_company.id,
+            }
+            if default_pricelist:
+                order_vals["pricelist_id"] = default_pricelist.id
+            if getattr(request.website, "id", False):
+                order_vals["website_id"] = request.website.id
+
+            order = request.env["sale.order"].sudo().create(order_vals)
+
         if not order:
-            return {"ok": False, "message": "No se pudo obtener el carrito."}
+            return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
 
         partner = request.env.user.partner_id
 
