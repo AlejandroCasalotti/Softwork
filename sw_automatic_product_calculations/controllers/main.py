@@ -130,33 +130,9 @@ class SwAutomaticCalculationController(http.Controller):
         if not ctx.get("ok"):
             return ctx
 
-        order = request.env["sale.order"].sudo().search([
-            ("partner_id", "=", request.website.partner_id.id),
-            ("state", "=", "draft"),
-            ("website_id", "=", request.website.id),
-        ], limit=1)
-
-        if not order:
-            website_partner = request.website.partner_id
-            if not website_partner:
-                return {"ok": False, "message": "No se pudo resolver partner del website."}
-
-            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
-            order_vals = {
-                "partner_id": website_partner.id,
-                "company_id": request.env.company.id,
-            }
-            if getattr(request.website, "id", False):
-                order_vals["website_id"] = request.website.id
-            if default_pricelist:
-                order_vals["pricelist_id"] = default_pricelist.id
-
-            order = request.env["sale.order"].sudo().create(order_vals)
-
+        order = request.website.sale_get_order(force_create=True)
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
-
-        request.session["sale_order_id"] = order.id
 
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
@@ -210,7 +186,6 @@ class SwAutomaticCalculationController(http.Controller):
         if not added_lines:
             return {"ok": False, "message": "No hay líneas válidas para agregar al carrito."}
 
-        request.session["sale_order_id"] = order.id
         request.session["website_sale_cart_quantity"] = order.cart_quantity
 
         return {
