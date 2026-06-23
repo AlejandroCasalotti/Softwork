@@ -6,7 +6,6 @@ from odoo import http
 from odoo.http import request
 
 
-
 class SwAutomaticCalculationController(http.Controller):
 
     def _resolve_context(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0):
@@ -78,6 +77,8 @@ class SwAutomaticCalculationController(http.Controller):
             else:
                 factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
                 featured_qty = total_surface * (factor or 0.0)
+                if template.website_featured_qty_type == "integer":
+                    featured_qty = float(math.ceil(featured_qty))
 
             if featured_qty > 0:
                 computed_lines.append({
@@ -116,7 +117,16 @@ class SwAutomaticCalculationController(http.Controller):
             "added_lines": ctx["computed_lines"],
         }
 
-@@ -129,57 +128,94 @@
+    @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
+    def sw_calculation_add_to_cart(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, lines=None, **kwargs):
+        ctx = self._resolve_context(
+            product_template_id=product_template_id,
+            method_id=method_id,
+            length=length,
+            width=width,
+            height=height,
+            total_surface=total_surface,
+        )
         if not ctx.get("ok"):
             return ctx
 
