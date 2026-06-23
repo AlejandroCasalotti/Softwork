@@ -6,6 +6,7 @@ from odoo import http
 from odoo.http import request
 
 
+
 class SwAutomaticCalculationController(http.Controller):
 
     def _resolve_context(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0):
@@ -77,8 +78,6 @@ class SwAutomaticCalculationController(http.Controller):
             else:
                 factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
                 featured_qty = total_surface * (factor or 0.0)
-                if template.website_featured_qty_type == "integer":
-                    featured_qty = float(math.ceil(featured_qty))
 
             if featured_qty > 0:
                 computed_lines.append({
@@ -117,22 +116,37 @@ class SwAutomaticCalculationController(http.Controller):
             "added_lines": ctx["computed_lines"],
         }
 
-    @http.route("/sw/calculation/add_to_cart", type="jsonrpc", auth="public", website=True, csrf=False)
-    def sw_calculation_add_to_cart(self, product_template_id=None, method_id=None, length=0.0, width=0.0, height=0.0, total_surface=0.0, lines=None, **kwargs):
-        ctx = self._resolve_context(
-            product_template_id=product_template_id,
-            method_id=method_id,
-            length=length,
-            width=width,
-            height=height,
-            total_surface=total_surface,
-        )
+@@ -129,57 +128,94 @@
         if not ctx.get("ok"):
             return ctx
 
-        order = request.website.sale_get_order(force_create=True)
+        order = request.env["sale.order"].sudo().search([
+            ("partner_id", "=", request.website.partner_id.id),
+            ("state", "=", "draft"),
+            ("website_id", "=", request.website.id),
+        ], limit=1)
+
+        if not order:
+            website_partner = request.website.partner_id
+            if not website_partner:
+                return {"ok": False, "message": "No se pudo resolver partner del website."}
+
+            default_pricelist = request.env["product.pricelist"].sudo().search([], limit=1)
+            order_vals = {
+                "partner_id": website_partner.id,
+                "company_id": request.env.company.id,
+            }
+            if getattr(request.website, "id", False):
+                order_vals["website_id"] = request.website.id
+            if default_pricelist:
+                order_vals["pricelist_id"] = default_pricelist.id
+
+            order = request.env["sale.order"].sudo().create(order_vals)
+
         if not order:
             return {"ok": False, "message": "No se pudo obtener/crear el carrito."}
+
+        request.session["sale_order_id"] = order.id
 
         selected_lines = lines or ctx["computed_lines"]
         if not isinstance(selected_lines, list):
@@ -143,7 +157,6 @@ class SwAutomaticCalculationController(http.Controller):
             method_products.add(ctx["template"].product_variant_id.id)
 
         added_lines = []
-        should_show_product_configurator = False
         for line in selected_lines:
             try:
                 product_id = int((line or {}).get("product_id") or 0)
@@ -160,31 +173,34 @@ class SwAutomaticCalculationController(http.Controller):
             if not product.exists():
                 continue
 
-            order._cart_update(
-                product_id=product.id,
-                add_qty=qty,
-            )
-
-            if hasattr(product, "_is_add_to_cart_possible"):
-                add_to_cart_possible = bool(product._is_add_to_cart_possible())
+            existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
+            if existing_line:
+                existing_line.sudo().write({
+                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
+                })
             else:
-                add_to_cart_possible = True
-            if hasattr(product, "_should_show_product_configurator"):
-                should_show_product_configurator = should_show_product_configurator or bool(product._should_show_product_configurator())
-            elif not add_to_cart_possible:
-                should_show_product_configurator = True
+                request.env["sale.order.line"].sudo().create({
+                    "order_id": order.id,
+                    "product_id": product_id,
+                    "product_uom_qty": qty,
+                    "name": product.display_name,
+                    "price_unit": product.lst_price,
+                    "customer_lead": 0.0,
+                    "product_uom_id": product.uom_id.id,
+                    "order_partner_id": order.partner_id.id,
+                })
 
             added_lines.append({
                 "product_id": product.id,
                 "product_name": product.display_name,
                 "product_image_url": f"/web/image/product.product/{product.id}/image_128",
                 "qty": qty,
-                "is_add_to_cart_possible": add_to_cart_possible,
             })
 
         if not added_lines:
             return {"ok": False, "message": "No hay líneas válidas para agregar al carrito."}
 
+        request.session["sale_order_id"] = order.id
         request.session["website_sale_cart_quantity"] = order.cart_quantity
 
         return {
@@ -194,10 +210,4 @@ class SwAutomaticCalculationController(http.Controller):
             "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
             "cart_quantity": order.cart_quantity,
-            "notification_info": {
-                "title": "Producto añadido al carrito",
-                "message": "Los productos calculados se agregaron correctamente.",
-                "warning": "",
-            },
-            "should_show_product_configurator": should_show_product_configurator,
         }
