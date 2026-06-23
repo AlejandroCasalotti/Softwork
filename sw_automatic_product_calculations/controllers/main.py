@@ -159,6 +159,8 @@ class SwAutomaticCalculationController(WebsiteSale):
                 continue
 
             order._cart_update(product_id=product_id, add_qty=qty)
+            request.session["sale_order_id"] = order.id
+            request.session["website_sale_cart_quantity"] = order.cart_quantity
 
             added_lines.append({
                 "product_id": product.id,
@@ -170,11 +172,14 @@ class SwAutomaticCalculationController(WebsiteSale):
         if not added_lines:
             return {"ok": False, "message": "No hay líneas válidas para agregar al carrito."}
 
+        order = self.sale_get_order()
+        cart_qty = order.cart_quantity if order else 0
+
         return {
             "ok": True,
             "message": "Productos agregados al carrito.",
             "method_type": ctx["method"].method_type,
             "total_surface": ctx["total_surface"],
             "added_lines": added_lines,
-            "cart_quantity": order.cart_quantity,
+            "cart_quantity": cart_qty,
         }
