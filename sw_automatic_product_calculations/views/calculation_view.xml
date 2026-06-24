@@ -33,6 +33,7 @@
                                 <field name="product_id"/>
                                 <field name="quantity_per_unit"/>
                                 <field name="quantity_type"/>
+                                <field name="packaging_equivalent"/>
                                 <field name="uom_id" readonly="1" force_save="1"/>
                             </list>
                         </field>

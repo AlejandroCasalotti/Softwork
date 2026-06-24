@@ -56,8 +56,7 @@ class SwAutomaticCalculationController(http.Controller):
         computed_lines = []
         for line in method.line_ids:
             qty = (line.quantity_per_unit or 0.0) * total_surface
-            if line.quantity_type == "integer":
-                qty = float(math.ceil(qty))
+            qty = line._apply_rounding_by_type(qty)
             if qty <= 0:
                 continue
             computed_lines.append({
@@ -77,8 +76,7 @@ class SwAutomaticCalculationController(http.Controller):
             else:
                 factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
                 featured_qty = total_surface * (factor or 0.0)
-                if template.website_featured_qty_type == "integer":
-                    featured_qty = float(math.ceil(featured_qty))
+                featured_qty = template._apply_featured_rounding(featured_qty)
 
             if featured_qty > 0:
                 computed_lines.append({

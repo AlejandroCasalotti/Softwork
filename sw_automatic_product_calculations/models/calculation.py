@@ -28,6 +28,16 @@ class CalculationMethodLine(models.Model):
     _name = 'calculation.method.line'
     _description = 'Línea de Método de Cálculo'
 
+    def _apply_rounding_by_type(self, qty):
+        self.ensure_one()
+        qty = float(qty or 0.0)
+        if self.quantity_type != 'integer':
+            return qty
+        packaging = float(self.packaging_equivalent or 0.0)
+        if packaging > 0:
+            return float(math.ceil(qty / packaging) * packaging)
+        return float(math.ceil(qty))
+
     method_id = fields.Many2one(
         'calculation.method',
         string='Método',
@@ -49,6 +59,11 @@ class CalculationMethodLine(models.Model):
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
+    packaging_equivalent = fields.Float(
+        string='Equivalente a embalaje',
+        default=0.0,
+        help='Si Tipo cantidad es Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
+    )
     
     uom_id = fields.Many2one(
         'uom.uom',
@@ -101,6 +116,21 @@ class ProductTemplate(models.Model):
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad producto destacado', default='fractional')
+    website_packaging_equivalent = fields.Float(
+        string='Equivalente a embalaje',
+        default=0.0,
+        help='Para producto destacado web: si Tipo cantidad = Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
+    )
+
+    def _apply_featured_rounding(self, qty):
+        self.ensure_one()
+        qty = float(qty or 0.0)
+        if self.website_featured_qty_type != 'integer':
+            return qty
+        packaging = float(self.website_packaging_equivalent or 0.0)
+        if packaging > 0:
+            return float(math.ceil(qty / packaging) * packaging)
+        return float(math.ceil(qty))
 
 
 class SaleOrder(models.Model):
@@ -183,9 +213,7 @@ class CalculationWizard(models.TransientModel):
         # Agregar productos del método
         for line in self.method_id.line_ids:
             qty = line.quantity_per_unit * self.total_surface
-            
-            if line.quantity_type == 'integer':
-                qty = math.ceil(qty)
+            qty = line._apply_rounding_by_type(qty)
             
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,

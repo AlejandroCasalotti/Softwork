@@ -17,6 +17,7 @@
                             <field name="website_m2_factor"/>
                             <field name="website_m3_factor"/>
                             <field name="website_featured_qty_type"/>
+                            <field name="website_packaging_equivalent"/>
                         </group>
                     </group>
                 </page>
