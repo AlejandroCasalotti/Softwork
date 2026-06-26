@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_sw_softwork_libre_root" name="Softwork Libre" sequence="80"/>
+
+    <menuitem
+        id="menu_sw_softwork_libre_accounts"
+        name="Cuentas MercadoLibre"
+        parent="menu_sw_softwork_libre_root"
+        action="action_sw_ml_account"
+        sequence="10"/>
+
+    <record id="action_sw_ml_import_orders" model="ir.actions.server">
+        <field name="name">Importar órdenes MercadoLibre</field>
+        <field name="model_id" ref="sale.model_sale_order"/>
+        <field name="state">code</field>
+        <field name="code">model.action_ml_import_orders()</field>
+    </record>
+
+    <menuitem
+        id="menu_sw_softwork_libre_import_orders"
+        name="Importar Órdenes"
+        parent="menu_sw_softwork_libre_root"
+        action="action_sw_ml_import_orders"
+        sequence="20"/>
+</odoo>
