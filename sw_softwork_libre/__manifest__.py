@@ -22,11 +22,11 @@ Módulo base para sincronización con MercadoLibre:
     ],
     "data": [
         "security/ir.model.access.csv",
-        "data/ir_cron.xml",
         "views/ml_account_views.xml",
         "views/product_views.xml",
         "views/menu_views.xml",
     ],
+    'license': 'AGPL-3',
     "installable": True,
     "application": True,
 }
