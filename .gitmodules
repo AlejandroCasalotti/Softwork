@@ -22,3 +22,8 @@
 	path = web_search_with_and
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = app-web_search_with_and
+
+[submodule "sw_automatic_calculation_sale_web"]
+	path = sw_automatic_calculation_sale_web
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_automatic_calcuation_sale_web
