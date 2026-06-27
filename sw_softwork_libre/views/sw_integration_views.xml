@@ -21,8 +21,11 @@
         <field name="arch" type="xml">
             <form string="Integración">
                 <header>
+                    <button name="action_meli_authorize" type="object" string="Autorizar" class="btn-primary" invisible="integration_type_id != 'meli' or meli_auth_code"/>
+                    <button name="action_meli_exchange_code" type="object" string="Intercambiar Código" class="btn-primary" invisible="integration_type_id != 'meli' or not meli_auth_code"/>
+                    <button name="test_and_confirm" type="object" string="Testear y Confirmar" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_meli_clear_data" type="object" string="Borrar datos ML" invisible="state != 'draft' or integration_type_id != 'meli'"/>
                     <button name="action_set_draft" type="object" string="Volver a Borrador" invisible="state == 'draft'"/>
-                    <button name="action_confirm" type="object" string="Confirmar" class="btn-primary" invisible="state == 'confirmed'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
                 </header>
                 <sheet>
@@ -61,9 +64,11 @@
                                     <label for="meli_account_id" invisible="not is_odoo_meli"/>
                                     <div invisible="not is_odoo_meli" class="d-flex align-items-center gap-1">
                                         <field name="meli_account_id" readonly="state == 'confirmed'" class="oe_inline" options="{'no_create': True}"/>
-                                        <button name="action_edit_meli_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not meli_account_id" class="oe_inline btn btn-link"/>
-                                        <button name="action_meli_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or not meli_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_edit_meli_account" icon="fa-pencil-square-o" title="Editar Cuenta ML" type="object" string="Editar Cuenta ML" class="oe_inline btn btn-link"/>
                                     </div>
+                                    <field name="meli_auth_code" invisible="not is_odoo_meli"/>
+                                    <field name="meli_access_token" invisible="not is_odoo_meli" password="True" readonly="1"/>
+                                    <field name="meli_user_id" invisible="not is_odoo_meli" readonly="1"/>
 
                                     <label for="odoo_account_id"/>
                                     <div class="d-flex align-items-center gap-1">
