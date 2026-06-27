@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sw_integration_tree" model="ir.ui.view">
+        <field name="name">sw.integration.tree</field>
+        <field name="model">sw.integration</field>
+        <field name="arch" type="xml">
+            <list string="Integraciones">
+                <field name="name"/>
+                <field name="integration_type_id"/>
+                <field name="state"/>
+                <field name="sync_orders"/>
+                <field name="sync_stock"/>
+                <field name="sync_prices"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sw_integration_form" model="ir.ui.view">
+        <field name="name">sw.integration.form</field>
+        <field name="model">sw.integration</field>
+        <field name="arch" type="xml">
+            <form string="Integración">
+                <header>
+                    <button name="action_set_draft" type="object" string="Volver a Borrador" invisible="state == 'draft'"/>
+                    <button name="action_confirm" type="object" string="Confirmar" class="btn-primary" invisible="state == 'confirmed'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="integration_type_id" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="country_id" invisible="not is_odoo_tiendanube" readonly="state == 'confirmed'" required="is_odoo_tiendanube"/>
+                        </group>
+                    </group>
+
+                    <div name="integration_params" invisible="not integration_type_id">
+                        <group invisible="is_odoo_odoo" col="1">
+                            <field name="ecommerce_account_set" invisible="1"/>
+
+                            <div name="sep_accounts" class="o_horizontal_separator mt-4 mb-3 d-flex gap-2">
+                                <div class="text-uppercase fw-bolder small">Cuentas</div>
+                            </div>
+
+                            <group>
+                                <group colspan="8">
+                                    <label for="shopify_account_id" invisible="not is_odoo_shopify"/>
+                                    <div invisible="not is_odoo_shopify" class="d-flex align-items-center gap-1">
+                                        <field name="shopify_account_id" readonly="state == 'confirmed'" class="oe_inline"/>
+                                        <button name="action_edit_shopify_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not shopify_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_shopify_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or shopify_account_id" class="oe_inline btn btn-link"/>
+                                    </div>
+
+                                    <label for="tiendanube_account_id" invisible="not is_odoo_tiendanube"/>
+                                    <div invisible="not is_odoo_tiendanube" class="d-flex align-items-center gap-1">
+                                        <field name="tiendanube_account_id" readonly="state == 'confirmed'" class="oe_inline"/>
+                                        <button name="action_edit_tiendanube_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not tiendanube_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_tiendanube_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or tiendanube_account_id" class="oe_inline btn btn-link"/>
+                                    </div>
+
+                                    <label for="meli_account_id" invisible="not is_odoo_meli"/>
+                                    <div invisible="not is_odoo_meli" class="d-flex align-items-center gap-1">
+                                        <field name="meli_account_id" readonly="state == 'confirmed'" class="oe_inline"/>
+                                        <button name="action_edit_meli_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not meli_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_meli_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or meli_account_id" class="oe_inline btn btn-link"/>
+                                    </div>
+
+                                    <label for="odoo_account_id"/>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <field name="odoo_account_id" readonly="state == 'confirmed'" class="oe_inline"/>
+                                        <button name="action_edit_odoo_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not odoo_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_add_odoo_account" icon="fa-plus" title="Nuevo" type="object" string="Nuevo" invisible="state != 'draft' or odoo_account_id" class="oe_inline btn btn-link"/>
+                                    </div>
+                                </group>
+                            </group>
+
+                            <div name="sep_link_products" class="o_horizontal_separator mt-4 mb-3 d-flex gap-2" invisible="not ecommerce_account_set">
+                                <div class="text-uppercase fw-bolder small">Vinculación Producto - Publicación</div>
+                            </div>
+                            <group invisible="not ecommerce_account_set">
+                                <group>
+                                    <field name="odoo_match_field" required="not is_odoo_odoo"/>
+                                    <field name="exclude_products_domain" readonly="state == 'confirmed'"/>
+                                </group>
+                            </group>
+
+                            <div name="sep_sales" class="o_horizontal_separator mt-4 mb-3" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-uppercase fw-bolder small">Sincronización de Ventas</div>
+                                </div>
+                            </div>
+                            <group name="sync_orders_group" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <group name="sync_orders_main">
+                                    <label for="sync_orders"/>
+                                    <div>
+                                        <field name="sync_orders" class="oe_inline" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                        <button type="object" icon="fa-arrow-right" title="Sync" string="Sync" class="oe_inline oe_link" name="action_sync_orders" invisible="not sync_orders or state == 'draft'"/>
+                                    </div>
+                                    <field name="sync_full_sales" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="sync_only_paid_orders" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="last_sync_start" invisible="not sync_orders" readonly="1"/>
+                                    <field name="last_sync" invisible="not sync_orders" readonly="1"/>
+                                </group>
+                            </group>
+
+                            <div name="sep_stock" class="o_horizontal_separator mt-4 mb-3" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-uppercase fw-bolder small">Sincronización de Stock</div>
+                                </div>
+                            </div>
+                            <group name="sync_stock_group" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <group>
+                                    <label for="sync_stock"/>
+                                    <div>
+                                        <field name="sync_stock" class="oe_inline" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                        <button type="object" icon="fa-arrow-right" title="Sync" string="Sync" class="oe_inline oe_link" name="action_sync_stock" invisible="not sync_stock or state == 'draft'"/>
+                                    </div>
+                                </group>
+                            </group>
+
+                            <div name="sep_prices" class="o_horizontal_separator mt-4 mb-3" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-uppercase fw-bolder small">Sincronización de Precios</div>
+                                </div>
+                            </div>
+                            <group name="sync_prices_group" invisible="not ecommerce_account_set or not odoo_match_field">
+                                <group>
+                                    <label for="sync_prices"/>
+                                    <div>
+                                        <field name="sync_prices" class="oe_inline" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                        <button type="object" icon="fa-arrow-right" string="Sync" title="Sync" class="oe_inline oe_link" name="action_sync_prices" invisible="not sync_prices or state == 'draft'"/>
+                                    </div>
+                                    <field name="last_cron_execution" readonly="1"/>
+                                    <field name="cron_nextcall" readonly="1"/>
+                                </group>
+                            </group>
+                        </group>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sw_integration" model="ir.actions.act_window">
+        <field name="name">Integraciones</field>
+        <field name="res_model">sw.integration</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
