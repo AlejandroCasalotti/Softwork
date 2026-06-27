@@ -60,9 +60,9 @@
 
                                     <label for="meli_account_id" invisible="not is_odoo_meli"/>
                                     <div invisible="not is_odoo_meli" class="d-flex align-items-center gap-1">
-                                        <field name="meli_account_id" readonly="state == 'confirmed'" class="oe_inline"/>
+                                        <field name="meli_account_id" readonly="state == 'confirmed'" class="oe_inline" options="{'no_create': True}"/>
                                         <button name="action_edit_meli_account" icon="fa-pencil-square-o" title="Editar" type="object" string="Editar" invisible="not meli_account_id" class="oe_inline btn btn-link"/>
-                                        <button name="action_meli_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or meli_account_id" class="oe_inline btn btn-link"/>
+                                        <button name="action_meli_authorize" icon="fa-exchange" title="Conectar" type="object" string="Conectar" invisible="state != 'draft' or not meli_account_id" class="oe_inline btn btn-link"/>
                                     </div>
 
                                     <label for="odoo_account_id"/>
@@ -115,6 +115,7 @@
                                         <field name="sync_stock" class="oe_inline" readonly="state == 'confirmed'" widget="boolean_toggle"/>
                                         <button type="object" icon="fa-arrow-right" title="Sync" string="Sync" class="oe_inline oe_link" name="action_sync_stock" invisible="not sync_stock or state == 'draft'"/>
                                     </div>
+                                    <field name="odoo_stock_location_id" invisible="not is_odoo_meli or not sync_stock" readonly="state == 'confirmed'"/>
                                 </group>
                             </group>
 

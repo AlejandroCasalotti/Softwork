@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class SwIntegration(models.Model):
@@ -35,8 +40,10 @@ class SwIntegration(models.Model):
 
     shopify_account_id = fields.Char(string="Cuenta Shopify")
     tiendanube_account_id = fields.Char(string="Cuenta Tiendanube")
-    meli_account_id = fields.Char(string="Cuenta MercadoLibre")
+    meli_account_id = fields.Many2one("sw.ml.account", string="Cuenta MercadoLibre")
     odoo_account_id = fields.Char(string="Cuenta Odoo")
+
+    odoo_stock_location_id = fields.Many2one("stock.location", string="Ubicación de Stock Odoo")
 
     odoo_match_field = fields.Selection(
         [
@@ -45,6 +52,7 @@ class SwIntegration(models.Model):
             ("id", "ID de Odoo"),
         ],
         string="Campo de Vinculación",
+        default="default_code",
     )
     exclude_products_domain = fields.Char(string="Dominio Exclusión Productos")
 
@@ -77,6 +85,24 @@ class SwIntegration(models.Model):
                 or rec.odoo_account_id
             )
 
+    def _validate_meli_ready(self):
+        self.ensure_one()
+        if self.integration_type_id != "meli":
+            raise UserError("Esta acción solo está disponible para integraciones MercadoLibre.")
+        if not self.meli_account_id:
+            raise UserError("Debes configurar una Cuenta MercadoLibre en la integración.")
+        if not self.meli_account_id.access_token:
+            raise UserError("La Cuenta MercadoLibre no tiene Access Token. Autorizá la cuenta primero.")
+
+    def _touch_sync_start(self):
+        self.write({"last_sync_start": fields.Datetime.now()})
+
+    def _touch_sync_end(self):
+        self.write({
+            "last_sync": fields.Datetime.now(),
+            "last_cron_execution": fields.Datetime.now(),
+        })
+
     def action_confirm(self):
         for rec in self:
             rec.state = "confirmed"
@@ -87,20 +113,57 @@ class SwIntegration(models.Model):
             rec.state = "draft"
         return True
 
-    def _touch_sync(self):
-        self.write({"last_sync_start": fields.Datetime.now(), "last_sync": fields.Datetime.now()})
-
     def action_sync_orders(self):
-        self._touch_sync()
+        for rec in self:
+            rec._validate_meli_ready()
+            rec._touch_sync_start()
+            metrics = rec.env["sale.order"].action_ml_import_orders(
+                account=rec.meli_account_id,
+                integration=rec,
+            )
+            rec._touch_sync_end()
+            _logger.info("Integración %s - sync orders: %s", rec.display_name, metrics)
         return True
 
     def action_sync_stock(self):
-        self._touch_sync()
+        for rec in self:
+            rec._validate_meli_ready()
+            rec._touch_sync_start()
+            metrics = rec.env["product.template"].action_ml_sync_price_stock(
+                account=rec.meli_account_id,
+                integration=rec,
+                mode="stock",
+            )
+            rec._touch_sync_end()
+            _logger.info("Integración %s - sync stock: %s", rec.display_name, metrics)
         return True
 
     def action_sync_prices(self):
-        self._touch_sync()
+        for rec in self:
+            rec._validate_meli_ready()
+            rec._touch_sync_start()
+            metrics = rec.env["product.template"].action_ml_sync_price_stock(
+                account=rec.meli_account_id,
+                integration=rec,
+                mode="price",
+            )
+            rec._touch_sync_end()
+            _logger.info("Integración %s - sync prices: %s", rec.display_name, metrics)
         return True
+
+    @api.model
+    def cron_run_integrations(self):
+        integrations = self.search([("state", "=", "confirmed"), ("integration_type_id", "=", "meli")])
+        for integ in integrations:
+            try:
+                if integ.sync_prices:
+                    integ.action_sync_prices()
+                if integ.sync_stock:
+                    integ.action_sync_stock()
+                if integ.sync_orders:
+                    integ.action_sync_orders()
+            except Exception as err:
+                _logger.exception("Error ejecutando integración %s: %s", integ.display_name, err)
 
     def action_edit_shopify_account(self):
         return True
@@ -118,6 +181,13 @@ class SwIntegration(models.Model):
         return True
 
     def action_meli_authorize(self):
+        for rec in self:
+            rec._validate_meli_ready()
+            return {
+                "type": "ir.actions.act_url",
+                "url": rec.meli_account_id.oauth_url,
+                "target": "new",
+            }
         return True
 
     def action_edit_odoo_account(self):

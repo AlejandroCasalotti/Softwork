@@ -11,10 +11,10 @@
     </record>
 
     <record id="ir_cron_sw_ml_sync_products" model="ir.cron">
-        <field name="name">[SW ML] Sync Products Price/Stock</field>
-        <field name="model_id" ref="product.model_product_template"/>
+        <field name="name">[SW ML] Run Integrations</field>
+        <field name="model_id" ref="model_sw_integration"/>
         <field name="state">code</field>
-        <field name="code">model.cron_ml_sync_products(env)</field>
+        <field name="code">model.cron_run_integrations()</field>
         <field name="interval_number">30</field>
         <field name="interval_type">minutes</field>
         <field name="active">True</field>
@@ -27,6 +27,6 @@
         <field name="code">model.cron_ml_import_orders(env)</field>
         <field name="interval_number">15</field>
         <field name="interval_type">minutes</field>
-        <field name="active">True</field>
+        <field name="active">False</field>
     </record>
 </odoo>

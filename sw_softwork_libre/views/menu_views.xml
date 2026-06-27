@@ -3,13 +3,6 @@
     <menuitem id="menu_sw_softwork_libre_root" name="Softwork Libre" sequence="80"/>
 
     <menuitem
-        id="menu_sw_softwork_libre_accounts"
-        name="Cuentas MercadoLibre"
-        parent="menu_sw_softwork_libre_root"
-        action="action_sw_ml_account"
-        sequence="10"/>
-
-    <menuitem
         id="menu_sw_softwork_libre_integrations"
         name="Integraciones"
         parent="menu_sw_softwork_libre_root"
