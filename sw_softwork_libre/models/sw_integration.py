@@ -211,9 +211,10 @@ class SwIntegration(models.Model):
         account = self._ensure_meli_account()
         if not (account.client_id and account.redirect_uri):
             raise UserError("Primero completá Client ID y Redirect URI en la cuenta MercadoLibre.")
+        oauth_url = account.action_build_oauth_url()
         return {
             "type": "ir.actions.act_url",
-            "url": account.oauth_url,
+            "url": oauth_url,
             "target": "new",
         }
 

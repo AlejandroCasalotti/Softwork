@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import base64
+import hashlib
 import logging
+import secrets
 from urllib.parse import urlencode
 
 from odoo import api, fields, models
@@ -39,6 +42,14 @@ class SwMlAccount(models.Model):
     seller_id = fields.Char(string="Seller ID")
 
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
+    pkce_code_verifier = fields.Char(string="PKCE Code Verifier")
+
+    def _build_pkce_pair(self):
+        verifier = secrets.token_urlsafe(64)[:96]
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode("utf-8")).digest()
+        ).decode("utf-8").rstrip("=")
+        return verifier, challenge
 
     @api.depends("client_id", "redirect_uri")
     def _compute_oauth_url(self):
@@ -53,6 +64,22 @@ class SwMlAccount(models.Model):
                 rec.oauth_url = f"{base}?{params}"
             else:
                 rec.oauth_url = False
+
+    def action_build_oauth_url(self):
+        self.ensure_one()
+        if not self.client_id or not self.redirect_uri:
+            raise UserError("Debes completar Client ID y Redirect URI.")
+        verifier, challenge = self._build_pkce_pair()
+        self.pkce_code_verifier = verifier
+        params = urlencode({
+            "response_type": "code",
+            "client_id": self.client_id,
+            "redirect_uri": self.redirect_uri,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        })
+        self.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
+        return self.oauth_url
 
     def _check_requests(self):
         if not requests:
@@ -82,15 +109,19 @@ class SwMlAccount(models.Model):
             if not rec.auth_code:
                 raise UserError("Debes informar Authorization Code.")
 
+            if not rec.pkce_code_verifier:
+                raise UserError("Falta PKCE code_verifier. Debes volver a autorizar desde el botón Autorizar.")
             payload = {
                 "grant_type": "authorization_code",
                 "client_id": rec.client_id,
                 "client_secret": rec.client_secret,
                 "code": rec.auth_code,
                 "redirect_uri": rec.redirect_uri,
+                "code_verifier": rec.pkce_code_verifier,
             }
             data = rec._ml_request("POST", "/oauth/token", payload=payload, with_auth=False)
             rec._write_token_data(data)
+            rec.pkce_code_verifier = False
         return True
 
     def action_refresh_token(self):
