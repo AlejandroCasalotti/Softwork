@@ -3,6 +3,7 @@ import base64
 import hashlib
 import logging
 import secrets
+from datetime import timedelta
 from urllib.parse import urlencode
 
 from odoo import api, fields, models
@@ -115,7 +116,6 @@ class SwMlAccount(models.Model):
                 raise UserError(
                     f"Solicitud inválida a MercadoLibre: {body}. Revisá Client ID / Redirect URI / PKCE."
                 )
-            raise UserError(f"Error MercadoLibre {response.status_code}: {body}")
         if not response.text:
             return {}
         return response.json()
@@ -166,7 +166,7 @@ class SwMlAccount(models.Model):
             "token_type": data.get("token_type"),
         }
         if expires_in:
-            vals["token_expires_at"] = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in)
+            vals["token_expires_at"] = fields.Datetime.now() + timedelta(seconds=expires_in)
         self.write(vals)
 
         try:
