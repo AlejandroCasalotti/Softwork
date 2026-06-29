@@ -224,9 +224,17 @@ class SwIntegration(models.Model):
         if not self.meli_auth_code:
             raise UserError("Debes pegar el código de autorización de MercadoLibre.")
         account.auth_code = self.meli_auth_code
-        account.action_exchange_code()
-        self.meli_access_token = account.access_token
-        self.meli_user_id = account.seller_id
+        try:
+            account.action_exchange_code()
+        except UserError:
+            raise
+        except Exception as err:
+            raise UserError(f"No se pudo intercambiar el código con MercadoLibre: {err}")
+
+        self.write({
+            "meli_access_token": account.access_token,
+            "meli_user_id": account.seller_id,
+        })
         return True
 
     def test_and_confirm(self):
@@ -234,10 +242,18 @@ class SwIntegration(models.Model):
         account = self._ensure_meli_account()
         if not account.access_token:
             raise UserError("No hay Access Token. Ejecutá primero el intercambio de código.")
-        me = account._ml_request("GET", "/users/me")
-        self.meli_user_id = str(me.get("id") or "")
-        self.meli_access_token = account.access_token
-        self.state = "confirmed"
+        try:
+            me = account._ml_request("GET", "/users/me")
+        except UserError:
+            raise
+        except Exception as err:
+            raise UserError(f"No se pudo validar usuario de MercadoLibre: {err}")
+
+        self.write({
+            "meli_user_id": str(me.get("id") or ""),
+            "meli_access_token": account.access_token,
+            "state": "confirmed",
+        })
         return True
 
     def action_meli_clear_data(self):
@@ -250,6 +266,7 @@ class SwIntegration(models.Model):
             "token_type": False,
             "token_expires_at": False,
             "seller_id": False,
+            "pkce_code_verifier": False,
         })
         self.write({
             "meli_auth_code": False,
@@ -257,7 +274,6 @@ class SwIntegration(models.Model):
             "meli_user_id": False,
             "state": "draft",
         })
-        return True
 
     def action_edit_odoo_account(self):
         return True

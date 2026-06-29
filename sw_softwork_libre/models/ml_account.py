@@ -67,10 +67,13 @@ class SwMlAccount(models.Model):
 
     def action_build_oauth_url(self):
         self.ensure_one()
-        if not self.client_id or not self.redirect_uri:
-            raise UserError("Debes completar Client ID y Redirect URI.")
+        if not self.client_id or not self.client_secret or not self.redirect_uri:
+            raise UserError("Debes completar Client ID, Client Secret y Redirect URI.")
         verifier, challenge = self._build_pkce_pair()
-        self.pkce_code_verifier = verifier
+        self.write({
+            "pkce_code_verifier": verifier,
+            "auth_code": False,
+        })
         params = urlencode({
             "response_type": "code",
             "client_id": self.client_id,
@@ -78,8 +81,9 @@ class SwMlAccount(models.Model):
             "code_challenge": challenge,
             "code_challenge_method": "S256",
         })
-        self.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
-        return self.oauth_url
+        oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
+        self.oauth_url = oauth_url
+        return oauth_url
 
     def _check_requests(self):
         if not requests:
@@ -98,7 +102,20 @@ class SwMlAccount(models.Model):
         url = endpoint if endpoint.startswith("http") else f"https://api.mercadolibre.com{endpoint}"
         response = requests.request(method=method, url=url, json=payload, params=params, headers=headers, timeout=30)
         if response.status_code >= 400:
-            raise UserError(f"Error MercadoLibre {response.status_code}: {response.text}")
+            body = response.text or ""
+            if "code_verifier is a required parameter" in body:
+                raise UserError(
+                    "MercadoLibre requiere PKCE (code_verifier). Volvé a presionar Autorizar y usá ese nuevo código una sola vez."
+                )
+            if '"error":"invalid_grant"' in body or "invalid_grant" in body:
+                raise UserError(
+                    "MercadoLibre rechazó el código (invalid_grant). Generá uno nuevo con Autorizar y canjealo inmediatamente."
+                )
+            if '"error":"invalid_request"' in body or "invalid_request" in body:
+                raise UserError(
+                    f"Solicitud inválida a MercadoLibre: {body}. Revisá Client ID / Redirect URI / PKCE."
+                )
+            raise UserError(f"Error MercadoLibre {response.status_code}: {body}")
         if not response.text:
             return {}
         return response.json()
