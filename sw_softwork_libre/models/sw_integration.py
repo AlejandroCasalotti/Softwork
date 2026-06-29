@@ -64,6 +64,12 @@ class SwIntegration(models.Model):
     sync_prices = fields.Boolean(string="Sincronizar Precios")
     sync_full_sales = fields.Boolean(string="Sincronización Completa Ventas")
     sync_only_paid_orders = fields.Boolean(string="Solo Órdenes Pagas")
+    odoo_company_id = fields.Many2one("res.company", string="Compañía")
+    odoo_user_id = fields.Many2one("res.users", string="Comercial")
+    odoo_warehouse_id = fields.Many2one("stock.warehouse", string="Almacén")
+    autosync_invoices = fields.Boolean(string="Facturación")
+    autosync_labels = fields.Boolean(string="Etiquetas")
+    autosync_delivery_date = fields.Boolean(string="Fecha de entrega")
 
     last_sync = fields.Datetime(string="Última Sync")
     last_sync_start = fields.Datetime(string="Inicio Última Sync")

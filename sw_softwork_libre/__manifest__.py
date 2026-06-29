@@ -19,6 +19,7 @@ Módulo base para sincronización con MercadoLibre:
         "product",
         "sale_management",
         "stock",
+        "crm",
     ],
     "data": [
         "security/ir.model.access.csv",

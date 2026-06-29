@@ -103,8 +103,16 @@
                                     </div>
                                     <field name="sync_full_sales" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
                                     <field name="sync_only_paid_orders" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="autosync_invoices" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="autosync_labels" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="autosync_delivery_date" invisible="not sync_orders" readonly="state == 'confirmed'" widget="boolean_toggle"/>
                                     <field name="last_sync_start" invisible="not sync_orders" readonly="1"/>
                                     <field name="last_sync" invisible="not sync_orders" readonly="1"/>
+                                </group>
+                                <group invisible="not sync_orders">
+                                    <field name="odoo_company_id" readonly="state == 'confirmed'"/>
+                                    <field name="odoo_user_id" readonly="state == 'confirmed'"/>
+                                    <field name="odoo_warehouse_id" readonly="state == 'confirmed'"/>
                                 </group>
                             </group>
 
