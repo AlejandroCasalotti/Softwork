@@ -21,6 +21,7 @@
                 <header>
                     <button name="action_exchange_code" type="object" string="Obtener Token" class="btn-primary"/>
                     <button name="action_refresh_token" type="object" string="Refrescar Token"/>
+                    <button name="action_create_test_users" type="object" string="Crear usuarios de prueba" class="btn-secondary" invisible="not access_token"/>
                 </header>
                 <sheet>
                     <group>
@@ -47,6 +48,19 @@
                         <field name="refresh_token" password="True"/>
                         <field name="token_type" readonly="1"/>
                         <field name="token_expires_at" readonly="1"/>
+                    </group>
+
+                    <group string="Usuarios de Prueba">
+                        <group>
+                            <field name="test_buyer_user_id" readonly="1"/>
+                            <field name="test_buyer_nickname" readonly="1"/>
+                            <field name="test_buyer_password" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="test_seller_user_id" readonly="1"/>
+                            <field name="test_seller_nickname" readonly="1"/>
+                            <field name="test_seller_password" readonly="1"/>
+                        </group>
                     </group>
                 </sheet>
             </form>

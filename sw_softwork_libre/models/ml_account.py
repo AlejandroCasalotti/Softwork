@@ -42,6 +42,13 @@ class SwMlAccount(models.Model):
     token_expires_at = fields.Datetime(string="Token Expira")
     seller_id = fields.Char(string="Seller ID")
 
+    test_buyer_user_id = fields.Char(string="Test Buyer User ID", readonly=True)
+    test_buyer_nickname = fields.Char(string="Test Buyer Nickname", readonly=True)
+    test_buyer_password = fields.Char(string="Test Buyer Password", readonly=True)
+    test_seller_user_id = fields.Char(string="Test Seller User ID", readonly=True)
+    test_seller_nickname = fields.Char(string="Test Seller Nickname", readonly=True)
+    test_seller_password = fields.Char(string="Test Seller Password", readonly=True)
+
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     pkce_code_verifier = fields.Char(string="PKCE Code Verifier")
 
@@ -155,6 +162,33 @@ class SwMlAccount(models.Model):
             }
             data = rec._ml_request("POST", "/oauth/token", payload=payload, with_auth=False)
             rec._write_token_data(data)
+        return True
+
+    def _create_test_user(self, site_id, password, prefix):
+        self.ensure_one()
+        payload = {
+            "site_id": site_id,
+            "password": password,
+            "nickname": f"{prefix}_{secrets.token_hex(4)}",
+        }
+        return self._ml_request("POST", "/users/test_user", payload=payload, with_auth=True)
+
+    def action_create_test_users(self):
+        for rec in self:
+            if not rec.access_token:
+                raise UserError("Primero debés autorizar la cuenta para obtener Access Token.")
+            site_id = rec.site_id or "MLA"
+            buyer = rec._create_test_user(site_id=site_id, password=secrets.token_urlsafe(10), prefix="SWBUYER")
+            seller = rec._create_test_user(site_id=site_id, password=secrets.token_urlsafe(10), prefix="SWSELLER")
+
+            rec.write({
+                "test_buyer_user_id": str(buyer.get("id") or ""),
+                "test_buyer_nickname": buyer.get("nickname") or "",
+                "test_buyer_password": buyer.get("password") or "",
+                "test_seller_user_id": str(seller.get("id") or ""),
+                "test_seller_nickname": seller.get("nickname") or "",
+                "test_seller_password": seller.get("password") or "",
+            })
         return True
 
     def _write_token_data(self, data):
