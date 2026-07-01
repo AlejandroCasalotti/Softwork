@@ -1,3 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_sw_ml_account_user,access.sw.ml.account.user,model_sw_ml_account,base.group_user,1,1,1,1
 access_sw_integration_user,access.sw.integration.user,model_sw_integration,base.group_user,1,1,1,1
+access_sw_integration_installment_user,access.sw.integration.installment.user,model_sw_integration_installment,base.group_user,1,1,1,1

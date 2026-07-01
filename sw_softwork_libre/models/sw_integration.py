@@ -47,6 +47,7 @@ class SwIntegration(models.Model):
     odoo_account_id = fields.Char(string="Cuenta Odoo")
 
     odoo_stock_location_id = fields.Many2one("stock.location", string="Ubicación de Stock Odoo")
+    stock_location_ids = fields.Many2many("stock.location", string="Ubicaciones de Stock")
 
     odoo_match_field = fields.Selection(
         [
@@ -62,6 +63,9 @@ class SwIntegration(models.Model):
     sync_orders = fields.Boolean(string="Sincronizar Ventas")
     sync_stock = fields.Boolean(string="Sincronizar Stock")
     sync_prices = fields.Boolean(string="Sincronizar Precios")
+    odoo_default_pricelist_id = fields.Many2one("product.pricelist", string="Lista de Precios")
+    meli_odoo_premium_pricelist_id = fields.Many2one("product.pricelist", string="Tarifa publicaciones premium")
+    meli_advanced_prices = fields.Boolean(string="Precios avanzados")
     sync_full_sales = fields.Boolean(string="Sincronización Completa Ventas")
     sync_only_paid_orders = fields.Boolean(string="Solo Órdenes Pagas")
     odoo_company_id = fields.Many2one("res.company", string="Compañía")
@@ -70,6 +74,50 @@ class SwIntegration(models.Model):
     autosync_invoices = fields.Boolean(string="Facturación")
     autosync_labels = fields.Boolean(string="Etiquetas")
     autosync_delivery_date = fields.Boolean(string="Fecha de entrega")
+    meli_installment_ids = fields.One2many(
+        "sw.integration.installment",
+        "integration_id",
+        string="Recargos por Cuotas",
+    )
+    meli_surcharge_minimum = fields.Float(string="Precio superior a")
+    meli_percentage_surcharge = fields.Float(string="Recargo porcentual")
+    meli_fixed_surcharge = fields.Float(string="Recargo fijo")
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records._ensure_default_installment_lines()
+        return records
+
+    def _ensure_default_installment_lines(self):
+        defaults = [
+            (10, "No quiero agregar cuotas", 1, 0.0),
+            (20, "3 a 12 cuotas con interés bajo", 12, 0.0),
+            (30, "3 cuotas al mismo precio que publicaste", 3, 5.0),
+            (40, "6 cuotas al mismo precio que publicaste", 6, 12.0),
+            (50, "9 cuotas al mismo precio que publicaste", 9, 50.0),
+            (60, "12 cuotas al mismo precio que publicaste", 12, 80.0),
+        ]
+        for rec in self:
+            if rec.integration_type_id != "meli":
+                continue
+            if rec.meli_installment_ids:
+                continue
+            rec.meli_installment_ids = [
+                (0, 0, {
+                    "sequence": seq,
+                    "name": name,
+                    "meli_installments": installments,
+                    "surcharge_percent": surcharge,
+                })
+                for seq, name, installments, surcharge in defaults
+            ]
+
+    def action_reset_default_installments(self):
+        for rec in self:
+            rec.meli_installment_ids.unlink()
+            rec._ensure_default_installment_lines()
+        return True
 
     last_sync = fields.Datetime(string="Última Sync")
     last_sync_start = fields.Datetime(string="Inicio Última Sync")

@@ -129,6 +129,7 @@
                                         <button type="object" icon="fa-arrow-right" title="Sync" string="Sync" class="oe_inline oe_link" name="action_sync_stock" invisible="not sync_stock or state == 'draft'"/>
                                     </div>
                                     <field name="odoo_stock_location_id" invisible="not is_odoo_meli or not sync_stock" readonly="state == 'confirmed'"/>
+                                    <field name="stock_location_ids" invisible="not is_odoo_meli or not sync_stock" readonly="state == 'confirmed'" widget="many2many_tags"/>
                                 </group>
                             </group>
 
@@ -144,8 +145,25 @@
                                         <field name="sync_prices" class="oe_inline" readonly="state == 'confirmed'" widget="boolean_toggle"/>
                                         <button type="object" icon="fa-arrow-right" string="Sync" title="Sync" class="oe_inline oe_link" name="action_sync_prices" invisible="not sync_prices or state == 'draft'"/>
                                     </div>
+                                    <field name="odoo_default_pricelist_id" invisible="not sync_prices" readonly="state == 'confirmed'"/>
+                                    <field name="meli_odoo_premium_pricelist_id" invisible="not sync_prices" readonly="state == 'confirmed'"/>
+                                    <field name="meli_advanced_prices" invisible="not sync_prices" readonly="state == 'confirmed'" widget="boolean_toggle"/>
+                                    <field name="meli_surcharge_minimum" invisible="not sync_prices or not meli_advanced_prices" readonly="state == 'confirmed'"/>
+                                    <field name="meli_percentage_surcharge" invisible="not sync_prices or not meli_advanced_prices" readonly="state == 'confirmed'"/>
+                                    <field name="meli_fixed_surcharge" invisible="not sync_prices or not meli_advanced_prices" readonly="state == 'confirmed'"/>
                                     <field name="last_cron_execution" readonly="1"/>
                                     <field name="cron_nextcall" readonly="1"/>
+                                </group>
+                                <group invisible="not sync_prices or not meli_advanced_prices">
+                                    <field name="meli_installment_ids" widget="one2many_list" nolabel="1">
+                                        <list editable="bottom">
+                                            <field name="sequence" widget="handle"/>
+                                            <field name="name"/>
+                                            <field name="meli_installments"/>
+                                            <field name="surcharge_percent"/>
+                                        </list>
+                                    </field>
+                                    <button name="action_reset_default_installments" type="object" string="Restaurar recargos por defecto" class="btn-secondary"/>
                                 </group>
                             </group>
                         </group>
