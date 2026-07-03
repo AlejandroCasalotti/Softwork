@@ -43,13 +43,16 @@
                         <group string="Opciones MercadoLibre">
                             <field name="ml_shipping_mode"/>
                             <button name="action_ml_select_shipping" type="object" string="Buscar forma de entrega" class="btn-link"/>
+                            <field name="ml_selected_shipping_detail" readonly="1"/>
                             <field name="ml_warranty_type"/>
                             <button name="action_ml_select_warranty" type="object" string="Buscar garantía" class="btn-link"/>
+                            <field name="ml_selected_warranty_detail" readonly="1"/>
                         </group>
                         <group string="Catálogo / Cargos">
                             <button name="action_ml_search_catalog" type="object" string="Buscar en catálogo ML" class="btn-link"/>
+                            <field name="ml_selected_catalog_detail" readonly="1"/>
                             <button name="action_ml_select_fee_option" type="object" string="Cargos por vender / cuotas" class="btn-link"/>
-                            <field name="ml_fee_option_json" widget="text"/>
+                            <field name="ml_selected_fee_detail" readonly="1"/>
                         </group>
                     </group>
 

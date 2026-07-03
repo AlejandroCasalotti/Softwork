@@ -27,6 +27,10 @@ class ProductTemplate(models.Model):
     ml_extra_fee = fields.Float(string="Tarifa extra")
     ml_fee_option_id = fields.Char(string="Opción cargo por vender/cuotas")
     ml_fee_option_json = fields.Text(string="Detalle opción de cargos")
+    ml_selected_catalog_detail = fields.Char(string="Catálogo seleccionado")
+    ml_selected_fee_detail = fields.Char(string="Cargo/cuotas seleccionado")
+    ml_selected_shipping_detail = fields.Char(string="Entrega seleccionada")
+    ml_selected_warranty_detail = fields.Char(string="Garantía seleccionada")
     ml_fee_markup_percent = fields.Float(string="Aumento sobre opción de cargo (%)")
     ml_shipping_mode = fields.Char(string="Forma de entrega")
     ml_warranty_type = fields.Char(string="Garantía")
@@ -111,36 +115,71 @@ class ProductTemplate(models.Model):
             payload["pictures"] = pictures
         return payload
 
+    def _open_selector(self, selector_type, option_key, option_label, option_payload=""):
+        wizard = self.env["sw.ml.selector.wizard"].create({
+            "selector_type": selector_type,
+            "product_tmpl_id": self.id,
+            "option_key": option_key or "",
+            "option_label": option_label or "",
+            "option_payload": option_payload or "",
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "sw.ml.selector.wizard",
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
     def action_ml_search_catalog(self):
         self.ensure_one()
         account = self._get_ml_account()
         query = (self.ml_listing_description or self.name or "").strip()
         if not query:
             raise UserError("Primero completa la Descripción de la publicación o el Nombre del producto.")
-        result = account._ml_request("GET", "/sites/MLA/domain_discovery/search", params={"q": query})
-        self.ml_fee_option_json = json.dumps(result, ensure_ascii=False, indent=2)
-        return True
+        result = account._ml_request("GET", "/sites/MLA/domain_discovery/search", params={"q": query}) or []
+        if isinstance(result, list) and result:
+            first = result[0]
+            label = first.get("domain_name") or first.get("category_name") or query
+            key = first.get("domain_id") or first.get("category_id") or label
+            return self._open_selector("catalog", key, label, json.dumps(first, ensure_ascii=False))
+        return self._open_selector("catalog", query, query, "")
 
     def action_ml_select_fee_option(self):
         self.ensure_one()
         account = self._get_ml_account()
-        if not self.ml_listing_type:
-            raise UserError("Completa ML Listing Type para consultar cargos.")
-        listing = account._ml_request("GET", f"/sites/MLA/listing_prices", params={"price": self.ml_effective_sale_price or self.list_price, "listing_type_id": self.ml_listing_type})
-        self.ml_fee_option_json = json.dumps(listing, ensure_ascii=False, indent=2)
-        return True
+        listing_type = self.ml_listing_type or "gold_special"
+        listing = account._ml_request(
+            "GET",
+            "/sites/MLA/listing_prices",
+            params={"price": self.ml_effective_sale_price or self.list_price, "listing_type_id": listing_type},
+        ) or []
+        if isinstance(listing, list) and listing:
+            first = listing[0]
+            label = f"{first.get('listing_type_name') or listing_type} - fee {first.get('sale_fee_amount')}"
+            key = first.get("listing_type_id") or listing_type
+            return self._open_selector("fee", key, label, json.dumps(first, ensure_ascii=False))
+        return self._open_selector("fee", listing_type, f"{listing_type} - sin detalle", "")
 
     def action_ml_select_shipping(self):
         self.ensure_one()
-        account = self._get_ml_account()
-        account._ml_request("GET", "/users/me")
-        self.ml_shipping_mode = self.ml_shipping_mode or "me2"
-        return True
+        options = [
+            ("me2", "Mercado Envíos (me2)"),
+            ("not_specified", "A coordinar con vendedor"),
+            ("custom", "Envío personalizado"),
+        ]
+        key, label = options[0]
+        return self._open_selector("shipping", key, label, "")
 
     def action_ml_select_warranty(self):
         self.ensure_one()
-        self.ml_warranty_type = self.ml_warranty_type or "Garantía del vendedor"
-        return True
+        options = [
+            ("Garantía del vendedor", "Garantía del vendedor"),
+            ("Sin garantía", "Sin garantía"),
+            ("Garantía de fábrica", "Garantía de fábrica"),
+        ]
+        key, label = options[0]
+        return self._open_selector("warranty", key, label, "")
 
     def action_ml_sync_from_odoo(self):
         account = self._get_ml_account()

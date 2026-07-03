@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 {
     "name": "Softwork Libre",
     "version": "19.0.1.0.0",
@@ -26,6 +25,7 @@ Módulo base para sincronización con MercadoLibre:
         "views/ml_account_views.xml",
         "views/sw_integration_views.xml",
         "views/product_views.xml",
+        "views/sw_ml_selector_wizard_views.xml",
         "views/menu_views.xml",
     ],
     "installable": True,

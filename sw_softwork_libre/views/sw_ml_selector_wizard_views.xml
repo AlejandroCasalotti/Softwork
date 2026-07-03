@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sw_ml_selector_wizard_form" model="ir.ui.view">
+        <field name="name">sw.ml.selector.wizard.form</field>
+        <field name="model">sw.ml.selector.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Seleccionar opción MercadoLibre">
+                <group>
+                    <field name="selector_type" readonly="1"/>
+                    <field name="option_label"/>
+                    <field name="option_key"/>
+                    <field name="option_payload" widget="text" readonly="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirmar" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
