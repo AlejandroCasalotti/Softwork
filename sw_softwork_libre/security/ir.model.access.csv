@@ -3,3 +3,4 @@ access_sw_ml_account_user,access.sw.ml.account.user,model_sw_ml_account,base.gro
 access_sw_integration_user,access.sw.integration.user,model_sw_integration,base.group_user,1,1,1,1
 access_sw_integration_installment_user,access.sw.integration.installment.user,model_sw_integration_installment,base.group_user,1,1,1,1
 access_sw_product_ml_photo_user,access.sw.product.ml.photo.user,model_sw_product_ml_photo,base.group_user,1,1,1,1
+access_sw_ml_selector_wizard_user,access.sw.ml.selector.wizard.user,model_sw_ml_selector_wizard,base.group_user,1,1,1,1
