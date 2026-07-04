@@ -172,7 +172,7 @@ class MlAccount(models.Model):
             timeout=120,
         )
         if response.status_code >= 300:
-            self.env["ml.log"].create({
+            self.env["ml.log"].sudo().create({
                 "account_id": self.id,
                 "level": "error",
                 "message": f"HTTP {response.status_code}",
@@ -181,7 +181,7 @@ class MlAccount(models.Model):
             raise UserError(f"Error MercadoLibre ({response.status_code}): {response.text}")
 
         data = response.json() if response.text else {}
-        self.env["ml.log"].create({
+        self.env["ml.log"].sudo().create({
             "account_id": self.id,
             "level": "info",
             "message": f"{method} {endpoint}",
@@ -197,7 +197,7 @@ class MlAccount(models.Model):
                 account.refresh_access_token()
             except Exception as err:
                 _logger.exception("Error al refrescar token en %s: %s", account.display_name, err)
-                env["ml.log"].create({
+                env["ml.log"].sudo().create({
                     "account_id": account.id,
                     "level": "error",
                     "message": "Error refresh token",
