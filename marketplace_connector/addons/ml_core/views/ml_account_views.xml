@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ml_account_tree" model="ir.ui.view">
+        <field name="name">ml.account.tree</field>
+        <field name="model">ml.account</field>
+        <field name="arch" type="xml">
+            <list string="Cuentas MercadoLibre">
+                <field name="name"/>
+                <field name="country"/>
+                <field name="seller_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_ml_account_form" model="ir.ui.view">
+        <field name="name">ml.account.form</field>
+        <field name="model">ml.account</field>
+        <field name="arch" type="xml">
+            <form string="Cuenta MercadoLibre">
+                <header>
+                    <button name="action_open_auth_url" type="object" string="Autorizar en MercadoLibre" class="btn-primary"/>
+                    <button name="refresh_access_token" type="object" string="Refrescar Token"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="country"/>
+                            <field name="active"/>
+                            <field name="seller_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="client_id"/>
+                            <field name="client_secret" password="True"/>
+                            <field name="redirect_uri"/>
+                        </group>
+                    </group>
+                    <group string="Tokens">
+                        <field name="access_token" password="True"/>
+                        <field name="refresh_token" password="True"/>
+                        <field name="token_expires_at" readonly="1"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_ml_account" model="ir.actions.act_window">
+        <field name="name">Cuentas MercadoLibre</field>
+        <field name="res_model">ml.account</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
