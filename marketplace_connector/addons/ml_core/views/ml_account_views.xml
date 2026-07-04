@@ -38,6 +38,7 @@
                     </group>
                     <group string="Autorización">
                         <field name="auth_code" placeholder="Pegar aquí el code devuelto por MercadoLibre"/>
+                        <field name="pkce_code_verifier" readonly="1" password="True"/>
                         <button name="action_exchange_code" type="object" string="Intercambiar Code por Token" class="btn-primary"/>
                     </group>
                     <group string="Tokens">

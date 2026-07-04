@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import base64
+import hashlib
 import logging
+import os
 from datetime import timedelta
 
 from odoo import fields, models
@@ -27,6 +30,7 @@ class MlAccount(models.Model):
     refresh_token = fields.Text()
     token_expires_at = fields.Datetime()
     auth_code = fields.Char(string="Authorization Code")
+    pkce_code_verifier = fields.Char(string="PKCE Code Verifier")
 
     seller_id = fields.Char(readonly=True)
     country = fields.Selection(
@@ -52,16 +56,32 @@ class MlAccount(models.Model):
 
     def _build_auth_url(self):
         self.ensure_one()
+        verifier = self.pkce_code_verifier or self._generate_code_verifier()
+        self.pkce_code_verifier = verifier
+        code_challenge = self._code_challenge_s256(verifier)
         return (
             "https://auth.mercadolibre.com/authorization"
             f"?response_type=code&client_id={self.client_id}&redirect_uri={self.redirect_uri}"
+            f"&code_challenge={code_challenge}&code_challenge_method=S256"
         )
+
+    @staticmethod
+    def _generate_code_verifier():
+        random_bytes = os.urandom(64)
+        verifier = base64.urlsafe_b64encode(random_bytes).decode().rstrip("=")
+        return verifier[:128]
+
+    @staticmethod
+    def _code_challenge_s256(verifier):
+        digest = hashlib.sha256(verifier.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest).decode().rstrip("=")
 
     def action_open_auth_url(self):
         self.ensure_one()
+        url = self._build_auth_url()
         return {
             "type": "ir.actions.act_url",
-            "url": self._build_auth_url(),
+            "url": url,
             "target": "new",
         }
 
@@ -71,12 +91,15 @@ class MlAccount(models.Model):
         if not code:
             raise UserError("Debes completar Authorization Code en la cuenta ML.")
         self._check_requests()
+        if not self.pkce_code_verifier:
+            raise UserError("Falta PKCE Code Verifier. Presiona primero 'Autorizar en MercadoLibre'.")
         payload = {
             "grant_type": "authorization_code",
             "client_id": self.client_id,
             "client_secret": self.client_secret,
             "code": code,
             "redirect_uri": self.redirect_uri,
+            "code_verifier": self.pkce_code_verifier,
         }
         data = self._token_request(payload)
         self._write_token_data(data)
