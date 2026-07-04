@@ -26,6 +26,7 @@ class MlAccount(models.Model):
     access_token = fields.Text()
     refresh_token = fields.Text()
     token_expires_at = fields.Datetime()
+    auth_code = fields.Char(string="Authorization Code")
 
     seller_id = fields.Char(readonly=True)
     country = fields.Selection(
@@ -66,9 +67,9 @@ class MlAccount(models.Model):
 
     def action_exchange_code(self):
         self.ensure_one()
-        code = self.env.context.get("ml_auth_code")
+        code = (self.auth_code or "").strip() or self.env.context.get("ml_auth_code")
         if not code:
-            raise UserError("Debes pasar el auth code en contexto como 'ml_auth_code'.")
+            raise UserError("Debes completar Authorization Code en la cuenta ML.")
         self._check_requests()
         payload = {
             "grant_type": "authorization_code",

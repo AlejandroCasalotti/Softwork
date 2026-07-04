@@ -36,6 +36,10 @@
                             <field name="redirect_uri"/>
                         </group>
                     </group>
+                    <group string="Autorización">
+                        <field name="auth_code" placeholder="Pegar aquí el code devuelto por MercadoLibre"/>
+                        <button name="action_exchange_code" type="object" string="Intercambiar Code por Token" class="btn-primary"/>
+                    </group>
                     <group string="Tokens">
                         <field name="access_token" password="True"/>
                         <field name="refresh_token" password="True"/>
