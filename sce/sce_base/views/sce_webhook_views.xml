@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Tree View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_webhook_tree"
+            model="ir.ui.view">
+
+        <field name="name">sce.webhook.tree</field>
+
+        <field name="model">sce.webhook</field>
+
+        <field name="arch"
+               type="xml">
+
+            <list string="Webhooks">
+
+                <field name="received_at"/>
+
+                <field name="event"/>
+
+                <field name="connector_id"/>
+
+                <field name="account_id"/>
+
+                <field name="external_id"/>
+
+                <field name="signature_valid"/>
+
+                <field name="state"
+                       widget="badge"
+                       decoration-info="state == 'received'"
+                       decoration-primary="state == 'processing'"
+                       decoration-success="state == 'processed'"
+                       decoration-danger="state == 'failed'"
+                       decoration-warning="state == 'ignored'"/>
+
+                <field name="processing_time"/>
+
+            </list>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_webhook_form"
+            model="ir.ui.view">
+
+        <field name="name">sce.webhook.form</field>
+
+        <field name="model">sce.webhook</field>
+
+        <field name="arch"
+               type="xml">
+
+            <form string="Webhook">
+
+                <header>
+
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="received,processing,processed,failed,ignored"/>
+
+                </header>
+
+                <sheet>
+
+                    <div class="oe_button_box"
+                         name="button_box">
+
+                        <button name="action_open_job"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-tasks"
+                                invisible="not job_id">
+
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">
+                                    Job
+                                </span>
+                            </div>
+
+                        </button>
+
+                        <button name="action_open_queue"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-list"
+                                invisible="not queue_id">
+
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">
+                                    Queue
+                                </span>
+                            </div>
+
+                        </button>
+
+                    </div>
+
+                    <group>
+
+                        <group>
+
+                            <field name="event"/>
+
+                            <field name="account_id"/>
+
+                            <field name="connector_id"
+                                   readonly="1"/>
+
+                            <field name="external_id"/>
+
+                            <field name="external_resource"/>
+
+                            <field name="external_type"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="received_at"
+                                   readonly="1"/>
+
+                            <field name="processed_at"
+                                   readonly="1"/>
+
+                            <field name="processing_time"
+                                   readonly="1"/>
+
+                            <field name="response_status"
+                                   readonly="1"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <!-- ===================================== -->
+
+                        <page string="Payload">
+
+                            <field name="payload"
+                                   nolabel="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Headers">
+
+                            <field name="headers"
+                                   nolabel="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Query Params">
+
+                            <field name="query_params"
+                                   nolabel="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Security">
+
+                            <group>
+
+                                <group>
+
+                                    <field name="signature"/>
+
+                                    <field name="signature_valid"
+                                           readonly="1"/>
+
+                                </group>
+
+                                <group>
+
+                                    <field name="source_ip"/>
+
+                                    <field name="user_agent"/>
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Processing">
+
+                            <group>
+
+                                <group>
+
+                                    <field name="job_id"
+                                           readonly="1"/>
+
+                                    <field name="queue_id"
+                                           readonly="1"/>
+
+                                </group>
+
+                                <group>
+
+                                    <field name="response_body"
+                                           readonly="1"/>
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Errors">
+
+                            <group>
+
+                                <field name="error_message"
+                                       readonly="1"/>
+
+                                <field name="error_traceback"
+                                       readonly="1"/>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Description">
+
+                            <field name="description"
+                                   nolabel="1"/>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+                <chatter/>
+
+            </form>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Search View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_webhook_search"
+            model="ir.ui.view">
+
+        <field name="name">sce.webhook.search</field>
+
+        <field name="model">sce.webhook</field>
+
+        <field name="arch"
+               type="xml">
+
+            <search>
+
+                <field name="event"/>
+
+                <field name="external_id"/>
+
+                <field name="account_id"/>
+
+                <field name="connector_id"/>
+
+                <separator/>
+
+                <filter string="Received"
+                        name="received"
+                        domain="[('state','=','received')]"/>
+
+                <filter string="Processing"
+                        name="processing"
+                        domain="[('state','=','processing')]"/>
+
+                <filter string="Processed"
+                        name="processed"
+                        domain="[('state','=','processed')]"/>
+
+                <filter string="Failed"
+                        name="failed"
+                        domain="[('state','=','failed')]"/>
+
+                <filter string="Ignored"
+                        name="ignored"
+                        domain="[('state','=','ignored')]"/>
+
+                <separator/>
+
+                <filter string="Valid Signature"
+                        name="signature"
+                        domain="[('signature_valid','=',True)]"/>
+
+                <group string="Group By"
+                       expand="0">
+
+                    <filter string="Connector"
+                            context="{'group_by':'connector_id'}"/>
+
+                    <filter string="Account"
+                            context="{'group_by':'account_id'}"/>
+
+                    <filter string="Event"
+                            context="{'group_by':'event'}"/>
+
+                    <filter string="State"
+                            context="{'group_by':'state'}"/>
+
+                </group>
+
+            </search>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_webhook"
+            model="ir.actions.act_window">
+
+        <field name="name">Webhooks</field>
+
+        <field name="res_model">sce.webhook</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field name="search_view_id"
+               ref="view_sce_webhook_search"/>
+
+        <field name="help"
+               type="html">
+
+            <p class="o_view_nocontent_smiling_face">
+                No webhook events have been received yet.
+            </p>
+
+            <p>
+                Incoming webhook events from marketplace connectors
+                will appear here automatically.
+            </p>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Menu -->
+    <!-- ========================================================= -->
+
+    <menuitem
+        id="menu_sce_webhook"
+        action="action_sce_webhook"/>
+
+</odoo>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ============================================================= -->
+    <!-- SCE Administrator -->
+    <!-- ============================================================= -->
+
+    <record id="group_sce_manager" model="res.groups">
+
+        <field name="name">
+            SCE Manager
+        </field>
+
+        <field name="category_id"
+               ref="base.module_category_sales_management"/>
+
+    </record>
+
+    <!-- ============================================================= -->
+    <!-- SCE User -->
+    <!-- ============================================================= -->
+
+    <record id="group_sce_user" model="res.groups">
+
+        <field name="name">
+            SCE User
+        </field>
+
+        <field name="category_id"
+               ref="base.module_category_sales_management"/>
+
+        <field name="implied_ids"
+               eval="[(4, ref('base.group_user'))]"/>
+
+    </record>
+
+    <!-- ============================================================= -->
+    <!-- SCE Read Only -->
+    <!-- ============================================================= -->
+
+    <record id="group_sce_readonly" model="res.groups">
+
+        <field name="name">
+            SCE Read Only
+        </field>
+
+        <field name="category_id"
+               ref="base.module_category_sales_management"/>
+
+        <field name="implied_ids"
+               eval="[(4, ref('base.group_user'))]"/>
+
+    </record>
+
+</odoo>

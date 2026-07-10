@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Tree View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_log_tree" model="ir.ui.view">
+        <field name="name">sce.log.tree</field>
+        <field name="model">sce.log</field>
+        <field name="arch" type="xml">
+
+            <list string="Logs" default_order="create_date desc">
+
+                <field name="create_date"/>
+
+                <field name="level"
+                       widget="badge"
+                       decoration-info="level == 'info'"
+                       decoration-warning="level == 'warning'"
+                       decoration-danger="level in ('error','critical')"/>
+
+                <field name="category"/>
+
+                <field name="connector_id"/>
+
+                <field name="account_id"/>
+
+                <field name="message"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_log_form" model="ir.ui.view">
+        <field name="name">sce.log.form</field>
+        <field name="model">sce.log</field>
+        <field name="arch" type="xml">
+
+            <form string="Log Entry">
+
+                <header>
+
+                    <button name="action_open_account"
+                            type="object"
+                            string="Open Account"
+                            class="btn-secondary"
+                            invisible="not account_id"/>
+
+                </header>
+
+                <sheet>
+
+                    <group>
+
+                        <group>
+
+                            <field name="level"/>
+
+                            <field name="category"/>
+
+                            <field name="company_id"/>
+
+                            <field name="user_id"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="connector_id"/>
+
+                            <field name="account_id"/>
+
+                            <field name="job_id"/>
+
+                            <field name="queue_id"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <page string="Message">
+
+                            <field name="message" nolabel="1"/>
+
+                        </page>
+
+                        <page string="Payload">
+
+                            <field name="payload" nolabel="1"/>
+
+                        </page>
+
+                        <page string="Response">
+
+                            <field name="response" nolabel="1"/>
+
+                        </page>
+
+                        <page string="Metadata">
+
+                            <field name="metadata" nolabel="1"/>
+
+                        </page>
+
+                        <page string="Execution">
+
+                            <group>
+
+                                <group>
+
+                                    <field name="execution_id"/>
+
+                                    <field name="duration"/>
+
+                                </group>
+
+                                <group>
+
+                                    <field name="records_processed"/>
+
+                                    <field name="records_failed"/>
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+                        <page string="External">
+
+                            <group>
+
+                                <field name="external_id"/>
+
+                                <field name="external_model"/>
+
+                            </group>
+
+                        </page>
+
+                        <page string="Exception">
+
+                            <group>
+
+                                <field name="error_code"/>
+
+                                <field name="error_type"/>
+
+                            </group>
+
+                            <field name="traceback"
+                                   nolabel="1"/>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+            </form>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Search -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_log_search" model="ir.ui.view">
+        <field name="name">sce.log.search</field>
+        <field name="model">sce.log</field>
+        <field name="arch" type="xml">
+
+            <search>
+
+                <field name="message"/>
+
+                <field name="account_id"/>
+
+                <field name="connector_id"/>
+
+                <separator/>
+
+                <filter string="Errors"
+                        domain="[('level','in',('error','critical'))]"/>
+
+                <filter string="Warnings"
+                        domain="[('level','=','warning')]"/>
+
+                <filter string="Info"
+                        domain="[('level','=','info')]"/>
+
+                <group string="Group By">
+
+                    <filter string="Level"
+                            context="{'group_by':'level'}"/>
+
+                    <filter string="Category"
+                            context="{'group_by':'category'}"/>
+
+                    <filter string="Connector"
+                            context="{'group_by':'connector_id'}"/>
+
+                    <filter string="Account"
+                            context="{'group_by':'account_id'}"/>
+
+                </group>
+
+            </search>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_log"
+            model="ir.actions.act_window">
+
+        <field name="name">Logs</field>
+
+        <field name="res_model">sce.log</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field name="search_view_id"
+               ref="view_sce_log_search"/>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Menu -->
+    <!-- ========================================================= -->
+
+    <menuitem id="menu_sce_log"
+              action="action_sce_log"/>
+
+</odoo>

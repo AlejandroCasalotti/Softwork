@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- SCE Settings -->
+    <!-- ========================================================= -->
+
+    <record id="view_res_config_settings_sce"
+            model="ir.ui.view">
+
+        <field name="name">
+            res.config.settings.view.form.sce
+        </field>
+
+        <field name="model">
+            res.config.settings
+        </field>
+
+        <field name="priority">
+            90
+        </field>
+
+        <field name="inherit_id"
+               ref="base.res_config_settings_view_form"/>
+
+        <field name="arch"
+               type="xml">
+
+            <xpath expr="//form"
+                   position="inside">
+
+                <app string="Softwork Commerce Engine"
+                     name="sce_settings">
+
+                    <block title="General">
+
+                        <setting string="Enable SCE">
+
+                            <field name="sce_enabled"/>
+
+                        </setting>
+
+                        <setting string="Debug Mode">
+
+                            <field name="sce_debug"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="Queue">
+
+                        <setting string="Default Queue Size">
+
+                            <field name="sce_queue_limit"/>
+
+                        </setting>
+
+                        <setting string="Maximum Retries">
+
+                            <field name="sce_max_retries"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="Jobs">
+
+                        <setting string="Default Job Priority">
+
+                            <field name="sce_default_priority"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="Logging">
+
+                        <setting string="Log Retention (days)">
+
+                            <field name="sce_log_retention_days"/>
+
+                        </setting>
+
+                        <setting string="Log Level">
+
+                            <field name="sce_log_level"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="Webhook">
+
+                        <setting string="Webhook Retention (days)">
+
+                            <field name="sce_webhook_retention_days"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="Performance">
+
+                        <setting string="Worker Timeout (seconds)">
+
+                            <field name="sce_worker_timeout"/>
+
+                        </setting>
+
+                        <setting string="Chunk Size">
+
+                            <field name="sce_chunk_size"/>
+
+                        </setting>
+
+                    </block>
+
+                    <block title="HTTP">
+
+                        <setting string="HTTP Timeout">
+
+                            <field name="sce_http_timeout"/>
+
+                        </setting>
+
+                        <setting string="HTTP Retries">
+
+                            <field name="sce_http_retries"/>
+
+                        </setting>
+
+                    </block>
+
+                </app>
+
+            </xpath>
+
+        </field>
+
+    </record>
+
+</odoo>

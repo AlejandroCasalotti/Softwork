@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+
+    <!-- ========================================================== -->
+    <!-- Tree -->
+    <!-- ========================================================== -->
+
+    <record id="view_sce_ml_site_tree" model="ir.ui.view">
+        <field name="name">sce.ml.site.tree</field>
+        <field name="model">sce.ml.site</field>
+        <field name="arch" type="xml">
+
+            <list string="Marketplace Sites">
+
+                <field name="code"/>
+
+                <field name="name"/>
+
+                <field name="country_code"/>
+
+                <field name="language_code"/>
+
+                <field name="currency_id"/>
+
+                <field name="active"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Form -->
+    <!-- ========================================================== -->
+
+    <record id="view_sce_ml_site_form" model="ir.ui.view">
+        <field name="name">sce.ml.site.form</field>
+        <field name="model">sce.ml.site</field>
+        <field name="arch" type="xml">
+
+            <form>
+
+                <sheet>
+
+                    <group>
+
+                        <group>
+
+                            <field name="code"/>
+
+                            <field name="name"/>
+
+                            <field name="country_code"/>
+
+                            <field name="language_code"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="currency_id"/>
+
+                            <field name="api_base_url"/>
+
+                            <field name="auth_base_url"/>
+
+                            <field name="active"/>
+
+                        </group>
+
+                    </group>
+
+                </sheet>
+
+            </form>
+
+        </field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Action -->
+    <!-- ========================================================== -->
+
+    <record id="action_sce_ml_site" model="ir.actions.act_window">
+
+        <field name="name">Marketplace Sites</field>
+
+        <field name="res_model">sce.ml.site</field>
+
+        <field name="view_mode">list,form</field>
+
+    </record>
+
+</odoo>

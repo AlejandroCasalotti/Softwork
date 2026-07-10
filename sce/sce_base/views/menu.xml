@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ===================================================== -->
+    <!-- Root Menu -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_root"
+        name="Softwork Commerce Engine"
+        sequence="50"
+        groups="sce_base.group_sce_user"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Dashboard -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_dashboard"
+        name="Dashboard"
+        parent="menu_sce_root"
+        sequence="10"
+        action="action_sce_dashboard"
+        groups="sce_base.group_sce_user"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Providers -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_provider"
+        name="Providers"
+        parent="menu_sce_root"
+        sequence="20"
+        action="action_sce_provider"
+        groups="sce_base.group_sce_manager"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Connectors -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_connector"
+        name="Connectors"
+        parent="menu_sce_root"
+        sequence="30"
+        action="action_sce_connector"
+        groups="sce_base.group_sce_manager"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Accounts -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_account"
+        name="Accounts"
+        parent="menu_sce_root"
+        sequence="40"
+        action="action_sce_account"
+        groups="sce_base.group_sce_manager"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Operations -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_operations"
+        name="Operations"
+        parent="menu_sce_root"
+        sequence="50"
+        groups="sce_base.group_sce_user"
+    />
+
+    <menuitem
+        id="menu_sce_job"
+        name="Jobs"
+        parent="menu_sce_operations"
+        sequence="10"
+        action="action_sce_job"
+        groups="sce_base.group_sce_user"
+    />
+
+    <menuitem
+        id="menu_sce_queue"
+        name="Queue"
+        parent="menu_sce_operations"
+        sequence="20"
+        action="action_sce_queue"
+        groups="sce_base.group_sce_user"
+    />
+
+    <menuitem
+        id="menu_sce_webhook"
+        name="Webhooks"
+        parent="menu_sce_operations"
+        sequence="30"
+        action="action_sce_webhook"
+        groups="sce_base.group_sce_manager"
+    />
+
+    <menuitem
+        id="menu_sce_log"
+        name="Logs"
+        parent="menu_sce_operations"
+        sequence="40"
+        action="action_sce_log"
+        groups="sce_base.group_sce_manager"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Configuration -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_configuration"
+        name="Configuration"
+        parent="menu_sce_root"
+        sequence="90"
+        action="action_sce_settings"
+        groups="sce_base.group_sce_admin"
+    />
+
+    <!-- ===================================================== -->
+    <!-- Technical -->
+    <!-- ===================================================== -->
+
+    <menuitem
+        id="menu_sce_technical"
+        name="Technical"
+        parent="menu_sce_root"
+        sequence="100"
+        groups="sce_base.group_sce_admin"
+    />
+
+    <menuitem
+        id="menu_sce_kernel"
+        name="Kernel"
+        parent="menu_sce_technical"
+        sequence="10"
+        action="action_sce_kernel"
+        groups="sce_base.group_sce_admin"
+    />
+
+</odoo>

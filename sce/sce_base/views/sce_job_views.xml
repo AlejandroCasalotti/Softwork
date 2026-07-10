@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Tree View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_job_tree" model="ir.ui.view">
+        <field name="name">sce.job.tree</field>
+        <field name="model">sce.job</field>
+        <field name="arch" type="xml">
+
+            <list string="Jobs" default_order="create_date desc">
+
+                <field name="name"/>
+
+                <field name="connector_id"/>
+
+                <field name="account_id"/>
+
+                <field name="type"/>
+
+                <field name="priority"/>
+
+                <field name="state"
+                       widget="badge"
+                       decoration-info="state == 'pending'"
+                       decoration-warning="state == 'scheduled'"
+                       decoration-primary="state == 'running'"
+                       decoration-success="state == 'done'"
+                       decoration-danger="state == 'failed'"/>
+
+                <field name="retry_count"/>
+
+                <field name="duration"/>
+
+                <field name="create_date"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_job_form"
+            model="ir.ui.view">
+
+        <field name="name">sce.job.form</field>
+
+        <field name="model">sce.job</field>
+
+        <field name="arch"
+               type="xml">
+
+            <form string="Job">
+
+                <header>
+
+                    <button name="action_execute"
+                            type="object"
+                            string="Execute"
+                            class="btn-primary"
+                            invisible="state not in ('pending','scheduled')"/>
+
+                    <button name="action_retry"
+                            type="object"
+                            string="Retry"
+                            invisible="not can_retry"/>
+
+                    <button name="action_cancel"
+                            type="object"
+                            string="Cancel"
+                            invisible="state in ('done','failed','cancelled')"/>
+
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="pending,scheduled,running,done,failed,cancelled"/>
+
+                </header>
+
+                <sheet>
+
+                    <group>
+
+                        <group>
+
+                            <field name="name" readonly="1"/>
+
+                            <field name="type"/>
+
+                            <field name="account_id"/>
+
+                            <field name="connector_id" readonly="1"/>
+
+                            <field name="priority"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="scheduled_at"/>
+
+                            <field name="started_at" readonly="1"/>
+
+                            <field name="finished_at" readonly="1"/>
+
+                            <field name="duration" readonly="1"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <!-- ===================================== -->
+
+                        <page string="Payload">
+
+                            <field name="payload"
+                                   nolabel="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Result">
+
+                            <field name="result"
+                                   nolabel="1"
+                                   readonly="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Provider Response">
+
+                            <field name="response"
+                                   nolabel="1"
+                                   readonly="1"/>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Execution">
+
+                            <group>
+
+                                <group>
+
+                                    <field name="execution_id"
+                                           readonly="1"/>
+
+                                    <field name="worker"
+                                           readonly="1"/>
+
+                                    <field name="records_processed"
+                                           readonly="1"/>
+
+                                </group>
+
+                                <group>
+
+                                    <field name="records_failed"
+                                           readonly="1"/>
+
+                                    <field name="retry_count"
+                                           readonly="1"/>
+
+                                    <field name="max_retries"/>
+
+                                    <field name="can_retry"
+                                           readonly="1"/>
+
+                                </group>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Errors">
+
+                            <group>
+
+                                <field name="error"
+                                       readonly="1"/>
+
+                                <field name="error_traceback"
+                                       readonly="1"/>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ===================================== -->
+
+                        <page string="Description">
+
+                            <field name="description"
+                                   nolabel="1"/>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+                <chatter/>
+
+            </form>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Search -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_job_search"
+            model="ir.ui.view">
+
+        <field name="name">sce.job.search</field>
+
+        <field name="model">sce.job</field>
+
+        <field name="arch"
+               type="xml">
+
+            <search>
+
+                <field name="name"/>
+
+                <field name="account_id"/>
+
+                <field name="connector_id"/>
+
+                <field name="type"/>
+
+                <separator/>
+
+                <filter string="Pending"
+                        name="pending"
+                        domain="[('state','=','pending')]"/>
+
+                <filter string="Running"
+                        name="running"
+                        domain="[('state','=','running')]"/>
+
+                <filter string="Done"
+                        name="done"
+                        domain="[('state','=','done')]"/>
+
+                <filter string="Failed"
+                        name="failed"
+                        domain="[('state','=','failed')]"/>
+
+                <separator/>
+
+                <filter string="Retry Available"
+                        name="retry"
+                        domain="[('can_retry','=',True)]"/>
+
+                <group string="Group By"
+                       expand="0">
+
+                    <filter string="State"
+                            context="{'group_by':'state'}"/>
+
+                    <filter string="Connector"
+                            context="{'group_by':'connector_id'}"/>
+
+                    <filter string="Account"
+                            context="{'group_by':'account_id'}"/>
+
+                    <filter string="Priority"
+                            context="{'group_by':'priority'}"/>
+
+                </group>
+
+            </search>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_job"
+            model="ir.actions.act_window">
+
+        <field name="name">Jobs</field>
+
+        <field name="res_model">sce.job</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field name="search_view_id"
+               ref="view_sce_job_search"/>
+
+        <field name="help"
+               type="html">
+
+            <p class="o_view_nocontent_smiling_face">
+                No jobs found.
+            </p>
+
+            <p>
+                Jobs are automatically created by Softwork Commerce Engine
+                to execute synchronization tasks.
+            </p>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Menu -->
+    <!-- ========================================================= -->
+
+    <menuitem
+        id="menu_sce_job"
+        action="action_sce_job"/>
+
+</odoo>

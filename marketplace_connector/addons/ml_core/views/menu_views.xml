@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <menuitem id="menu_ml_root" name="MercadoLibre" sequence="60"/>
-
-    <menuitem id="menu_ml_accounts" name="Cuentas" parent="menu_ml_root" action="action_ml_account" sequence="10"/>
-    <menuitem id="menu_ml_logs" name="Logs" parent="menu_ml_root" action="action_ml_log" sequence="20"/>
-</odoo>

@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Tree View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_connector_tree" model="ir.ui.view">
+        <field name="name">sce.connector.tree</field>
+        <field name="model">sce.connector</field>
+        <field name="arch" type="xml">
+
+            <list string="Marketplace Connectors">
+
+                <field name="name"/>
+
+                <field name="code"/>
+
+                <field name="connector_type"/>
+
+                <field name="version"/>
+
+                <field name="company_id"/>
+
+                <field name="state"
+                       widget="badge"
+                       decoration-success="state == 'enabled'"
+                       decoration-warning="state == 'installed'"
+                       decoration-danger="state == 'disabled'"/>
+
+                <field name="active"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_connector_form"
+            model="ir.ui.view">
+
+        <field name="name">sce.connector.form</field>
+
+        <field name="model">sce.connector</field>
+
+        <field name="arch"
+               type="xml">
+
+            <form string="Marketplace Connector">
+
+                <header>
+
+                    <button name="action_install"
+                            type="object"
+                            string="Install"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+
+                    <button name="action_enable"
+                            type="object"
+                            string="Enable"
+                            class="btn-primary"
+                            invisible="state != 'installed'"/>
+
+                    <button name="action_disable"
+                            type="object"
+                            string="Disable"
+                            invisible="state != 'enabled'"/>
+
+                    <button name="action_reset"
+                            type="object"
+                            string="Reset"
+                            invisible="state == 'draft'"/>
+
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,installed,enabled,disabled"/>
+
+                </header>
+
+                <sheet>
+
+                    <!-- Smart Buttons -->
+
+                    <div class="oe_button_box"
+                         name="button_box">
+
+                        <button name="action_open_accounts"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-users">
+
+                            <field name="account_count"
+                                   widget="statinfo"
+                                   string="Accounts"/>
+
+                        </button>
+
+                        <button name="action_open_jobs"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-tasks">
+
+                            <field name="job_count"
+                                   widget="statinfo"
+                                   string="Jobs"/>
+
+                        </button>
+
+                        <button name="action_open_queue"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-list">
+
+                            <field name="queue_count"
+                                   widget="statinfo"
+                                   string="Queue"/>
+
+                        </button>
+
+                        <button name="action_open_logs"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+
+                            <field name="log_count"
+                                   widget="statinfo"
+                                   string="Logs"/>
+
+                        </button>
+
+                        <button name="action_open_webhooks"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-rss">
+
+                            <field name="webhook_count"
+                                   widget="statinfo"
+                                   string="Webhooks"/>
+
+                        </button>
+
+                    </div>
+
+                    <group>
+
+                        <group>
+
+                            <field name="name"/>
+
+                            <field name="code"/>
+
+                            <field name="connector_type"/>
+
+                            <field name="version"/>
+
+                            <field name="active"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="company_id"/>
+
+                            <field name="author"/>
+
+                            <field name="website"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <page string="Description">
+
+                            <field name="description"
+                                   nolabel="1"/>
+
+                        </page>
+
+                        <page string="Accounts">
+
+                            <field name="account_ids">
+
+                                <list editable="bottom">
+
+                                    <field name="name"/>
+
+                                    <field name="state"/>
+
+                                </list>
+
+                            </field>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+                <chatter/>
+
+            </form>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Search View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_connector_search"
+            model="ir.ui.view">
+
+        <field name="name">sce.connector.search</field>
+
+        <field name="model">sce.connector</field>
+
+        <field name="arch"
+               type="xml">
+
+            <search>
+
+                <field name="name"/>
+
+                <field name="code"/>
+
+                <field name="company_id"/>
+
+                <separator/>
+
+                <filter string="Enabled"
+                        name="enabled"
+                        domain="[('state','=','enabled')]"/>
+
+                <filter string="Installed"
+                        name="installed"
+                        domain="[('state','=','installed')]"/>
+
+                <filter string="Disabled"
+                        name="disabled"
+                        domain="[('state','=','disabled')]"/>
+
+                <filter string="Inactive"
+                        name="inactive"
+                        domain="[('active','=',False)]"/>
+
+                <group string="Group By"
+                       expand="0">
+
+                    <filter string="State"
+                            context="{'group_by':'state'}"/>
+
+                    <filter string="Company"
+                            context="{'group_by':'company_id'}"/>
+
+                    <filter string="Type"
+                            context="{'group_by':'connector_type'}"/>
+
+                </group>
+
+            </search>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_connector"
+            model="ir.actions.act_window">
+
+        <field name="name">Connectors</field>
+
+        <field name="res_model">sce.connector</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field name="search_view_id"
+               ref="view_sce_connector_search"/>
+
+        <field name="help"
+               type="html">
+
+            <p class="o_view_nocontent_smiling_face">
+                Create your first marketplace connector.
+            </p>
+
+            <p>
+                Connectors are responsible for integrating
+                Softwork Commerce Engine with external platforms.
+            </p>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Menu -->
+    <!-- ========================================================= -->
+
+    <menuitem
+        id="menu_sce_connector"
+        action="action_sce_connector"/>
+
+</odoo>

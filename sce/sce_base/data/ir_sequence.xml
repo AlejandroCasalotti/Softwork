@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- ====================================================== -->
+    <!-- SCE Job -->
+    <!-- ====================================================== -->
+
+    <record id="seq_sce_job" model="ir.sequence">
+        <field name="name">SCE Job</field>
+        <field name="code">sce.job</field>
+        <field name="prefix">JOB-</field>
+        <field name="padding">6</field>
+        <field name="number_increment">1</field>
+        <field name="number_next">1</field>
+        <field name="implementation">standard</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- SCE Queue -->
+    <!-- ====================================================== -->
+
+    <record id="seq_sce_queue" model="ir.sequence">
+        <field name="name">SCE Queue</field>
+        <field name="code">sce.queue</field>
+        <field name="prefix">QUE-</field>
+        <field name="padding">6</field>
+        <field name="number_increment">1</field>
+        <field name="number_next">1</field>
+        <field name="implementation">standard</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- SCE Log -->
+    <!-- ====================================================== -->
+
+    <record id="seq_sce_log" model="ir.sequence">
+        <field name="name">SCE Log</field>
+        <field name="code">sce.log</field>
+        <field name="prefix">LOG-</field>
+        <field name="padding">6</field>
+        <field name="number_increment">1</field>
+        <field name="number_next">1</field>
+        <field name="implementation">standard</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- SCE Webhook -->
+    <!-- ====================================================== -->
+
+    <record id="seq_sce_webhook" model="ir.sequence">
+        <field name="name">SCE Webhook</field>
+        <field name="code">sce.webhook</field>
+        <field name="prefix">WEB-</field>
+        <field name="padding">6</field>
+        <field name="number_increment">1</field>
+        <field name="number_next">1</field>
+        <field name="implementation">standard</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- SCE Account -->
+    <!-- ====================================================== -->
+
+    <record id="seq_sce_account" model="ir.sequence">
+        <field name="name">SCE Account</field>
+        <field name="code">sce.account</field>
+        <field name="prefix">ACC-</field>
+        <field name="padding">6</field>
+        <field name="number_increment">1</field>
+        <field name="number_next">1</field>
+        <field name="implementation">standard</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+</odoo>

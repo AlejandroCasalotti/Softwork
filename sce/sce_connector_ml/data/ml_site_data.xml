@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo noupdate="1">
+
+    <!-- ========================================================== -->
+    <!-- Argentina -->
+    <!-- ========================================================== -->
+
+    <record id="ml_site_mla" model="sce.ml.site">
+        <field name="code">MLA</field>
+        <field name="name">Argentina</field>
+        <field name="country_code">AR</field>
+        <field name="language_code">es_AR</field>
+        <field name="currency_id" ref="base.ARS"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Brasil -->
+    <!-- ========================================================== -->
+
+    <record id="ml_site_mlb" model="sce.ml.site">
+        <field name="code">MLB</field>
+        <field name="name">Brasil</field>
+        <field name="country_code">BR</field>
+        <field name="language_code">pt_BR</field>
+        <field name="currency_id" ref="base.BRL"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- México -->
+
+    <record id="ml_site_mlm" model="sce.ml.site">
+        <field name="code">MLM</field>
+        <field name="name">México</field>
+        <field name="country_code">MX</field>
+        <field name="language_code">es_MX</field>
+        <field name="currency_id" ref="base.MXN"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Colombia -->
+
+    <record id="ml_site_mco" model="sce.ml.site">
+        <field name="code">MCO</field>
+        <field name="name">Colombia</field>
+        <field name="country_code">CO</field>
+        <field name="language_code">es_CO</field>
+        <field name="currency_id" ref="base.COP"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Uruguay -->
+
+    <record id="ml_site_mlu" model="sce.ml.site">
+        <field name="code">MLU</field>
+        <field name="name">Uruguay</field>
+        <field name="country_code">UY</field>
+        <field name="language_code">es_UY</field>
+        <field name="currency_id" ref="base.UYU"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Perú -->
+
+    <record id="ml_site_mpe" model="sce.ml.site">
+        <field name="code">MPE</field>
+        <field name="name">Perú</field>
+        <field name="country_code">PE</field>
+        <field name="language_code">es_PE</field>
+        <field name="currency_id" ref="base.PEN"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Ecuador -->
+
+    <record id="ml_site_mec" model="sce.ml.site">
+        <field name="code">MEC</field>
+        <field name="name">Ecuador</field>
+        <field name="country_code">EC</field>
+        <field name="language_code">es_EC</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Chile -->
+
+    <record id="ml_site_mlc" model="sce.ml.site">
+        <field name="code">MLC</field>
+        <field name="name">Chile</field>
+        <field name="country_code">CL</field>
+        <field name="language_code">es_CL</field>
+        <field name="currency_id" ref="base.CLP"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+    <!-- Venezuela -->
+
+    <record id="ml_site_mlv" model="sce.ml.site">
+        <field name="code">MLV</field>
+        <field name="name">Venezuela</field>
+        <field name="country_code">VE</field>
+        <field name="language_code">es_VE</field>
+        <field name="currency_id" ref="base.VES"/>
+        <field name="api_base_url">https://api.mercadolibre.com</field>
+        <field name="auth_base_url">https://auth.mercadolibre.com</field>
+    </record>
+
+</odoo>

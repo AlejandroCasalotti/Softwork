@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+
+    <!-- ========================================================== -->
+    <!-- Categories -->
+    <!-- ========================================================== -->
+
+    <record id="module_category_sce_ml" model="ir.module.category">
+        <field name="name">SCE Mercado Libre</field>
+        <field name="description">
+            Security groups for Softwork Commerce Engine Mercado Libre Connector.
+        </field>
+        <field name="sequence">50</field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- User -->
+    <!-- ========================================================== -->
+
+    <record id="group_sce_ml_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="category_id" ref="module_category_sce_ml"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Manager -->
+    <!-- ========================================================== -->
+
+    <record id="group_sce_ml_manager" model="res.groups">
+        <field name="name">Manager</field>
+        <field name="category_id" ref="module_category_sce_ml"/>
+        <field name="implied_ids" eval="[
+            (4, ref('group_sce_ml_user')),
+            (4, ref('base.group_system'))
+        ]"/>
+    </record>
+
+</odoo>

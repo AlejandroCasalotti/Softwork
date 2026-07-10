@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- ====================================================== -->
+    <!-- Job Failed -->
+    <!-- ====================================================== -->
+
+    <record id="mail_template_sce_job_failed"
+            model="mail.template">
+
+        <field name="name">
+            SCE - Job Failed
+        </field>
+
+        <field name="model_id"
+               ref="model_sce_job"/>
+
+        <field name="subject">
+            [SCE] Job ${object.name} failed
+        </field>
+
+        <field name="email_from">
+            {{ user.email_formatted }}
+        </field>
+
+        <field name="email_to">
+            {{ object.create_uid.email }}
+        </field>
+
+        <field name="auto_delete"
+               eval="True"/>
+
+        <field name="body_html"
+               type="html">
+
+<![CDATA[
+
+<div style="font-family:Arial,sans-serif;">
+
+<h2>Softwork Commerce Engine</h2>
+
+<p>
+
+A synchronization job has failed.
+
+</p>
+
+<table border="0"
+       cellpadding="6">
+
+<tr>
+
+<td><strong>Job</strong></td>
+
+<td>${object.name}</td>
+
+</tr>
+
+<tr>
+
+<td><strong>Status</strong></td>
+
+<td>${object.state}</td>
+
+</tr>
+
+<tr>
+
+<td><strong>Connector</strong></td>
+
+<td>${object.connector_id.display_name or ''}</td>
+
+</tr>
+
+<tr>
+
+<td><strong>Started</strong></td>
+
+<td>${object.started_at or ''}</td>
+
+</tr>
+
+<tr>
+
+<td><strong>Error</strong></td>
+
+<td>${object.error_message or ''}</td>
+
+</tr>
+
+</table>
+
+</div>
+
+]]>
+
+        </field>
+
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- OAuth Expired -->
+    <!-- ====================================================== -->
+
+    <record id="mail_template_sce_account_expired"
+            model="mail.template">
+
+        <field name="name">
+            SCE - OAuth Expired
+        </field>
+
+        <field name="model_id"
+               ref="model_sce_account"/>
+
+        <field name="subject">
+            [SCE] OAuth connection expired
+        </field>
+
+        <field name="email_from">
+            {{ user.email_formatted }}
+        </field>
+
+        <field name="email_to">
+            {{ object.create_uid.email }}
+        </field>
+
+        <field name="auto_delete"
+               eval="True"/>
+
+        <field name="body_html"
+               type="html">
+
+<![CDATA[
+
+<div style="font-family:Arial,sans-serif;">
+
+<h2>Authentication expired</h2>
+
+<p>
+
+The connection with
+<strong>${object.name}</strong>
+requires reauthorization.
+
+</p>
+
+<p>
+
+Please reconnect the account from Odoo.
+
+</p>
+
+</div>
+
+]]>
+
+        </field>
+
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- Connector Error -->
+    <!-- ====================================================== -->
+
+    <record id="mail_template_sce_connector_error"
+            model="mail.template">
+
+        <field name="name">
+            SCE - Connector Error
+        </field>
+
+        <field name="model_id"
+               ref="model_sce_log"/>
+
+        <field name="subject">
+            [SCE] Connector Error
+        </field>
+
+        <field name="email_from">
+            {{ user.email_formatted }}
+        </field>
+
+        <field name="email_to">
+            {{ object.create_uid.email }}
+        </field>
+
+        <field name="auto_delete"
+               eval="True"/>
+
+        <field name="body_html"
+               type="html">
+
+<![CDATA[
+
+<div style="font-family:Arial,sans-serif;">
+
+<h2>Connector Error</h2>
+
+<p>
+
+An integration error has been detected.
+
+</p>
+
+<p>
+
+<strong>Category:</strong>
+
+${object.category}
+
+</p>
+
+<p>
+
+<strong>Message:</strong>
+
+${object.message}
+
+</p>
+
+</div>
+
+]]>
+
+        </field>
+
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- System Alert -->
+    <!-- ====================================================== -->
+
+    <record id="mail_template_sce_system_alert"
+            model="mail.template">
+
+        <field name="name">
+            SCE - System Alert
+        </field>
+
+        <field name="model_id"
+               ref="model_sce_log"/>
+
+        <field name="subject">
+            [SCE] System Alert
+        </field>
+
+        <field name="email_from">
+            {{ user.email_formatted }}
+        </field>
+
+        <field name="email_to">
+            {{ object.create_uid.email }}
+        </field>
+
+        <field name="auto_delete"
+               eval="True"/>
+
+        <field name="body_html"
+               type="html">
+
+<![CDATA[
+
+<div style="font-family:Arial,sans-serif;">
+
+<h2>System Alert</h2>
+
+<p>
+
+A critical event has occurred inside
+Softwork Commerce Engine.
+
+</p>
+
+<p>
+
+Review the system logs for more information.
+
+</p>
+
+</div>
+
+]]>
+
+        </field>
+
+    </record>
+
+</odoo>

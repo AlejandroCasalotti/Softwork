@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- ===================================================== -->
+    <!-- General -->
+    <!-- ===================================================== -->
+
+    <record id="param_sce_enabled"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.enabled
+        </field>
+
+        <field name="value">
+            True
+        </field>
+
+    </record>
+
+    <record id="param_sce_debug"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.debug
+        </field>
+
+        <field name="value">
+            False
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- Queue -->
+    <!-- ===================================================== -->
+
+    <record id="param_queue_batch"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.queue.batch_size
+        </field>
+
+        <field name="value">
+            100
+        </field>
+
+    </record>
+
+    <record id="param_queue_retry"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.queue.max_retry
+        </field>
+
+        <field name="value">
+            5
+        </field>
+
+    </record>
+
+    <record id="param_queue_timeout"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.queue.timeout
+        </field>
+
+        <field name="value">
+            300
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- Cache -->
+    <!-- ===================================================== -->
+
+    <record id="param_cache_ttl"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.cache.default_ttl
+        </field>
+
+        <field name="value">
+            3600
+        </field>
+
+    </record>
+
+    <record id="param_cache_cleanup"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.cache.cleanup_days
+        </field>
+
+        <field name="value">
+            7
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- Logs -->
+    <!-- ===================================================== -->
+
+    <record id="param_log_level"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.log.level
+        </field>
+
+        <field name="value">
+            INFO
+        </field>
+
+    </record>
+
+    <record id="param_log_retention"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.log.retention_days
+        </field>
+
+        <field name="value">
+            90
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- OAuth -->
+    <!-- ===================================================== -->
+
+    <record id="param_oauth_timeout"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.oauth.timeout
+        </field>
+
+        <field name="value">
+            30
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- Webhooks -->
+    <!-- ===================================================== -->
+
+    <record id="param_webhook_secret"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.webhook.secret
+        </field>
+
+        <field name="value"></field>
+
+    </record>
+
+    <record id="param_webhook_retry"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.webhook.max_retry
+        </field>
+
+        <field name="value">
+            3
+        </field>
+
+    </record>
+
+    <!-- ===================================================== -->
+    <!-- Notifications -->
+    <!-- ===================================================== -->
+
+    <record id="param_notifications"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.notifications.enabled
+        </field>
+
+        <field name="value">
+            True
+        </field>
+
+    </record>
+
+    <record id="param_notification_job"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.notifications.job_failed
+        </field>
+
+        <field name="value">
+            True
+        </field>
+
+    </record>
+
+    <record id="param_notification_auth"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.notifications.account_expired
+        </field>
+
+        <field name="value">
+            True
+        </field>
+
+    </record>
+
+    <record id="param_notification_system"
+            model="ir.config_parameter">
+
+        <field name="key">
+            sce.notifications.system_alert
+        </field>
+
+        <field name="value">
+            True
+        </field>
+
+    </record>
+
+</odoo>

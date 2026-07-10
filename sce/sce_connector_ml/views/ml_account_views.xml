@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+
+    <!-- ========================================================== -->
+    <!-- Tree -->
+    <!-- ========================================================== -->
+
+    <record id="view_sce_ml_account_tree" model="ir.ui.view">
+        <field name="name">sce.ml.account.tree</field>
+        <field name="model">sce.ml.account</field>
+        <field name="arch" type="xml">
+
+            <list>
+
+                <field name="account_id"/>
+
+                <field name="site_id"/>
+
+                <field name="seller_nickname"/>
+
+                <field name="connected"/>
+
+                <field name="last_sync_status"/>
+
+                <field name="active"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Form -->
+    <!-- ========================================================== -->
+
+    <record id="view_sce_ml_account_form" model="ir.ui.view">
+
+        <field name="name">sce.ml.account.form</field>
+
+        <field name="model">sce.ml.account</field>
+
+        <field name="arch" type="xml">
+
+            <form>
+
+                <header>
+
+                    <button
+                        name="action_connect"
+                        type="object"
+                        string="Connect"
+                        class="oe_highlight"/>
+
+                    <button
+                        name="action_disconnect"
+                        type="object"
+                        string="Disconnect"/>
+
+                    <button
+                        name="action_test_connection"
+                        type="object"
+                        string="Test Connection"/>
+
+                    <button
+                        name="action_sync_now"
+                        type="object"
+                        string="Synchronize"/>
+
+                </header>
+
+                <sheet>
+
+                    <group>
+
+                        <group>
+
+                            <field name="account_id"/>
+
+                            <field name="site_id"/>
+
+                            <field name="connected" readonly="1"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="seller_id" readonly="1"/>
+
+                            <field name="seller_nickname" readonly="1"/>
+
+                            <field name="user_id" readonly="1"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <page string="OAuth">
+
+                            <group>
+
+                                <field name="client_id"/>
+
+                                <field name="client_secret" password="True"/>
+
+                                <field name="redirect_uri"/>
+
+                            </group>
+
+                        </page>
+
+                        <page string="Synchronization">
+
+                            <group>
+
+                                <field name="auto_import_orders"/>
+
+                                <field name="auto_update_stock"/>
+
+                                <field name="auto_update_price"/>
+
+                            </group>
+
+                            <group>
+
+                                <field name="last_sync_at" readonly="1"/>
+
+                                <field name="last_sync_status" readonly="1"/>
+
+                                <field name="last_error" readonly="1"/>
+
+                            </group>
+
+                        </page>
+
+                        <page string="Advanced">
+
+                            <group>
+
+                                <field name="webhook_secret"/>
+
+                                <field name="active"/>
+
+                            </group>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+            </form>
+
+        </field>
+
+    </record>
+
+    <!-- ========================================================== -->
+    <!-- Action -->
+    <!-- ========================================================== -->
+
+    <record id="action_sce_ml_account" model="ir.actions.act_window">
+
+        <field name="name">Mercado Libre Accounts</field>
+
+        <field name="res_model">sce.ml.account</field>
+
+        <field name="view_mode">list,form</field>
+
+    </record>
+
+</odoo>

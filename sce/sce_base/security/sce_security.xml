@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+
+
+    <!-- ================================================= -->
+    <!-- SCE User -->
+    <!-- ================================================= -->
+
+    <record id="group_sce_user" model="res.groups">
+
+        <field name="name">
+            SCE User
+        </field>
+
+
+        <field name="category_id"
+               ref="base.module_category_operations"/>
+
+
+    </record>
+
+
+
+    <!-- ================================================= -->
+    <!-- SCE Manager -->
+    <!-- ================================================= -->
+
+    <record id="group_sce_manager"
+            model="res.groups">
+
+
+        <field name="name">
+            SCE Manager
+        </field>
+
+
+        <field name="category_id"
+               ref="base.module_category_operations"/>
+
+
+        <field name="implied_ids">
+
+            <record id="group_sce_user"/>
+
+        </field>
+
+
+    </record>
+
+
+
+    <!-- ================================================= -->
+    <!-- SCE Administrator -->
+    <!-- ================================================= -->
+
+
+    <record id="group_sce_admin"
+            model="res.groups">
+
+
+        <field name="name">
+            SCE Administrator
+        </field>
+
+
+        <field name="category_id"
+               ref="base.module_category_administration"/>
+
+
+        <field name="implied_ids">
+
+            <record id="group_sce_manager"/>
+
+        </field>
+
+
+    </record>
+
+
+
+</odoo>
