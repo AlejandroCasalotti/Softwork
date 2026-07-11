@@ -49,4 +49,14 @@
         <field name="interval_type">days</field>
         <field name="active">True</field>
     </record>
+
+    <record id="ir_cron_sce_refresh_provider_tokens" model="ir.cron">
+        <field name="name">SCE - Refresh Provider Tokens</field>
+        <field name="model_id" ref="model_sce_account"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_refresh_provider_tokens()</field>
+        <field name="interval_number">30</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
 </odoo>

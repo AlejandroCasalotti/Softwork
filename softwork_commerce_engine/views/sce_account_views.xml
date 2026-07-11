@@ -48,7 +48,27 @@
                             <field name="avg_duration_ms" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Credentials">
+                    <group string="OAuth / Tokens">
+                        <group>
+                            <field name="client_id"/>
+                            <field name="client_secret" password="True"/>
+                            <field name="redirect_uri"/>
+                            <field name="auth_code"/>
+                            <field name="oauth_url" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="access_token" password="True"/>
+                            <field name="refresh_token" password="True"/>
+                            <field name="token_type" readonly="1"/>
+                            <field name="token_expires_at" readonly="1"/>
+                            <field name="external_user_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <button name="action_exchange_code" type="object" string="Obtener Token" class="btn-primary"/>
+                        <button name="action_refresh_token" type="object" string="Refrescar Token"/>
+                    </group>
+                    <group string="Credentials JSON (advanced)">
                         <field name="credentials_json" widget="text"/>
                     </group>
                     <notebook>
