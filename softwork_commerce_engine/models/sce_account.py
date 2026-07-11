@@ -45,6 +45,8 @@ class SceAccount(models.Model):
     external_user_id = fields.Char(string="External User ID")
     token_refresh_in_progress = fields.Boolean(default=False, readonly=True)
     token_refresh_started_at = fields.Datetime(readonly=True)
+    token_refresh_fail_count = fields.Integer(default=0, readonly=True)
+    last_token_refresh_error = fields.Text(readonly=True)
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
@@ -62,11 +64,22 @@ class SceAccount(models.Model):
                         "response_type": "code",
                         "client_id": rec.client_id,
                         "redirect_uri": rec.redirect_uri,
+                        "state": str(rec.id or ""),
                     }
                 )
                 rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
             else:
                 rec.oauth_url = False
+
+    def action_open_oauth_url(self):
+        self.ensure_one()
+        if not self.oauth_url:
+            raise UserError("No se pudo generar URL OAuth. Verifica client_id y redirect_uri.")
+        return {
+            "type": "ir.actions.act_url",
+            "url": self.oauth_url,
+            "target": "new",
+        }
 
     @api.depends("job_ids.state", "job_ids.duration_ms")
     def _compute_job_metrics(self):
@@ -136,6 +149,8 @@ class SceAccount(models.Model):
                             "external_user_id": result.get("external_user_id"),
                             "state": "connected",
                             "last_error": False,
+                            "token_refresh_fail_count": 0,
+                            "last_token_refresh_error": False,
                         }
                     )
                     rec._sync_credentials_blob()
@@ -157,6 +172,8 @@ class SceAccount(models.Model):
             except Exception as err:
                 rec.state = "error"
                 rec.last_error = str(err)
+                rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
+                rec.last_token_refresh_error = str(err)
                 event_model.emit_event(
                     name=f"Token exchange failed: {rec.display_name}",
                     event_type="TokenExchangeFailed",
@@ -173,12 +190,42 @@ class SceAccount(models.Model):
                 raise
         return True
 
+    def action_force_unlock_token_refresh(self):
+        self.write(
+            {
+                "token_refresh_in_progress": False,
+                "token_refresh_started_at": False,
+            }
+        )
+        return True
+
+    def write(self, vals):
+        if "client_secret" in vals:
+            for rec in self:
+                if vals.get("client_secret") != rec.client_secret:
+                    vals.setdefault("state", "draft")
+                    vals.setdefault("access_token", False)
+                    vals.setdefault("refresh_token", False)
+                    vals.setdefault("token_type", False)
+                    vals.setdefault("token_expires_at", False)
+                    vals.setdefault("external_user_id", False)
+        return super().write(vals)
+
     def action_refresh_token(self):
         event_model = self.env["sce.event"]
         log_service = self.env["sce.log.service"]
         for rec in self:
             if rec.token_refresh_in_progress:
-                continue
+                if rec.token_refresh_started_at:
+                    zombie_deadline = rec.token_refresh_started_at + fields.DateUtils.to_timedelta(minutes=10)
+                    if fields.Datetime.now() < zombie_deadline:
+                        continue
+                rec.write(
+                    {
+                        "token_refresh_in_progress": False,
+                        "token_refresh_started_at": False,
+                    }
+                )
             rec.write(
                 {
                     "token_refresh_in_progress": True,
@@ -257,6 +304,8 @@ class SceAccount(models.Model):
             ]
         )
         for acc in accounts:
+            if acc.token_refresh_fail_count and acc.token_refresh_fail_count >= 5:
+                continue
             needs_refresh = (not acc.token_expires_at) or (acc.token_expires_at <= refresh_deadline)
             if not needs_refresh:
                 continue

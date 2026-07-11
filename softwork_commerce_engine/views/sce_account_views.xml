@@ -67,8 +67,10 @@
                         </group>
                     </group>
                     <group>
-                        <button name="action_exchange_code" type="object" string="Obtener Token" class="btn-primary"/>
+                        <button name="action_open_oauth_url" type="object" string="Conectar MercadoLibre" class="btn-primary"/>
+                        <button name="action_exchange_code" type="object" string="Obtener Token (manual)" class="btn-secondary"/>
                         <button name="action_refresh_token" type="object" string="Refrescar Token"/>
+                        <button name="action_force_unlock_token_refresh" type="object" string="Forzar desbloqueo refresh"/>
                     </group>
                     <group string="Credentials JSON (advanced)">
                         <field name="credentials_json" widget="text"/>
