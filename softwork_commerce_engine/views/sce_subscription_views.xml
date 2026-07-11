@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_subscription_plan_tree" model="ir.ui.view">
+        <field name="name">sce.subscription.plan.tree</field>
+        <field name="model">sce.subscription.plan</field>
+        <field name="arch" type="xml">
+            <list string="Subscription Plans">
+                <field name="sequence"/>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="max_synced_products"/>
+                <field name="price_monthly"/>
+                <field name="currency_id"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sce_subscription_plan_form" model="ir.ui.view">
+        <field name="name">sce.subscription.plan.form</field>
+        <field name="model">sce.subscription.plan</field>
+        <field name="arch" type="xml">
+            <form string="Subscription Plan">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="name"/>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="max_synced_products"/>
+                            <field name="price_monthly"/>
+                            <field name="currency_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="description" widget="text"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sce_subscription_plan" model="ir.actions.act_window">
+        <field name="name">Subscription Plans</field>
+        <field name="res_model">sce.subscription.plan</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_sce_subscription_tree" model="ir.ui.view">
+        <field name="name">sce.subscription.tree</field>
+        <field name="model">sce.subscription</field>
+        <field name="arch" type="xml">
+            <list string="Subscriptions">
+                <field name="name"/>
+                <field name="company_id"/>
+                <field name="plan_id"/>
+                <field name="state"/>
+                <field name="synced_products_count"/>
+                <field name="over_limit"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sce_subscription_form" model="ir.ui.view">
+        <field name="name">sce.subscription.form</field>
+        <field name="model">sce.subscription</field>
+        <field name="arch" type="xml">
+            <form string="Subscription">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="company_id"/>
+                            <field name="plan_id"/>
+                            <field name="state"/>
+                        </group>
+                        <group>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="synced_products_count"/>
+                            <field name="over_limit" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sce_subscription" model="ir.actions.act_window">
+        <field name="name">Subscriptions</field>
+        <field name="res_model">sce.subscription</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_sce_usage_metric_tree" model="ir.ui.view">
+        <field name="name">sce.usage.metric.tree</field>
+        <field name="model">sce.usage.metric</field>
+        <field name="arch" type="xml">
+            <list string="Usage Metrics">
+                <field name="date"/>
+                <field name="company_id"/>
+                <field name="connector_id"/>
+                <field name="account_id"/>
+                <field name="metric_type"/>
+                <field name="value"/>
+                <field name="notes"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sce_usage_metric_form" model="ir.ui.view">
+        <field name="name">sce.usage.metric.form</field>
+        <field name="model">sce.usage.metric</field>
+        <field name="arch" type="xml">
+            <form string="Usage Metric">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="date"/>
+                            <field name="company_id"/>
+                            <field name="metric_type"/>
+                            <field name="value"/>
+                        </group>
+                        <group>
+                            <field name="connector_id"/>
+                            <field name="account_id"/>
+                            <field name="notes"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sce_usage_metric" model="ir.actions.act_window">
+        <field name="name">Usage Metrics</field>
+        <field name="res_model">sce.usage.metric</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

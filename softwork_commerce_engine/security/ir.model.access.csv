@@ -1,0 +1,9 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sce_connector_user,access.sce.connector.user,model_sce_connector,base.group_user,1,1,1,1
+access_sce_account_user,access.sce.account.user,model_sce_account,base.group_user,1,1,1,1
+access_sce_job_user,access.sce.job.user,model_sce_job,base.group_user,1,1,1,1
+access_sce_event_user,access.sce.event.user,model_sce_event,base.group_user,1,1,1,1
+access_sce_log_user,access.sce.log.user,model_sce_log,base.group_user,1,0,0,0
+access_sce_subscription_plan_user,access.sce.subscription.plan.user,model_sce_subscription_plan,base.group_user,1,1,1,1
+access_sce_subscription_user,access.sce.subscription.user,model_sce_subscription,base.group_user,1,1,1,1
+access_sce_usage_metric_user,access.sce.usage.metric.user,model_sce_usage_metric,base.group_user,1,1,1,1
