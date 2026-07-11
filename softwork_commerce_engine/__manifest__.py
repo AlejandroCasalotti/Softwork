@@ -31,12 +31,12 @@ Incluye:
     "data": [
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
-        "views/menu_views.xml",
         "views/sce_connector_views.xml",
         "views/sce_account_views.xml",
         "views/sce_job_views.xml",
         "views/sce_log_views.xml",
         "views/sce_subscription_views.xml",
+        "views/menu_views.xml",
     ],
     "demo": [],
     "assets": {
