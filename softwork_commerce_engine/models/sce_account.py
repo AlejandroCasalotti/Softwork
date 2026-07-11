@@ -43,6 +43,8 @@ class SceAccount(models.Model):
     token_type = fields.Char(string="Token Type")
     token_expires_at = fields.Datetime(string="Token Expires At")
     external_user_id = fields.Char(string="External User ID")
+    token_refresh_in_progress = fields.Boolean(default=False, readonly=True)
+    token_refresh_started_at = fields.Datetime(readonly=True)
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
@@ -106,77 +108,158 @@ class SceAccount(models.Model):
         )
         self._set_credentials_dict(data)
 
+    def _sanitize_result_for_logs(self, result):
+        clean = dict(result or {})
+        for key in ("access_token", "refresh_token", "client_secret"):
+            if clean.get(key):
+                clean[key] = "***"
+        return clean
+
     def action_exchange_code(self):
+        event_model = self.env["sce.event"]
+        log_service = self.env["sce.log.service"]
         for rec in self:
-            if rec.connector_id.provider_type != "mercadolibre":
-                raise UserError("Token exchange solo está disponible para MercadoLibre.")
-            if not rec.auth_code:
-                raise UserError("Debes informar Authorization Code.")
-            provider = rec.env["sce.provider.factory"].get_provider(rec)
-            result = provider.authenticate()
-            if result.get("access_token"):
-                rec.write(
-                    {
-                        "access_token": result.get("access_token"),
-                        "refresh_token": result.get("refresh_token"),
-                        "token_type": result.get("token_type"),
-                        "token_expires_at": result.get("token_expires_at"),
-                        "external_user_id": result.get("external_user_id"),
-                        "state": "connected",
-                        "last_error": False,
-                    }
+            try:
+                if rec.connector_id.provider_type != "mercadolibre":
+                    raise UserError("Token exchange solo está disponible para MercadoLibre.")
+                if not rec.auth_code:
+                    raise UserError("Debes informar Authorization Code.")
+                provider = rec.env["sce.provider.factory"].get_provider(rec)
+                result = provider.authenticate()
+                if result.get("access_token"):
+                    rec.write(
+                        {
+                            "access_token": result.get("access_token"),
+                            "refresh_token": result.get("refresh_token"),
+                            "token_type": result.get("token_type"),
+                            "token_expires_at": result.get("token_expires_at"),
+                            "external_user_id": result.get("external_user_id"),
+                            "state": "connected",
+                            "last_error": False,
+                        }
+                    )
+                    rec._sync_credentials_blob()
+                safe_result = rec._sanitize_result_for_logs(result)
+                log_service.log(
+                    name="Token exchanged",
+                    message=f"Token exchange executed for {rec.display_name}",
+                    level="INFO",
+                    account=rec,
+                    connector=rec.connector_id,
+                    details_json=json.dumps(safe_result),
                 )
-                rec._sync_credentials_blob()
-            rec.env["sce.log.service"].log(
-                name="Token exchanged",
-                message=f"Token exchange executed for {rec.display_name}",
-                level="INFO",
-                account=rec,
-                connector=rec.connector_id,
-                details_json=json.dumps(result),
-            )
+                event_model.emit_event(
+                    name=f"Token exchange success: {rec.display_name}",
+                    event_type="TokenExchangeSuccess",
+                    payload={"account_id": rec.id, "provider": rec.connector_id.provider_type},
+                    company=rec.company_id,
+                )
+            except Exception as err:
+                rec.state = "error"
+                rec.last_error = str(err)
+                event_model.emit_event(
+                    name=f"Token exchange failed: {rec.display_name}",
+                    event_type="TokenExchangeFailed",
+                    payload={"account_id": rec.id, "error": str(err)},
+                    company=rec.company_id,
+                )
+                log_service.log(
+                    name="Token exchange failed",
+                    message=f"Token exchange failed for {rec.display_name}: {err}",
+                    level="ERROR",
+                    account=rec,
+                    connector=rec.connector_id,
+                )
+                raise
         return True
 
     def action_refresh_token(self):
+        event_model = self.env["sce.event"]
+        log_service = self.env["sce.log.service"]
         for rec in self:
-            if rec.connector_id.provider_type != "mercadolibre":
-                raise UserError("Token refresh solo está disponible para MercadoLibre.")
-            if not rec.refresh_token:
-                raise UserError("No hay refresh token configurado.")
-            provider = rec.env["sce.provider.factory"].get_provider(rec)
-            result = provider.refresh_token()
-            if result.get("access_token"):
+            if rec.token_refresh_in_progress:
+                continue
+            rec.write(
+                {
+                    "token_refresh_in_progress": True,
+                    "token_refresh_started_at": fields.Datetime.now(),
+                }
+            )
+            try:
+                if rec.connector_id.provider_type != "mercadolibre":
+                    raise UserError("Token refresh solo está disponible para MercadoLibre.")
+                if not rec.refresh_token:
+                    raise UserError("No hay refresh token configurado.")
+                provider = rec.env["sce.provider.factory"].get_provider(rec)
+                result = provider.refresh_token()
+                if result.get("access_token"):
+                    rec.write(
+                        {
+                            "access_token": result.get("access_token"),
+                            "refresh_token": result.get("refresh_token") or rec.refresh_token,
+                            "token_type": result.get("token_type") or rec.token_type,
+                            "token_expires_at": result.get("token_expires_at"),
+                            "state": "connected",
+                            "last_error": False,
+                        }
+                    )
+                    rec._sync_credentials_blob()
+                safe_result = rec._sanitize_result_for_logs(result)
+                log_service.log(
+                    name="Token refreshed",
+                    message=f"Token refresh executed for {rec.display_name}",
+                    level="INFO",
+                    account=rec,
+                    connector=rec.connector_id,
+                    details_json=json.dumps(safe_result),
+                )
+                event_model.emit_event(
+                    name=f"Token refresh success: {rec.display_name}",
+                    event_type="TokenRefreshSuccess",
+                    payload={"account_id": rec.id, "provider": rec.connector_id.provider_type},
+                    company=rec.company_id,
+                )
+            except Exception as err:
+                rec.state = "error"
+                rec.last_error = str(err)
+                event_model.emit_event(
+                    name=f"Token refresh failed: {rec.display_name}",
+                    event_type="TokenRefreshFailed",
+                    payload={"account_id": rec.id, "error": str(err)},
+                    company=rec.company_id,
+                )
+                log_service.log(
+                    name="Token refresh failed",
+                    message=f"Token refresh failed for {rec.display_name}: {err}",
+                    level="ERROR",
+                    account=rec,
+                    connector=rec.connector_id,
+                )
+                raise
+            finally:
                 rec.write(
                     {
-                        "access_token": result.get("access_token"),
-                        "refresh_token": result.get("refresh_token") or rec.refresh_token,
-                        "token_type": result.get("token_type") or rec.token_type,
-                        "token_expires_at": result.get("token_expires_at"),
-                        "state": "connected",
-                        "last_error": False,
+                        "token_refresh_in_progress": False,
                     }
                 )
-                rec._sync_credentials_blob()
-            rec.env["sce.log.service"].log(
-                name="Token refreshed",
-                message=f"Token refresh executed for {rec.display_name}",
-                level="INFO",
-                account=rec,
-                connector=rec.connector_id,
-                details_json=json.dumps(result),
-            )
         return True
 
     @api.model
     def cron_refresh_provider_tokens(self):
+        now_dt = fields.Datetime.now()
+        refresh_deadline = now_dt + fields.DateUtils.to_timedelta(minutes=15)
         accounts = self.search(
             [
                 ("active", "=", True),
                 ("connector_id.provider_type", "=", "mercadolibre"),
                 ("refresh_token", "!=", False),
+                ("token_refresh_in_progress", "=", False),
             ]
         )
         for acc in accounts:
+            needs_refresh = (not acc.token_expires_at) or (acc.token_expires_at <= refresh_deadline)
+            if not needs_refresh:
+                continue
             try:
                 acc.action_refresh_token()
             except Exception as err:

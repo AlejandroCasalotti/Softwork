@@ -62,6 +62,8 @@
                             <field name="token_type" readonly="1"/>
                             <field name="token_expires_at" readonly="1"/>
                             <field name="external_user_id" readonly="1"/>
+                            <field name="token_refresh_in_progress" readonly="1"/>
+                            <field name="token_refresh_started_at" readonly="1"/>
                         </group>
                     </group>
                     <group>
