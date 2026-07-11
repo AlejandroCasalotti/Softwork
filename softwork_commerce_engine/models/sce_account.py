@@ -137,7 +137,8 @@ class SceAccount(models.Model):
                     raise UserError("Token exchange solo está disponible para MercadoLibre.")
                 if not rec.auth_code:
                     raise UserError("Debes informar Authorization Code.")
-                provider = rec.env["sce.provider.factory"].get_provider(rec)
+                from ..services.provider_factory import ProviderFactory
+                provider = ProviderFactory.get_provider(rec)
                 result = provider.authenticate()
                 if result.get("access_token"):
                     rec.write(
@@ -237,7 +238,8 @@ class SceAccount(models.Model):
                     raise UserError("Token refresh solo está disponible para MercadoLibre.")
                 if not rec.refresh_token:
                     raise UserError("No hay refresh token configurado.")
-                provider = rec.env["sce.provider.factory"].get_provider(rec)
+                from ..services.provider_factory import ProviderFactory
+                provider = ProviderFactory.get_provider(rec)
                 result = provider.refresh_token()
                 if result.get("access_token"):
                     rec.write(
