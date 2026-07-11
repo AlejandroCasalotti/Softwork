@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-from odoo import fields, models
+import json
+
+from odoo import api, fields, models
 
 
 class SceEvent(models.Model):
@@ -42,3 +44,16 @@ class SceEvent(models.Model):
         index=True,
     )
     payload_json = fields.Text()
+
+    @api.model
+    def emit_event(self, *, name, event_type, connector=None, account=None, job=None, payload=None, company=None):
+        payload_json = payload if isinstance(payload, str) else json.dumps(payload or {})
+        return self.create({
+            "name": name,
+            "event_type": event_type,
+            "connector_id": connector.id if connector else False,
+            "account_id": account.id if account else False,
+            "job_id": job.id if job else False,
+            "company_id": company.id if company else (account.company_id.id if account else self.env.company.id),
+            "payload_json": payload_json,
+        })
