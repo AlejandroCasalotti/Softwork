@@ -9,7 +9,7 @@ class SceWebhookController(http.Controller):
 
     @http.route(
         ["/sce/webhook/<string:provider>"],
-        type="json",
+        type="jsonrpc",
         auth="public",
         methods=["POST"],
         csrf=False,
