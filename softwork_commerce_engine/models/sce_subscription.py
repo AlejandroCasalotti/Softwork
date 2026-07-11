@@ -70,30 +70,72 @@ class SceSubscription(models.Model):
 
     def action_mark_past_due(self):
         today = fields.Date.today()
+        log_service = self.env["sce.log.service"]
+        event_model = self.env["sce.event"]
         for rec in self:
+            previous_state = rec.state
             rec.write({
                 "billing_status": "past_due",
                 "state": "grace" if rec.state not in ("suspended", "cancelled") else rec.state,
                 "grace_until": today + timedelta(days=7),
             })
+            event_model.emit_event(
+                name=f"Subscription billing past due: {rec.display_name}",
+                event_type="SubscriptionBillingPastDue",
+                payload={"previous_state": previous_state, "new_state": rec.state},
+                company=rec.company_id,
+            )
+            log_service.log(
+                name="Subscription past due",
+                message=f"Subscription {rec.display_name} marked as past due",
+                level="WARNING",
+            )
         return True
 
     def action_mark_unpaid(self):
+        log_service = self.env["sce.log.service"]
+        event_model = self.env["sce.event"]
         for rec in self:
+            previous_state = rec.state
             rec.write({
                 "billing_status": "unpaid",
                 "state": "suspended" if rec.state != "cancelled" else "cancelled",
             })
+            event_model.emit_event(
+                name=f"Subscription billing unpaid: {rec.display_name}",
+                event_type="SubscriptionBillingUnpaid",
+                payload={"previous_state": previous_state, "new_state": rec.state},
+                company=rec.company_id,
+            )
+            log_service.log(
+                name="Subscription unpaid",
+                message=f"Subscription {rec.display_name} marked as unpaid",
+                level="ERROR",
+            )
         return True
 
     def action_mark_current(self):
+        log_service = self.env["sce.log.service"]
+        event_model = self.env["sce.event"]
         for rec in self:
+            previous_state = rec.state
             new_state = "active" if rec.state not in ("cancelled",) else "cancelled"
             rec.write({
                 "billing_status": "current",
                 "state": new_state,
                 "grace_until": False,
             })
+            event_model.emit_event(
+                name=f"Subscription billing current: {rec.display_name}",
+                event_type="SubscriptionBillingCurrent",
+                payload={"previous_state": previous_state, "new_state": rec.state},
+                company=rec.company_id,
+            )
+            log_service.log(
+                name="Subscription current",
+                message=f"Subscription {rec.display_name} marked as current",
+                level="INFO",
+            )
         return True
 
     @api.model
@@ -101,7 +143,10 @@ class SceSubscription(models.Model):
         subs = self.search([("state", "not in", ["cancelled", "suspended"])])
         now_dt = fields.Datetime.now()
         today = fields.Date.today()
+        log_service = self.env["sce.log.service"]
+        event_model = self.env["sce.event"]
         for sub in subs:
+            previous_state = sub.state
             updates = {"last_billing_check": now_dt}
             if sub.billing_status == "unpaid":
                 updates["state"] = "suspended"
@@ -115,7 +160,30 @@ class SceSubscription(models.Model):
             else:
                 if sub.state not in ("cancelled",):
                     updates["state"] = "active"
+
             sub.write(updates)
+
+            if sub.state != previous_state:
+                event_model.emit_event(
+                    name=f"Subscription state changed by billing cron: {sub.display_name}",
+                    event_type="SubscriptionStateChanged",
+                    payload={
+                        "reason": "cron_billing_control",
+                        "previous_state": previous_state,
+                        "new_state": sub.state,
+                        "billing_status": sub.billing_status,
+                        "over_limit": bool(sub.over_limit),
+                    },
+                    company=sub.company_id,
+                )
+                log_service.log(
+                    name="Subscription state changed",
+                    message=(
+                        f"Subscription {sub.display_name} changed state "
+                        f"from {previous_state} to {sub.state} (billing cron)"
+                    ),
+                    level="WARNING" if sub.state in ("restricted", "suspended", "grace") else "INFO",
+                )
 
 
 class SceUsageMetric(models.Model):

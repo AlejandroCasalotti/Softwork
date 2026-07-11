@@ -8,6 +8,9 @@
                 <field name="name"/>
                 <field name="connector_id"/>
                 <field name="state"/>
+                <field name="jobs_done_count"/>
+                <field name="jobs_failed_count"/>
+                <field name="avg_duration_ms"/>
                 <field name="external_account_ref"/>
                 <field name="last_connection_check"/>
                 <field name="company_id"/>
@@ -34,6 +37,15 @@
                             <field name="external_account_ref"/>
                             <field name="last_connection_check" readonly="1"/>
                             <field name="last_error" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Operational Metrics">
+                        <group>
+                            <field name="jobs_done_count" readonly="1"/>
+                            <field name="jobs_failed_count" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="avg_duration_ms" readonly="1"/>
                         </group>
                     </group>
                     <group string="Credentials">

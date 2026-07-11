@@ -73,6 +73,7 @@ class SceJob(models.Model):
 
         event_model = self.env["sce.event"]
         log_service = self.env["sce.log.service"]
+        metric_model = self.env["sce.usage.metric"]
 
         event_model.emit_event(
             name=f"Job started: {self.name}",
@@ -103,6 +104,22 @@ class SceJob(models.Model):
                 "result_json": json.dumps(result or {}),
                 "error_message": False,
             })
+            metric_model.create({
+                "company_id": self.company_id.id,
+                "connector_id": self.connector_id.id,
+                "account_id": self.account_id.id,
+                "metric_type": "jobs_done",
+                "value": 1.0,
+                "notes": f"Job {self.display_name} done",
+            })
+            metric_model.create({
+                "company_id": self.company_id.id,
+                "connector_id": self.connector_id.id,
+                "account_id": self.account_id.id,
+                "metric_type": "job_duration_avg_ms",
+                "value": float(duration),
+                "notes": f"Job {self.display_name} duration",
+            })
 
             event_model.emit_event(
                 name=f"Job finished: {self.name}",
@@ -129,6 +146,14 @@ class SceJob(models.Model):
                 "finished_at": end_dt,
                 "duration_ms": duration,
                 "error_message": str(err),
+            })
+            metric_model.create({
+                "company_id": self.company_id.id,
+                "connector_id": self.connector_id.id,
+                "account_id": self.account_id.id,
+                "metric_type": "jobs_failed",
+                "value": 1.0,
+                "notes": f"Job {self.display_name} failed",
             })
             event_model.emit_event(
                 name=f"Job failed: {self.name}",

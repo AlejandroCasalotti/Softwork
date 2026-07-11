@@ -15,18 +15,26 @@ class SceWebhookController(http.Controller):
         csrf=False,
     )
     def sce_webhook(self, provider, **kwargs):
+        allowed_providers = {"mercadolibre"}
+        provider_key = (provider or "").strip().lower()
         payload = request.jsonrequest or {}
         token = request.httprequest.headers.get("X-SCE-Webhook-Token")
+
+        if provider_key not in allowed_providers:
+            return {"ok": False, "error": f"unsupported provider '{provider}'"}
 
         if not token:
             return {"ok": False, "error": "missing webhook token"}
 
+        if not isinstance(payload, dict):
+            payload = {"raw": payload}
+
         account = request.env["sce.account"].sudo().search(
-            [("active", "=", True), ("connector_id.provider_type", "=", provider)],
+            [("active", "=", True), ("connector_id.provider_type", "=", provider_key)],
             limit=1,
         )
         if not account:
-            return {"ok": False, "error": f"no active account for provider '{provider}'"}
+            return {"ok": False, "error": f"no active account for provider '{provider_key}'"}
 
         expected = False
         if account.credentials_json:
@@ -40,7 +48,7 @@ class SceWebhookController(http.Controller):
             return {"ok": False, "error": "invalid webhook token"}
 
         event = request.env["sce.event"].sudo().emit_event(
-            name=f"Webhook received ({provider})",
+            name=f"Webhook received ({provider_key})",
             event_type="WebhookReceived",
             connector=account.connector_id,
             account=account,
@@ -51,11 +59,11 @@ class SceWebhookController(http.Controller):
         log_service = request.env["sce.log.service"].sudo()
         log_service.log(
             name="Webhook received",
-            message=f"Webhook received for provider {provider}",
+            message=f"Webhook received for provider {provider_key}",
             level="INFO",
             connector=account.connector_id,
             account=account,
             details_json=json.dumps(payload),
         )
 
-        return {"ok": True, "event_id": event.id}
+        return {"ok": True, "event_id": event.id, "provider": provider_key}
