@@ -58,6 +58,9 @@
                 <field name="company_id"/>
                 <field name="plan_id"/>
                 <field name="state"/>
+                <field name="billing_status"/>
+                <field name="grace_until"/>
+                <field name="last_billing_check"/>
                 <field name="synced_products_count"/>
                 <field name="over_limit"/>
                 <field name="start_date"/>
@@ -71,6 +74,11 @@
         <field name="model">sce.subscription</field>
         <field name="arch" type="xml">
             <form string="Subscription">
+                <header>
+                    <button name="action_mark_current" type="object" string="Mark Current" class="btn-primary"/>
+                    <button name="action_mark_past_due" type="object" string="Mark Past Due"/>
+                    <button name="action_mark_unpaid" type="object" string="Mark Unpaid"/>
+                </header>
                 <sheet>
                     <group>
                         <group>
@@ -78,10 +86,13 @@
                             <field name="company_id"/>
                             <field name="plan_id"/>
                             <field name="state"/>
+                            <field name="billing_status"/>
                         </group>
                         <group>
                             <field name="start_date"/>
                             <field name="end_date"/>
+                            <field name="grace_until"/>
+                            <field name="last_billing_check" readonly="1"/>
                             <field name="synced_products_count"/>
                             <field name="over_limit" readonly="1"/>
                         </group>

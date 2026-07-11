@@ -8,10 +8,13 @@
                 <field name="name"/>
                 <field name="job_type"/>
                 <field name="state"/>
+                <field name="attempts"/>
+                <field name="max_retries"/>
                 <field name="account_id"/>
                 <field name="connector_id"/>
                 <field name="started_at"/>
                 <field name="finished_at"/>
+                <field name="duration_ms"/>
                 <field name="company_id"/>
             </list>
         </field>
@@ -22,12 +25,18 @@
         <field name="model">sce.job</field>
         <field name="arch" type="xml">
             <form string="Job">
+                <header>
+                    <button name="action_enqueue" type="object" string="Enqueue"/>
+                    <button name="action_run_now" type="object" string="Run Now" class="btn-primary"/>
+                </header>
                 <sheet>
                     <group>
                         <group>
                             <field name="name"/>
                             <field name="job_type"/>
                             <field name="state"/>
+                            <field name="attempts"/>
+                            <field name="max_retries"/>
                             <field name="account_id"/>
                             <field name="connector_id" readonly="1"/>
                         </group>

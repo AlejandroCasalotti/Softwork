@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class SceAccount(models.Model):
@@ -33,6 +33,18 @@ class SceAccount(models.Model):
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
     job_ids = fields.One2many("sce.job", "account_id", string="Jobs")
+    jobs_done_count = fields.Integer(compute="_compute_job_metrics")
+    jobs_failed_count = fields.Integer(compute="_compute_job_metrics")
+    avg_duration_ms = fields.Float(compute="_compute_job_metrics")
+
+    @api.depends("job_ids.state", "job_ids.duration_ms")
+    def _compute_job_metrics(self):
+        for rec in self:
+            done_jobs = rec.job_ids.filtered(lambda j: j.state == "done")
+            failed_jobs = rec.job_ids.filtered(lambda j: j.state == "failed")
+            rec.jobs_done_count = len(done_jobs)
+            rec.jobs_failed_count = len(failed_jobs)
+            rec.avg_duration_ms = (sum(done_jobs.mapped("duration_ms")) / len(done_jobs)) if done_jobs else 0.0
 
     def cron_health_check(self):
         accounts = self.search([("active", "=", True)])

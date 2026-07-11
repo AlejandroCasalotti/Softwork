@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from odoo import api, fields, models
 
 
@@ -44,6 +46,18 @@ class SceSubscription(models.Model):
         required=True,
         tracking=True,
     )
+    billing_status = fields.Selection(
+        selection=[
+            ("current", "Current"),
+            ("past_due", "Past Due"),
+            ("unpaid", "Unpaid"),
+        ],
+        default="current",
+        required=True,
+        tracking=True,
+    )
+    grace_until = fields.Date(tracking=True)
+    last_billing_check = fields.Datetime(readonly=True)
     start_date = fields.Date(required=True, default=fields.Date.context_today)
     end_date = fields.Date()
     synced_products_count = fields.Integer(default=0, tracking=True)
@@ -53,6 +67,55 @@ class SceSubscription(models.Model):
     def _compute_over_limit(self):
         for rec in self:
             rec.over_limit = bool(rec.plan_id and rec.synced_products_count > rec.plan_id.max_synced_products)
+
+    def action_mark_past_due(self):
+        today = fields.Date.today()
+        for rec in self:
+            rec.write({
+                "billing_status": "past_due",
+                "state": "grace" if rec.state not in ("suspended", "cancelled") else rec.state,
+                "grace_until": today + timedelta(days=7),
+            })
+        return True
+
+    def action_mark_unpaid(self):
+        for rec in self:
+            rec.write({
+                "billing_status": "unpaid",
+                "state": "suspended" if rec.state != "cancelled" else "cancelled",
+            })
+        return True
+
+    def action_mark_current(self):
+        for rec in self:
+            new_state = "active" if rec.state not in ("cancelled",) else "cancelled"
+            rec.write({
+                "billing_status": "current",
+                "state": new_state,
+                "grace_until": False,
+            })
+        return True
+
+    @api.model
+    def cron_billing_control(self):
+        subs = self.search([("state", "not in", ["cancelled", "suspended"])])
+        now_dt = fields.Datetime.now()
+        today = fields.Date.today()
+        for sub in subs:
+            updates = {"last_billing_check": now_dt}
+            if sub.billing_status == "unpaid":
+                updates["state"] = "suspended"
+            elif sub.over_limit:
+                updates["state"] = "restricted"
+            elif sub.billing_status == "past_due":
+                if sub.grace_until and sub.grace_until < today:
+                    updates["state"] = "suspended"
+                else:
+                    updates["state"] = "grace"
+            else:
+                if sub.state not in ("cancelled",):
+                    updates["state"] = "active"
+            sub.write(updates)
 
 
 class SceUsageMetric(models.Model):
@@ -76,6 +139,9 @@ class SceUsageMetric(models.Model):
             ("stock_updates", "Stock Updates"),
             ("price_updates", "Price Updates"),
             ("messages_synced", "Messages Synced"),
+            ("jobs_done", "Jobs Done"),
+            ("jobs_failed", "Jobs Failed"),
+            ("job_duration_avg_ms", "Job Avg Duration (ms)"),
             ("errors", "Errors"),
         ],
         required=True,
