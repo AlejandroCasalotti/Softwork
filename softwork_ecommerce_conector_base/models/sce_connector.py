@@ -42,3 +42,11 @@ class SceConnector(models.Model):
     )
     account_ids = fields.One2many("sce.account", "connector_id", string="Accounts")
     description = fields.Text()
+    provider_impl_path = fields.Char(
+        string="Provider Implementation Path",
+        help=(
+            "Optional dotted path for external provider factory. "
+            "Example: softwork_provider_mercadolibre.services.provider.get_provider"
+        ),
+        tracking=True,
+    )
