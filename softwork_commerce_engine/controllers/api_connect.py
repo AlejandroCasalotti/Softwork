@@ -18,14 +18,38 @@ class SceApiConnectController(http.Controller):
     def _resolve_account(self, payload):
         account_id = payload.get("account_id")
         external_ref = payload.get("external_account_ref")
-        domain = []
+        env = request.env["sce.account"].with_user(request.env.user).sudo()
+        domain = [("company_id", "in", request.env.user.company_ids.ids)]
         if account_id:
-            domain = [("id", "=", int(account_id))]
+            try:
+                account_id = int(account_id)
+            except Exception:
+                return None
+            domain += [("id", "=", account_id)]
         elif external_ref:
-            domain = [("external_account_ref", "=", external_ref)]
+            domain += [("external_account_ref", "=", external_ref)]
         else:
             return None
-        return request.env["sce.account"].sudo().search(domain, limit=1)
+        return env.search(domain, limit=1)
+
+    def _step_payload(self, account):
+        if account.state == "connected":
+            return {
+                "step": "connected",
+                "hint": "Cuenta conectada correctamente.",
+                "next_action": "sync",
+            }
+        if account.state == "error":
+            return {
+                "step": "error",
+                "hint": account.last_error or "Se produjo un error de conexión.",
+                "next_action": "retry_connect",
+            }
+        return {
+            "step": "authorize",
+            "hint": "Redirigir al usuario a MercadoLibre para autorizar.",
+            "next_action": "open_oauth_url",
+        }
 
     @http.route(
         ["/sce/api/v1/mercadolibre/connect/start"],
@@ -49,6 +73,7 @@ class SceApiConnectController(http.Controller):
                 "account_id": account.id,
                 "state": account.state,
                 "oauth_url": account.oauth_url,
+                **self._step_payload(account),
             }
         )
 
@@ -75,8 +100,8 @@ class SceApiConnectController(http.Controller):
         if not code:
             return self._json_error("Missing code", 400)
 
-        account.auth_code = code
         try:
+            account.write({"auth_code": code})
             account.action_exchange_code()
         except Exception as err:
             account.write({"state": "error", "last_error": str(err)})
@@ -88,6 +113,9 @@ class SceApiConnectController(http.Controller):
                 "state": account.state,
                 "connected": account.state == "connected",
                 "external_user_id": account.external_user_id or "",
+                "token_expires_at": account.token_expires_at.isoformat() if account.token_expires_at else None,
+                "last_error": account.last_error or "",
+                **self._step_payload(account),
             }
         )
 
@@ -112,5 +140,6 @@ class SceApiConnectController(http.Controller):
                 "external_user_id": account.external_user_id or "",
                 "token_expires_at": account.token_expires_at.isoformat() if account.token_expires_at else None,
                 "last_error": account.last_error or "",
+                **self._step_payload(account),
             }
         )
