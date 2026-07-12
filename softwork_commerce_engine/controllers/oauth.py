@@ -20,7 +20,12 @@ class SceOAuthController(http.Controller):
         if not state:
             return request.redirect("/web#action=base.action_res_users")
 
-        account = request.env["sce.account"].sudo().browse(int(state))
+        try:
+            account_id = int(state)
+        except Exception:
+            return request.redirect("/web#action=base.action_res_users")
+
+        account = request.env["sce.account"].sudo().browse(account_id)
         if not account.exists():
             return request.redirect("/web#action=base.action_res_users")
 
@@ -34,8 +39,8 @@ class SceOAuthController(http.Controller):
             return request.redirect(f"/web#id={account.id}&model=sce.account&view_type=form")
 
         if code:
-            account.auth_code = code
             try:
+                account.write({"auth_code": code})
                 account.action_exchange_code()
             except Exception as err:
                 account.write(
