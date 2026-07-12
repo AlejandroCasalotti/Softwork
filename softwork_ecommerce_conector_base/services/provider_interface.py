@@ -3,6 +3,17 @@ from abc import ABC, abstractmethod
 
 
 class IProvider(ABC):
+    def capabilities(self):
+        """
+        Optional feature flags for provider behavior.
+        Defaults are permissive for backward compatibility.
+        """
+        return {
+            "oauth_exchange": True,
+            "oauth_refresh": True,
+            "health_check": True,
+        }
+
     @abstractmethod
     def authenticate(self):
         raise NotImplementedError

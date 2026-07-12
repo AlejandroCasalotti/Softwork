@@ -22,6 +22,13 @@ class MercadoLibreExternalProvider(IProvider):
         self.account = account
         self._delegate = MercadoLibreProvider(env, account)
 
+    def capabilities(self):
+        return {
+            "oauth_exchange": True,
+            "oauth_refresh": True,
+            "health_check": True,
+        }
+
     def authenticate(self):
         return self._delegate.authenticate()
 
