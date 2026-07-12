@@ -172,6 +172,8 @@ class SceAccount(models.Model):
                     raise UserError("Debes informar Authorization Code.")
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(rec)
+                if not rec.oauth_code_verifier:
+                    raise UserError("La autorización expiró o no es válida. Presiona 'Conectar MercadoLibre' nuevamente.")
                 result = provider.authenticate()
                 if result.get("access_token"):
                     rec.write(
@@ -186,6 +188,7 @@ class SceAccount(models.Model):
                             "token_refresh_fail_count": 0,
                             "last_token_refresh_error": False,
                             "oauth_code_verifier": False,
+                            "auth_code": False,
                         }
                     )
                     rec._sync_credentials_blob()
@@ -209,6 +212,8 @@ class SceAccount(models.Model):
                 rec.last_error = str(err)
                 rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
                 rec.last_token_refresh_error = str(err)
+                rec.oauth_code_verifier = False
+                rec.auth_code = False
                 event_model.emit_event(
                     name=f"Token exchange failed: {rec.display_name}",
                     event_type="TokenExchangeFailed",
