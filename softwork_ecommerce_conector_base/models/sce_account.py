@@ -50,6 +50,7 @@ class SceAccount(models.Model):
     token_refresh_started_at = fields.Datetime(readonly=True)
     token_refresh_fail_count = fields.Integer(default=0, readonly=True)
     last_token_refresh_error = fields.Text(readonly=True)
+    token_circuit_open_until = fields.Datetime(readonly=True)
     oauth_code_verifier = fields.Char(string="OAuth Code Verifier", copy=False)
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
@@ -58,6 +59,11 @@ class SceAccount(models.Model):
     jobs_done_count = fields.Integer(compute="_compute_job_metrics")
     jobs_failed_count = fields.Integer(compute="_compute_job_metrics")
     avg_duration_ms = fields.Float(compute="_compute_job_metrics")
+    provider_timeout_seconds = fields.Integer(
+        string="Provider Timeout (s)",
+        default=30,
+        help="Timeout máximo recomendado para operaciones del provider.",
+    )
 
     def _generate_pkce_pair(self):
         verifier_raw = secrets.token_urlsafe(64)
@@ -154,6 +160,14 @@ class SceAccount(models.Model):
         )
         self._set_credentials_dict(data)
 
+    def _provider_capabilities(self, provider):
+        if hasattr(provider, "capabilities"):
+            try:
+                return provider.capabilities() or {}
+            except Exception:
+                return {}
+        return {}
+
     def _sanitize_result_for_logs(self, result):
         clean = dict(result or {})
         for key in ("access_token", "refresh_token", "client_secret"):
@@ -166,14 +180,15 @@ class SceAccount(models.Model):
         log_service = self.env["sce.log.service"]
         for rec in self:
             try:
-                if rec.connector_id.provider_type != "mercadolibre":
-                    raise UserError("Token exchange solo está disponible para MercadoLibre.")
                 if not rec.auth_code:
                     raise UserError("Debes informar Authorization Code.")
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(rec)
-                if not rec.oauth_code_verifier:
-                    raise UserError("La autorización expiró o no es válida. Presiona 'Conectar MercadoLibre' nuevamente.")
+                capabilities = rec._provider_capabilities(provider)
+                if capabilities.get("oauth_exchange", True) and not rec.oauth_code_verifier:
+                    raise UserError("La autorización expiró o no es válida. Presiona 'Conectar' nuevamente.")
+                if not capabilities.get("oauth_exchange", True):
+                    raise UserError("Este conector no soporta intercambio OAuth de Authorization Code.")
                 result = provider.authenticate()
                 if result.get("access_token"):
                     rec.write(
@@ -212,6 +227,8 @@ class SceAccount(models.Model):
                 rec.last_error = str(err)
                 rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
                 rec.last_token_refresh_error = str(err)
+                if rec.token_refresh_fail_count >= 3:
+                    rec._open_token_circuit(minutes=10)
                 rec.oauth_code_verifier = False
                 rec.auth_code = False
                 event_model.emit_event(
@@ -251,6 +268,14 @@ class SceAccount(models.Model):
                     vals.setdefault("external_user_id", False)
         return super().write(vals)
 
+    def _is_token_circuit_open(self):
+        self.ensure_one()
+        return bool(self.token_circuit_open_until and fields.Datetime.now() < self.token_circuit_open_until)
+
+    def _open_token_circuit(self, minutes=5):
+        self.ensure_one()
+        self.write({"token_circuit_open_until": fields.Datetime.now() + fields.DateUtils.to_timedelta(minutes=minutes)})
+
     def action_refresh_token(self):
         event_model = self.env["sce.event"]
         log_service = self.env["sce.log.service"]
@@ -273,12 +298,15 @@ class SceAccount(models.Model):
                 }
             )
             try:
-                if rec.connector_id.provider_type != "mercadolibre":
-                    raise UserError("Token refresh solo está disponible para MercadoLibre.")
+                if rec._is_token_circuit_open():
+                    continue
                 if not rec.refresh_token:
                     raise UserError("No hay refresh token configurado.")
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(rec)
+                capabilities = rec._provider_capabilities(provider)
+                if not capabilities.get("oauth_refresh", True):
+                    raise UserError("Este conector no soporta refresh de token OAuth.")
                 result = provider.refresh_token()
                 if result.get("access_token"):
                     rec.write(
@@ -289,6 +317,9 @@ class SceAccount(models.Model):
                             "token_expires_at": result.get("token_expires_at"),
                             "state": "connected",
                             "last_error": False,
+                            "token_refresh_fail_count": 0,
+                            "last_token_refresh_error": False,
+                            "token_circuit_open_until": False,
                         }
                     )
                     rec._sync_credentials_blob()
@@ -310,6 +341,10 @@ class SceAccount(models.Model):
             except Exception as err:
                 rec.state = "error"
                 rec.last_error = str(err)
+                rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
+                rec.last_token_refresh_error = str(err)
+                if rec.token_refresh_fail_count >= 3:
+                    rec._open_token_circuit(minutes=10)
                 event_model.emit_event(
                     name=f"Token refresh failed: {rec.display_name}",
                     event_type="TokenRefreshFailed",
@@ -339,7 +374,6 @@ class SceAccount(models.Model):
         accounts = self.search(
             [
                 ("active", "=", True),
-                ("connector_id.provider_type", "=", "mercadolibre"),
                 ("refresh_token", "!=", False),
                 ("token_refresh_in_progress", "=", False),
             ]
@@ -351,6 +385,13 @@ class SceAccount(models.Model):
             if not needs_refresh:
                 continue
             try:
+                if acc._is_token_circuit_open():
+                    continue
+                from ..services.provider_factory import ProviderFactory
+                provider = ProviderFactory.get_provider(acc)
+                capabilities = acc._provider_capabilities(provider)
+                if not capabilities.get("oauth_refresh", True):
+                    continue
                 acc.action_refresh_token()
             except Exception as err:
                 acc.last_error = str(err)
@@ -361,7 +402,14 @@ class SceAccount(models.Model):
         log_service = self.env["sce.log.service"]
         for acc in accounts:
             try:
+                from ..services.provider_factory import ProviderFactory
+                provider = ProviderFactory.get_provider(acc)
+                capabilities = acc._provider_capabilities(provider)
+
                 acc.last_connection_check = fields.Datetime.now()
+                if capabilities.get("health_check", True):
+                    provider.health()
+
                 if acc.state not in ("connected", "draft"):
                     acc.state = "connected"
                 if acc.last_error:

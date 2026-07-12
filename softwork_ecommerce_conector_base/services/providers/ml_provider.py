@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import time
 
 from odoo import fields
 from odoo.exceptions import UserError
@@ -43,19 +44,37 @@ class MercadoLibreProvider(IProvider):
             headers["Authorization"] = f"Bearer {token}"
 
         url = endpoint if endpoint.startswith("http") else f"{self.BASE_API_URL}{endpoint}"
-        response = requests.request(
-            method=method,
-            url=url,
-            json=payload,
-            params=params,
-            headers=headers,
-            timeout=30,
-        )
+        timeout_seconds = int(self.account.provider_timeout_seconds or 30)
+        if timeout_seconds <= 0:
+            timeout_seconds = 30
+        started_at = time.monotonic()
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                json=payload,
+                params=params,
+                headers=headers,
+                timeout=timeout_seconds,
+            )
+        except requests.Timeout:
+            raise UserError(
+                f"Tiempo de espera agotado ({timeout_seconds}s) al conectar con MercadoLibre. "
+                "Intenta nuevamente."
+            )
+        except requests.RequestException as err:
+            raise UserError(f"Error de red con MercadoLibre: {err}")
+
+        elapsed_ms = int((time.monotonic() - started_at) * 1000)
         if response.status_code >= 400:
             raise UserError(f"Error MercadoLibre {response.status_code}: {response.text}")
         if not response.text:
-            return {}
-        return response.json()
+            return {"_meta": {"elapsed_ms": elapsed_ms}}
+        data = response.json()
+        if isinstance(data, dict):
+            data.setdefault("_meta", {})
+            data["_meta"]["elapsed_ms"] = elapsed_ms
+        return data
 
     def authenticate(self):
         if not self.account.auth_code:
@@ -74,6 +93,7 @@ class MercadoLibreProvider(IProvider):
             "code_verifier": self.account.oauth_code_verifier,
         }
         data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False)
+        elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
         token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
 
@@ -100,6 +120,7 @@ class MercadoLibreProvider(IProvider):
             token_expires_at=token_expires_at,
             external_user_id=external_user_id,
             raw=data,
+            elapsed_ms=elapsed_ms,
         )
 
     def refresh_token(self):
@@ -115,6 +136,7 @@ class MercadoLibreProvider(IProvider):
             "refresh_token": self.account.refresh_token,
         }
         data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False)
+        elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
         token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
 
@@ -126,6 +148,7 @@ class MercadoLibreProvider(IProvider):
             token_type=data.get("token_type"),
             token_expires_at=token_expires_at,
             raw=data,
+            elapsed_ms=elapsed_ms,
         )
 
     def health(self):
