@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
+import base64
+import hashlib
 import json
+import secrets
 from urllib.parse import urlencode
 
 from odoo import api, fields, models
@@ -47,6 +50,7 @@ class SceAccount(models.Model):
     token_refresh_started_at = fields.Datetime(readonly=True)
     token_refresh_fail_count = fields.Integer(default=0, readonly=True)
     last_token_refresh_error = fields.Text(readonly=True)
+    oauth_code_verifier = fields.Char(string="OAuth Code Verifier", copy=False)
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
@@ -55,16 +59,30 @@ class SceAccount(models.Model):
     jobs_failed_count = fields.Integer(compute="_compute_job_metrics")
     avg_duration_ms = fields.Float(compute="_compute_job_metrics")
 
+    def _generate_pkce_pair(self):
+        verifier_raw = secrets.token_urlsafe(64)
+        verifier = verifier_raw[:128]
+        challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(verifier.encode("utf-8")).digest())
+            .decode("utf-8")
+            .rstrip("=")
+        )
+        return verifier, challenge
+
     @api.depends("client_id", "redirect_uri", "connector_id.provider_type")
     def _compute_oauth_url(self):
         for rec in self:
-            if rec.connector_id.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri:
+            if rec.connector_id.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
+                verifier, challenge = rec._generate_pkce_pair()
+                rec.oauth_code_verifier = verifier
                 params = urlencode(
                     {
                         "response_type": "code",
                         "client_id": rec.client_id,
                         "redirect_uri": rec.redirect_uri,
-                        "state": str(rec.id or ""),
+                        "state": str(rec.id),
+                        "code_challenge": challenge,
+                        "code_challenge_method": "S256",
                     }
                 )
                 rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
@@ -73,11 +91,26 @@ class SceAccount(models.Model):
 
     def action_open_oauth_url(self):
         self.ensure_one()
-        if not self.oauth_url:
+        if self.connector_id.provider_type != "mercadolibre":
+            raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
+        if not self.client_id or not self.redirect_uri:
             raise UserError("No se pudo generar URL OAuth. Verifica client_id y redirect_uri.")
+        verifier, challenge = self._generate_pkce_pair()
+        self.oauth_code_verifier = verifier
+        params = urlencode(
+            {
+                "response_type": "code",
+                "client_id": self.client_id,
+                "redirect_uri": self.redirect_uri,
+                "state": str(self.id),
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            }
+        )
+        oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
         return {
             "type": "ir.actions.act_url",
-            "url": self.oauth_url,
+            "url": oauth_url,
             "target": "new",
         }
 
@@ -152,6 +185,7 @@ class SceAccount(models.Model):
                             "last_error": False,
                             "token_refresh_fail_count": 0,
                             "last_token_refresh_error": False,
+                            "oauth_code_verifier": False,
                         }
                     )
                     rec._sync_credentials_blob()

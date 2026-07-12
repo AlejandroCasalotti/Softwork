@@ -63,12 +63,15 @@ class MercadoLibreProvider(IProvider):
         if not self.account.client_id or not self.account.client_secret or not self.account.redirect_uri:
             raise UserError("Faltan datos OAuth: client_id/client_secret/redirect_uri.")
 
+        if not self.account.oauth_code_verifier:
+            raise UserError("Falta code_verifier (PKCE). Presiona 'Conectar MercadoLibre' nuevamente.")
         payload = {
             "grant_type": "authorization_code",
             "client_id": self.account.client_id,
             "client_secret": self.account.client_secret,
             "code": self.account.auth_code,
             "redirect_uri": self.account.redirect_uri,
+            "code_verifier": self.account.oauth_code_verifier,
         }
         data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False)
         expires_in = int(data.get("expires_in", 0) or 0)
