@@ -54,10 +54,14 @@
                             <field name="client_secret" password="True"/>
                             <field name="redirect_uri"/>
                             <field name="oauth_url" readonly="1"/>
+                            <field name="provider_timeout_seconds"/>
                         </group>
                         <group>
                             <field name="external_user_id" readonly="1"/>
                             <field name="token_expires_at" readonly="1"/>
+                            <field name="token_circuit_open_until" readonly="1"/>
+                            <field name="token_refresh_fail_count" readonly="1"/>
+                            <field name="last_token_refresh_error" readonly="1"/>
                             <field name="last_connection_check" readonly="1"/>
                             <field name="last_error" readonly="1"/>
                         </group>
