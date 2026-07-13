@@ -32,6 +32,9 @@
                         <group>
                             <field name="company_id"/>
                             <field name="provider_impl_path" placeholder="softwork_provider_mercadolibre.services.provider.get_provider"/>
+                            <field name="force_external_provider"/>
+                            <field name="healthcheck_enabled"/>
+                            <field name="oauth_refresh_enabled"/>
                             <field name="description"/>
                         </group>
                     </group>

@@ -70,6 +70,7 @@
                         <button name="action_open_oauth_url" type="object" string="Conectar MercadoLibre" class="btn-primary"/>
                         <button name="action_refresh_token" type="object" string="Refrescar Token" invisible="state != 'connected'"/>
                         <button name="action_force_unlock_token_refresh" type="object" string="Forzar desbloqueo refresh" invisible="not token_refresh_in_progress"/>
+                        <button name="action_reset_token_circuit" type="object" string="Reset circuit breaker" invisible="not token_circuit_open_until"/>
                     </group>
                     <group string="OAuth / Tokens (advanced)" invisible="1">
                         <group>

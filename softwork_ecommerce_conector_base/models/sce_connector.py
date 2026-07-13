@@ -50,3 +50,21 @@ class SceConnector(models.Model):
         ),
         tracking=True,
     )
+    force_external_provider = fields.Boolean(
+        string="Force External Provider",
+        default=False,
+        help="If enabled, this connector will never fallback to built-in providers.",
+        tracking=True,
+    )
+    healthcheck_enabled = fields.Boolean(
+        string="Healthcheck Enabled",
+        default=True,
+        help="If disabled, cron health checks are skipped for this connector.",
+        tracking=True,
+    )
+    oauth_refresh_enabled = fields.Boolean(
+        string="OAuth Refresh Enabled",
+        default=True,
+        help="If disabled, cron automatic OAuth token refresh is skipped for this connector.",
+        tracking=True,
+    )

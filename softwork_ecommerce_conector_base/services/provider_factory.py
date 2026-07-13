@@ -29,6 +29,7 @@ class ProviderFactory:
             f"softwork_provider_{provider_type}.services.provider.get_provider"
         )
 
+        attempted = []
         for dotted in candidate_paths:
             try:
                 module_path, func_name = dotted.rsplit(".", 1)
@@ -37,8 +38,20 @@ class ProviderFactory:
                 provider = factory_func(account.env, account)
                 if provider:
                     return provider
-            except Exception:
+            except Exception as err:
+                attempted.append((dotted, str(err)))
                 continue
+
+        if attempted:
+            lines = "\n".join([f"- {path}: {error}" for path, error in attempted])
+            raise UserError(
+                "No se pudo resolver provider externo.\n"
+                f"provider_type: {provider_type}\n"
+                f"connector: {account.connector_id.display_name} ({account.connector_id.id})\n"
+                "Intentos:\n"
+                f"{lines}\n"
+                "Verifica la convención: <modulo>.services.provider.get_provider"
+            )
         return None
 
     @staticmethod
@@ -56,17 +69,23 @@ class ProviderFactory:
         return None
 
     @staticmethod
-    def get_provider(account):
-        provider_type = (account.connector_id.provider_type or "").strip().lower()
-        if not provider_type:
-            raise UserError("Connector has no provider_type configured.")
-
-        force_external_only = (
+    def is_external_only_enabled(account):
+        global_force = (
             account.env["ir.config_parameter"]
             .sudo()
             .get_param("sce.provider_force_external_only", "0")
             in ("1", "true", "True")
         )
+        connector_force = bool(getattr(account.connector_id, "force_external_provider", False))
+        return global_force or connector_force
+
+    @staticmethod
+    def get_provider(account):
+        provider_type = (account.connector_id.provider_type or "").strip().lower()
+        if not provider_type:
+            raise UserError("Connector has no provider_type configured.")
+
+        force_external_only = ProviderFactory.is_external_only_enabled(account)
 
         external = ProviderFactory._load_external_provider(account, provider_type)
         if external:

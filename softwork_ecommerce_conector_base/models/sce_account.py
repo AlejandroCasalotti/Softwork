@@ -208,6 +208,7 @@ class SceAccount(models.Model):
                     )
                     rec._sync_credentials_blob()
                 safe_result = rec._sanitize_result_for_logs(result)
+                elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False
                 log_service.log(
                     name="Token exchanged",
                     message=f"Token exchange executed for {rec.display_name}",
@@ -215,6 +216,9 @@ class SceAccount(models.Model):
                     account=rec,
                     connector=rec.connector_id,
                     details_json=json.dumps(safe_result),
+                    provider=rec.connector_id.provider_type,
+                    operation="token_exchange",
+                    elapsed_ms=elapsed_ms,
                 )
                 event_model.emit_event(
                     name=f"Token exchange success: {rec.display_name}",
@@ -252,6 +256,16 @@ class SceAccount(models.Model):
             {
                 "token_refresh_in_progress": False,
                 "token_refresh_started_at": False,
+            }
+        )
+        return True
+
+    def action_reset_token_circuit(self):
+        self.write(
+            {
+                "token_circuit_open_until": False,
+                "token_refresh_fail_count": 0,
+                "last_token_refresh_error": False,
             }
         )
         return True
@@ -324,6 +338,7 @@ class SceAccount(models.Model):
                     )
                     rec._sync_credentials_blob()
                 safe_result = rec._sanitize_result_for_logs(result)
+                elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False
                 log_service.log(
                     name="Token refreshed",
                     message=f"Token refresh executed for {rec.display_name}",
@@ -331,6 +346,9 @@ class SceAccount(models.Model):
                     account=rec,
                     connector=rec.connector_id,
                     details_json=json.dumps(safe_result),
+                    provider=rec.connector_id.provider_type,
+                    operation="token_refresh",
+                    elapsed_ms=elapsed_ms,
                 )
                 event_model.emit_event(
                     name=f"Token refresh success: {rec.display_name}",
@@ -379,6 +397,8 @@ class SceAccount(models.Model):
             ]
         )
         for acc in accounts:
+            if not getattr(acc.connector_id, "oauth_refresh_enabled", True):
+                continue
             if acc.token_refresh_fail_count and acc.token_refresh_fail_count >= 5:
                 continue
             needs_refresh = (not acc.token_expires_at) or (acc.token_expires_at <= refresh_deadline)
@@ -402,6 +422,8 @@ class SceAccount(models.Model):
         log_service = self.env["sce.log.service"]
         for acc in accounts:
             try:
+                if not getattr(acc.connector_id, "healthcheck_enabled", True):
+                    continue
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(acc)
                 capabilities = acc._provider_capabilities(provider)
