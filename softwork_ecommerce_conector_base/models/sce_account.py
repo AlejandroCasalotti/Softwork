@@ -5,6 +5,8 @@ import json
 import secrets
 from urllib.parse import urlencode
 
+from datetime import timedelta
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -288,7 +290,7 @@ class SceAccount(models.Model):
 
     def _open_token_circuit(self, minutes=5):
         self.ensure_one()
-        self.write({"token_circuit_open_until": fields.Datetime.now() + fields.DateUtils.to_timedelta(minutes=minutes)})
+        self.write({"token_circuit_open_until": fields.Datetime.now() + timedelta(minutes=minutes)})
 
     def action_refresh_token(self):
         event_model = self.env["sce.event"]
@@ -296,7 +298,7 @@ class SceAccount(models.Model):
         for rec in self:
             if rec.token_refresh_in_progress:
                 if rec.token_refresh_started_at:
-                    zombie_deadline = rec.token_refresh_started_at + fields.DateUtils.to_timedelta(minutes=10)
+                    zombie_deadline = rec.token_refresh_started_at + timedelta(minutes=10)
                     if fields.Datetime.now() < zombie_deadline:
                         continue
                 rec.write(
@@ -388,7 +390,7 @@ class SceAccount(models.Model):
     @api.model
     def cron_refresh_provider_tokens(self):
         now_dt = fields.Datetime.now()
-        refresh_deadline = now_dt + fields.DateUtils.to_timedelta(minutes=15)
+        refresh_deadline = now_dt + timedelta(minutes=15)
         accounts = self.search(
             [
                 ("active", "=", True),

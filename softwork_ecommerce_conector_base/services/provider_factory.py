@@ -28,6 +28,9 @@ class ProviderFactory:
         candidate_paths.append(
             f"softwork_provider_{provider_type}.services.provider.get_provider"
         )
+        candidate_paths.append(
+            f"odoo.addons.softwork_provider_{provider_type}.services.provider.get_provider"
+        )
 
         attempted = []
         for dotted in candidate_paths:
