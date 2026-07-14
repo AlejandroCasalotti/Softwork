@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_connection_wizard_form" model="ir.ui.view">
+        <field name="name">sce.connection.wizard.form</field>
+        <field name="model">sce.connection.wizard</field>
+        <field name="arch" type="xml">
+
+            <form string="Connect Marketplace" create="false" edit="true">
+
+                <header>
+
+                    <button name="action_start"
+                            type="object"
+                            string="Start"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+
+                    <button name="action_authorize"
+                            type="object"
+                            string="Authorize"
+                            class="btn-primary"
+                            invisible="state != 'configuration'"/>
+
+                    <button name="action_connect"
+                            type="object"
+                            string="Connect"
+                            class="btn-primary"
+                            invisible="state != 'authorization'"/>
+
+                    <button name="action_validate"
+                            type="object"
+                            string="Validate"
+                            class="btn-primary"
+                            invisible="state != 'connecting'"/>
+
+                    <button name="action_finish"
+                            type="object"
+                            string="Finish"
+                            class="btn-success"
+                            invisible="state != 'validating'"/>
+
+                    <button name="action_cancel"
+                            type="object"
+                            string="Cancel"
+                            class="btn-secondary"/>
+
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,configuration,authorization,connecting,validating,finished,error"/>
+
+                </header>
+
+                <sheet>
+
+                    <div class="oe_title">
+                        <h1>Marketplace Connection Wizard</h1>
+                    </div>
+
+                    <group>
+
+                        <group string="Progress">
+
+                            <field name="progress" readonly="1"/>
+
+                            <field name="message"
+                                   readonly="1"
+                                   nolabel="1"/>
+
+                            <field name="error_message"
+                                   readonly="1"
+                                   invisible="not error_message"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <!-- ================================================= -->
+
+                        <page string="Configuration">
+
+                            <group>
+
+                                <field name="connector_id"/>
+
+                                <field name="company_id"/>
+
+                                <field name="create_new_account"/>
+
+                                <field name="account_id"
+                                       invisible="create_new_account"/>
+
+                                <field name="account_name"
+                                       invisible="not create_new_account"/>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ================================================= -->
+
+                        <page string="Authorization">
+
+                            <group>
+
+                                <field name="authorization_url"
+                                       readonly="1"
+                                       widget="url"/>
+
+                                <field name="authorization_code"
+                                       password="True"/>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ================================================= -->
+
+                        <page string="Marketplace">
+
+                            <group>
+
+                                <field name="external_user_id"
+                                       readonly="1"/>
+
+                                <field name="external_username"
+                                       readonly="1"/>
+
+                                <field name="external_email"
+                                       readonly="1"/>
+
+                            </group>
+
+                            <group>
+
+                                <field name="marketplace_name"
+                                       readonly="1"/>
+
+                                <field name="marketplace_country"
+                                       readonly="1"/>
+
+                                <field name="marketplace_currency"
+                                       readonly="1"/>
+
+                            </group>
+
+                        </page>
+
+                        <!-- ================================================= -->
+
+                        <page string="Result">
+
+                            <group>
+
+                                <field name="token_received"
+                                       readonly="1"/>
+
+                                <field name="connection_success"
+                                       readonly="1"/>
+
+                                <field name="validation_success"
+                                       readonly="1"/>
+
+                            </group>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+            </form>
+
+        </field>
+    </record>
+
+
+
+    <!-- ========================================================= -->
+    <!-- Wizard Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_connection_wizard"
+            model="ir.actions.act_window">
+
+        <field name="name">Connect Marketplace</field>
+
+        <field name="res_model">sce.connection.wizard</field>
+
+        <field name="view_mode">form</field>
+
+        <field name="target">new</field>
+
+    </record>
+
+</odoo>
