@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -12,6 +13,11 @@ import traceback
 from odoo import (
     api,
     models,
+)
+
+
+from ..exceptions import (
+    SCEException,
 )
 
 
@@ -55,7 +61,7 @@ class SCELoggerService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Debug
+    # Levels
     # -------------------------------------------------------------------------
 
     @api.model
@@ -66,20 +72,12 @@ class SCELoggerService(models.AbstractModel):
     ):
 
         return self.log(
-
             "debug",
-
             message,
-
             **kwargs,
-
         )
 
 
-
-    # -------------------------------------------------------------------------
-    # Info
-    # -------------------------------------------------------------------------
 
     @api.model
     def info(
@@ -89,20 +87,12 @@ class SCELoggerService(models.AbstractModel):
     ):
 
         return self.log(
-
             "info",
-
             message,
-
             **kwargs,
-
         )
 
 
-
-    # -------------------------------------------------------------------------
-    # Warning
-    # -------------------------------------------------------------------------
 
     @api.model
     def warning(
@@ -112,20 +102,12 @@ class SCELoggerService(models.AbstractModel):
     ):
 
         return self.log(
-
             "warning",
-
             message,
-
             **kwargs,
-
         )
 
 
-
-    # -------------------------------------------------------------------------
-    # Error
-    # -------------------------------------------------------------------------
 
     @api.model
     def error(
@@ -135,20 +117,12 @@ class SCELoggerService(models.AbstractModel):
     ):
 
         return self.log(
-
             "error",
-
             message,
-
             **kwargs,
-
         )
 
 
-
-    # -------------------------------------------------------------------------
-    # Critical
-    # -------------------------------------------------------------------------
 
     @api.model
     def critical(
@@ -158,13 +132,9 @@ class SCELoggerService(models.AbstractModel):
     ):
 
         return self.log(
-
             "critical",
-
             message,
-
             **kwargs,
-
         )
 
 
@@ -180,8 +150,58 @@ class SCELoggerService(models.AbstractModel):
         **kwargs,
     ):
         """
-        Logs Python exceptions.
+        Logs Python/SCE exceptions.
         """
+
+
+        values = {}
+
+        values.update(
+            kwargs
+        )
+
+
+        if isinstance(
+            error,
+            SCEException,
+        ):
+
+            values.update({
+
+                "provider":
+                    getattr(
+                        error,
+                        "provider",
+                        None,
+                    ),
+
+                "endpoint":
+                    getattr(
+                        error,
+                        "endpoint",
+                        None,
+                    ),
+
+                "operation":
+                    getattr(
+                        error,
+                        "operation",
+                        None,
+                    ),
+
+                "job_id":
+                    getattr(
+                        error,
+                        "job_id",
+                        None,
+                    ),
+
+            })
+
+
+        values["traceback"] = (
+            traceback.format_exc()
+        )
 
 
         return self.env[
@@ -190,7 +210,7 @@ class SCELoggerService(models.AbstractModel):
 
             error,
 
-            **kwargs,
+            **values,
 
         )
 
@@ -205,10 +225,6 @@ class SCELoggerService(models.AbstractModel):
         self,
         account,
     ):
-        """
-        Returns contextual logger.
-        """
-
 
         return SCELoggerContext(
 
@@ -233,6 +249,7 @@ class SCELoggerContext:
     """
 
 
+
     def __init__(
         self,
         env,
@@ -251,16 +268,10 @@ class SCELoggerContext:
         **kwargs,
     ):
 
-        return self.env[
-            "sce.logger.service"
-        ].debug(
-
+        return self._call(
+            "debug",
             message,
-
-            **self._merge(
-                kwargs
-            ),
-
+            kwargs,
         )
 
 
@@ -271,16 +282,10 @@ class SCELoggerContext:
         **kwargs,
     ):
 
-        return self.env[
-            "sce.logger.service"
-        ].info(
-
+        return self._call(
+            "info",
             message,
-
-            **self._merge(
-                kwargs
-            ),
-
+            kwargs,
         )
 
 
@@ -291,16 +296,10 @@ class SCELoggerContext:
         **kwargs,
     ):
 
-        return self.env[
-            "sce.logger.service"
-        ].warning(
-
+        return self._call(
+            "warning",
             message,
-
-            **self._merge(
-                kwargs
-            ),
-
+            kwargs,
         )
 
 
@@ -311,16 +310,10 @@ class SCELoggerContext:
         **kwargs,
     ):
 
-        return self.env[
-            "sce.logger.service"
-        ].error(
-
+        return self._call(
+            "error",
             message,
-
-            **self._merge(
-                kwargs
-            ),
-
+            kwargs,
         )
 
 
@@ -341,6 +334,27 @@ class SCELoggerContext:
                 kwargs
             ),
 
+        )
+
+
+
+    def _call(
+        self,
+        method,
+        message,
+        values,
+    ):
+
+        return getattr(
+            self.env[
+                "sce.logger.service"
+            ],
+            method,
+        )(
+            message,
+            **self._merge(
+                values
+            ),
         )
 
 

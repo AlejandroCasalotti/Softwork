@@ -7,6 +7,11 @@ Exception Registry
 """
 
 
+from .base import (
+    SCEException,
+)
+
+
 from .api import (
     SCEAPIError,
     SCEConnectionError,
@@ -15,7 +20,10 @@ from .api import (
 
 from .auth import (
     SCEAuthenticationError,
+    SCEAuthorizationError,
     SCETokenExpiredError,
+    SCETokenRefreshError,
+    SCEPermissionError,
 )
 
 

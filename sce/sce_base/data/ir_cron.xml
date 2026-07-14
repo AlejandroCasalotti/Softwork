@@ -5,17 +5,13 @@
     <!-- Queue Processor -->
     <!-- ========================================================= -->
 
-    <record id="ir_cron_sce_queue_processor"
-            model="ir.cron">
+    <record id="ir_cron_sce_queue_processor" model="ir.cron">
 
-        <field name="name">
-            SCE - Process Queue
-        </field>
+        <field name="name">[SCE] Process Queue</field>
 
         <field name="active">True</field>
 
-        <field name="user_id"
-               ref="base.user_root"/>
+        <field name="user_id" ref="base.user_root"/>
 
         <field name="interval_number">1</field>
 
@@ -28,7 +24,7 @@
         <field name="state">code</field>
 
         <field name="code">
-env['sce.queue.service'].process_pending()
+env["sce.queue.service"].process_pending()
         </field>
 
     </record>
@@ -37,17 +33,13 @@ env['sce.queue.service'].process_pending()
     <!-- Retry Failed Jobs -->
     <!-- ========================================================= -->
 
-    <record id="ir_cron_sce_retry_jobs"
-            model="ir.cron">
+    <record id="ir_cron_sce_retry_jobs" model="ir.cron">
 
-        <field name="name">
-            SCE - Retry Failed Jobs
-        </field>
+        <field name="name">[SCE] Retry Failed Jobs</field>
 
         <field name="active">True</field>
 
-        <field name="user_id"
-               ref="base.user_root"/>
+        <field name="user_id" ref="base.user_root"/>
 
         <field name="interval_number">15</field>
 
@@ -60,7 +52,7 @@ env['sce.queue.service'].process_pending()
         <field name="state">code</field>
 
         <field name="code">
-env['sce.job'].cron_retry_failed_jobs()
+env["sce.job.service"].retry_failed_jobs()
         </field>
 
     </record>
@@ -69,17 +61,13 @@ env['sce.job'].cron_retry_failed_jobs()
     <!-- Cache Cleanup -->
     <!-- ========================================================= -->
 
-    <record id="ir_cron_sce_cache_cleanup"
-            model="ir.cron">
+    <record id="ir_cron_sce_cache_cleanup" model="ir.cron">
 
-        <field name="name">
-            SCE - Cache Cleanup
-        </field>
+        <field name="name">[SCE] Cleanup Cache</field>
 
         <field name="active">True</field>
 
-        <field name="user_id"
-               ref="base.user_root"/>
+        <field name="user_id" ref="base.user_root"/>
 
         <field name="interval_number">1</field>
 
@@ -92,7 +80,7 @@ env['sce.job'].cron_retry_failed_jobs()
         <field name="state">code</field>
 
         <field name="code">
-env['sce.cache.service'].cleanup()
+env["sce.cache.service"].cleanup()
         </field>
 
     </record>
@@ -101,17 +89,13 @@ env['sce.cache.service'].cleanup()
     <!-- Log Cleanup -->
     <!-- ========================================================= -->
 
-    <record id="ir_cron_sce_log_cleanup"
-            model="ir.cron">
+    <record id="ir_cron_sce_log_cleanup" model="ir.cron">
 
-        <field name="name">
-            SCE - Log Cleanup
-        </field>
+        <field name="name">[SCE] Cleanup Logs</field>
 
         <field name="active">True</field>
 
-        <field name="user_id"
-               ref="base.user_root"/>
+        <field name="user_id" ref="base.user_root"/>
 
         <field name="interval_number">1</field>
 
@@ -124,7 +108,35 @@ env['sce.cache.service'].cleanup()
         <field name="state">code</field>
 
         <field name="code">
-env['sce.log'].cron_cleanup()
+env["sce.log.service"].cleanup()
+        </field>
+
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Webhook Cleanup -->
+    <!-- ========================================================= -->
+
+    <record id="ir_cron_sce_webhook_cleanup" model="ir.cron">
+
+        <field name="name">[SCE] Cleanup Webhooks</field>
+
+        <field name="active">True</field>
+
+        <field name="user_id" ref="base.user_root"/>
+
+        <field name="interval_number">1</field>
+
+        <field name="interval_type">days</field>
+
+        <field name="numbercall">-1</field>
+
+        <field name="priority">40</field>
+
+        <field name="state">code</field>
+
+        <field name="code">
+env["sce.webhook.service"].cleanup()
         </field>
 
     </record>
@@ -133,17 +145,13 @@ env['sce.log'].cron_cleanup()
     <!-- General Maintenance -->
     <!-- ========================================================= -->
 
-    <record id="ir_cron_sce_maintenance"
-            model="ir.cron">
+    <record id="ir_cron_sce_maintenance" model="ir.cron">
 
-        <field name="name">
-            SCE - General Maintenance
-        </field>
+        <field name="name">[SCE] Maintenance</field>
 
         <field name="active">True</field>
 
-        <field name="user_id"
-               ref="base.user_root"/>
+        <field name="user_id" ref="base.user_root"/>
 
         <field name="interval_number">1</field>
 
@@ -156,7 +164,7 @@ env['sce.log'].cron_cleanup()
         <field name="state">code</field>
 
         <field name="code">
-env['sce.kernel'].cron_maintenance()
+env["sce.kernel.service"].maintenance()
         </field>
 
     </record>

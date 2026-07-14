@@ -24,9 +24,7 @@ class SCEEventListener(models.Model):
         "mail.thread",
     ]
 
-    _order = (
-        "create_date desc"
-    )
+    _order = "create_date desc"
 
 
 
@@ -46,13 +44,10 @@ class SCEEventListener(models.Model):
         required=True,
         index=True,
         tracking=True,
-        help="Internal Odoo event name.",
     )
 
 
-    description = fields.Text(
-        string="Description",
-    )
+    description = fields.Text()
 
 
     active = fields.Boolean(
@@ -60,15 +55,15 @@ class SCEEventListener(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Target Model
+    # Origin
     # -------------------------------------------------------------------------
 
     model_name = fields.Char(
         string="Odoo Model",
         required=True,
         index=True,
-        help="Model that generates the event.",
     )
 
 
@@ -78,30 +73,30 @@ class SCEEventListener(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
-    # SCE Routing
+    # Routing
     # -------------------------------------------------------------------------
 
     connector_id = fields.Many2one(
         "sce.connector",
-        string="Connector",
         index=True,
+        ondelete="set null",
     )
 
 
     plugin_id = fields.Many2one(
         "sce.plugin",
-        string="Plugin",
         index=True,
+        ondelete="set null",
     )
 
 
     account_id = fields.Many2one(
         "sce.account",
-        string="Account",
         index=True,
+        ondelete="cascade",
     )
-
 
     # -------------------------------------------------------------------------
     # Processing
@@ -115,6 +110,7 @@ class SCEEventListener(models.Model):
             ("failed", "Failed"),
             ("ignored", "Ignored"),
         ],
+        string="State",
         default="pending",
         required=True,
         index=True,
@@ -134,7 +130,21 @@ class SCEEventListener(models.Model):
         ondelete="set null",
     )
 
-        # -------------------------------------------------------------------------
+
+    processed_at = fields.Datetime(
+        string="Processed At",
+        readonly=True,
+    )
+
+
+    error_message = fields.Text(
+        string="Error Message",
+        readonly=True,
+    )
+
+
+
+    # -------------------------------------------------------------------------
     # Event Dispatch
     # -------------------------------------------------------------------------
 
@@ -145,9 +155,15 @@ class SCEEventListener(models.Model):
 
         if not self.active:
 
-            self.state = "ignored"
+            self.write({
+
+                "state":
+                    "ignored",
+
+            })
 
             return False
+
 
 
         if self.state not in (
@@ -160,6 +176,7 @@ class SCEEventListener(models.Model):
             )
 
 
+
         self.write({
 
             "state":
@@ -168,14 +185,14 @@ class SCEEventListener(models.Model):
         })
 
 
+
         try:
 
+            queue = self.create_queue()
 
-            job = self.create_job()
 
-
-            queue = self.create_queue(
-                job
+            job = self.create_job(
+                queue
             )
 
 
@@ -189,6 +206,9 @@ class SCEEventListener(models.Model):
 
                 "state":
                     "done",
+
+                "processed_at":
+                    fields.Datetime.now(),
 
             })
 
@@ -205,17 +225,38 @@ class SCEEventListener(models.Model):
                 "state":
                     "failed",
 
+                "error_message":
+                    str(error),
+
             })
 
 
             self.env[
                 "sce.log"
             ].log_exception(
+
                 error,
+
                 category="business",
-                account_id=self.account_id.id
-                if self.account_id
-                else False,
+
+                account_id=(
+                    self.account_id.id
+                    if self.account_id
+                    else False
+                ),
+
+                connector_id=(
+                    self.connector_id.id
+                    if self.connector_id
+                    else False
+                ),
+
+                plugin_id=(
+                    self.plugin_id.id
+                    if self.plugin_id
+                    else False
+                ),
+
             )
 
 
@@ -227,7 +268,10 @@ class SCEEventListener(models.Model):
     # Job Creation
     # -------------------------------------------------------------------------
 
-    def create_job(self):
+    def create_job(
+        self,
+        queue,
+    ):
 
         self.ensure_one()
 
@@ -240,9 +284,14 @@ class SCEEventListener(models.Model):
                 self.event,
 
             "account_id":
-                self.account_id.id,
+                self.account_id.id
+                if self.account_id
+                else False,
 
             "payload": {
+
+                "event":
+                    self.event,
 
                 "model":
                     self.model_name,
@@ -250,8 +299,8 @@ class SCEEventListener(models.Model):
                 "record_id":
                     self.record_id,
 
-                "event":
-                    self.event,
+                "queue_id":
+                    queue.id,
 
             },
 
@@ -263,10 +312,7 @@ class SCEEventListener(models.Model):
     # Queue Creation
     # -------------------------------------------------------------------------
 
-    def create_queue(
-        self,
-        job,
-    ):
+    def create_queue(self):
 
         self.ensure_one()
 
@@ -278,13 +324,15 @@ class SCEEventListener(models.Model):
             "action":
                 self.event,
 
-            "job_id":
-                job.id,
-
             "account_id":
-                self.account_id.id,
+                self.account_id.id
+                if self.account_id
+                else False,
 
             "payload": {
+
+                "event":
+                    self.event,
 
                 "model":
                     self.model_name,
@@ -295,7 +343,6 @@ class SCEEventListener(models.Model):
             },
 
         })
-
 
 
     # -------------------------------------------------------------------------
@@ -311,7 +358,12 @@ class SCEEventListener(models.Model):
         account=None,
         connector=None,
         plugin=None,
+        description=None,
     ):
+        """
+        Creates and dispatches an internal SCE event.
+        """
+
 
         listener = self.create({
 
@@ -323,6 +375,9 @@ class SCEEventListener(models.Model):
 
             "record_id":
                 record_id,
+
+            "description":
+                description,
 
             "account_id":
                 account.id
@@ -388,21 +443,52 @@ class SCEEventListener(models.Model):
         self,
         limit=100,
     ):
+        """
+        Returns pending events.
+        """
 
         return self.search(
 
             [
-
                 (
                     "state",
                     "=",
                     "pending",
                 )
-
             ],
 
             order=
                 "create_date asc",
+
+            limit=limit,
+
+        )
+
+
+
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def get_failed(
+        self,
+        limit=100,
+    ):
+        """
+        Returns failed events.
+        """
+
+        return self.search(
+
+            [
+                (
+                    "state",
+                    "=",
+                    "failed",
+                )
+            ],
+
+            order=
+                "create_date desc",
 
             limit=limit,
 
@@ -423,6 +509,72 @@ class SCEEventListener(models.Model):
 
 
     # -------------------------------------------------------------------------
+
+    def action_open_job(self):
+
+        self.ensure_one()
+
+
+        if not self.job_id:
+
+            return False
+
+
+        return {
+
+            "type":
+                "ir.actions.act_window",
+
+            "name":
+                "Job",
+
+            "res_model":
+                "sce.job",
+
+            "view_mode":
+                "form",
+
+            "res_id":
+                self.job_id.id,
+
+        }
+
+
+
+    # -------------------------------------------------------------------------
+
+    def action_open_queue(self):
+
+        self.ensure_one()
+
+
+        if not self.queue_id:
+
+            return False
+
+
+        return {
+
+            "type":
+                "ir.actions.act_window",
+
+            "name":
+                "Queue",
+
+            "res_model":
+                "sce.queue",
+
+            "view_mode":
+                "form",
+
+            "res_id":
+                self.queue_id.id,
+
+        }
+
+
+
+    # -------------------------------------------------------------------------
     # Constraints
     # -------------------------------------------------------------------------
 
@@ -432,20 +584,40 @@ class SCEEventListener(models.Model):
     )
     def _check_event_data(self):
 
-        for event in self:
+        for listener in self:
 
-            if not event.event:
+
+            if not listener.event:
 
                 raise ValueError(
                     "Event name is required."
                 )
 
 
-            if not event.model_name:
+            if not listener.model_name:
 
                 raise ValueError(
                     "Model name is required."
                 )
+
+
+
+    # -------------------------------------------------------------------------
+    # ORM
+    # -------------------------------------------------------------------------
+
+    @api.model_create_multi
+    def create(
+        self,
+        vals_list,
+    ):
+
+        records = super().create(
+            vals_list
+        )
+
+
+        return records
 
 
 
@@ -456,12 +628,11 @@ class SCEEventListener(models.Model):
     _sql_constraints = [
 
         (
+            "sce_event_record_required",
 
-            "sce_event_unique",
+            "CHECK(record_id IS NOT NULL)",
 
-            "unique(event, model_name, record_id)",
-
-            "This event was already registered.",
+            "Event record identifier is required.",
 
         ),
 

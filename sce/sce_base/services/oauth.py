@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
 OAuth Service
 """
 
-import time
-import requests
+from urllib.parse import urlencode
+
+from dateutil.relativedelta import relativedelta
 
 
 from odoo import (
@@ -16,8 +18,13 @@ from odoo import (
 )
 
 
+from .api import SCEAPIClient
+
+
 from ..exceptions import (
     SCEAuthenticationError,
+    SCEAuthorizationError,
+    SCETokenRefreshError,
     SCEConnectionError,
 )
 
@@ -48,8 +55,10 @@ class SCEOAuthService(models.AbstractModel):
 
         if not account.oauth_authorization_url:
 
-            raise SCEAuthenticationError(
-                "OAuth authorization URL not configured."
+            raise SCEAuthorizationError(
+                message="OAuth authorization URL not configured.",
+                provider=self._get_provider(account),
+                account=account.id,
             )
 
 
@@ -68,32 +77,21 @@ class SCEOAuthService(models.AbstractModel):
 
 
         if state:
-
             params["state"] = state
 
 
-
-        from urllib.parse import urlencode
-
-
         return (
-
             account.oauth_authorization_url
-
             +
-
             "?"
-
             +
-
             urlencode(params)
-
         )
 
 
 
     # -------------------------------------------------------------------------
-    # Exchange Code
+    # Exchange Authorization Code
     # -------------------------------------------------------------------------
 
     @api.model
@@ -103,14 +101,17 @@ class SCEOAuthService(models.AbstractModel):
         code,
     ):
         """
-        Exchanges authorization code for tokens.
+        Exchanges authorization code
+        for access and refresh tokens.
         """
 
 
         if not account.oauth_token_url:
 
-            raise SCEAuthenticationError(
-                "OAuth token URL not configured."
+            raise SCEAuthorizationError(
+                message="OAuth token URL not configured.",
+                provider=self._get_provider(account),
+                account=account.id,
             )
 
 
@@ -134,42 +135,27 @@ class SCEOAuthService(models.AbstractModel):
         }
 
 
-
-        try:
-
-
-            response = requests.post(
-
-                account.oauth_token_url,
-
-                data=payload,
-
-                timeout=30,
-
-            )
+        client = self._get_client(
+            account
+        )
 
 
-        except requests.exceptions.RequestException as error:
+        response = client.post_form(
 
+            account.oauth_token_url,
 
-            raise SCEConnectionError(
-                str(error)
-            )
+            data=payload,
 
-
-
-        data = self._parse_response(
-            response
         )
 
 
         self.save_tokens(
             account,
-            data,
+            response,
         )
 
 
-        return data
+        return response
 
 
 
@@ -189,10 +175,11 @@ class SCEOAuthService(models.AbstractModel):
 
         if not account.oauth_refresh_token:
 
-            raise SCEAuthenticationError(
-                "Refresh token missing."
+            raise SCETokenRefreshError(
+                message="Refresh token missing.",
+                provider=self._get_provider(account),
+                account=account.id,
             )
-
 
 
         payload = {
@@ -212,42 +199,43 @@ class SCEOAuthService(models.AbstractModel):
         }
 
 
+        client = self._get_client(
+            account
+        )
+
 
         try:
 
-
-            response = requests.post(
+            response = client.post_form(
 
                 account.oauth_token_url,
 
                 data=payload,
 
-                timeout=30,
-
             )
 
 
-        except requests.exceptions.RequestException as error:
+        except SCEConnectionError:
+
+            raise
 
 
-            raise SCEConnectionError(
-                str(error)
+        except Exception as error:
+
+            raise SCETokenRefreshError(
+                message=str(error),
+                provider=self._get_provider(account),
+                account=account.id,
             )
-
-
-
-        data = self._parse_response(
-            response
-        )
 
 
         self.save_tokens(
             account,
-            data,
+            response,
         )
 
 
-        return data
+        return response
 
 
 
@@ -269,22 +257,18 @@ class SCEOAuthService(models.AbstractModel):
         values = {
 
             "oauth_access_token":
-
                 data.get(
                     "access_token"
                 ),
 
 
             "oauth_refresh_token":
-
                 data.get(
                     "refresh_token",
                     account.oauth_refresh_token,
                 ),
 
-
         }
-
 
 
         if data.get(
@@ -294,14 +278,21 @@ class SCEOAuthService(models.AbstractModel):
 
             values[
                 "oauth_token_expiration"
-            ] = fields.Datetime.now() + fields.DateUtils.relativedelta(
+            ] = (
 
-                seconds=data.get(
-                    "expires_in"
+                fields.Datetime.now()
+
+                +
+
+                relativedelta(
+
+                    seconds=data.get(
+                        "expires_in"
+                    )
+
                 )
 
             )
-
 
 
         account.write(
@@ -323,7 +314,7 @@ class SCEOAuthService(models.AbstractModel):
         account,
     ):
         """
-        Checks if token is still valid.
+        Checks if access token is valid.
         """
 
 
@@ -332,21 +323,15 @@ class SCEOAuthService(models.AbstractModel):
             return False
 
 
-
         if not account.oauth_token_expiration:
 
             return True
 
 
-
         return (
-
             account.oauth_token_expiration
-
             >
-
             fields.Datetime.now()
-
         )
 
 
@@ -383,23 +368,41 @@ class SCEOAuthService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Response
+    # Helpers
     # -------------------------------------------------------------------------
 
-    def _parse_response(
+    def _get_client(
         self,
-        response,
+        account,
     ):
+        """
+        Returns SCE API client.
+        """
 
 
-        if response.status_code >= 400:
+        return SCEAPIClient(
 
-            raise SCEAuthenticationError(
+            provider=self._get_provider(
+                account
+            ),
 
-                response.text
+            timeout=30,
 
-            )
+        )
 
 
 
-        return response.json()
+    def _get_provider(
+        self,
+        account,
+    ):
+        """
+        Returns provider name.
+        """
+
+        if account.provider_id:
+
+            return account.provider_id.name
+
+
+        return None

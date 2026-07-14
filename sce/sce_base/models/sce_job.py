@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -7,12 +8,23 @@ Job Management
 
 from __future__ import annotations
 
-from odoo import api, fields, models
+import uuid
+import traceback
+
+from odoo import (
+    api,
+    fields,
+    models,
+)
 
 
 class SCEJob(models.Model):
+
     """
     Internal SCE execution job.
+
+    Represents a complete business execution
+    handled by SCE Kernel.
     """
 
     _name = "sce.job"
@@ -53,6 +65,7 @@ class SCEJob(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
     # Relations
     # -------------------------------------------------------------------------
@@ -81,18 +94,50 @@ class SCEJob(models.Model):
     )
 
 
+    queue_ids = fields.One2many(
+        "sce.queue",
+        "job_id",
+        string="Queue Items",
+    )
+
+
+
     # -------------------------------------------------------------------------
     # Execution State
     # -------------------------------------------------------------------------
 
     state = fields.Selection(
         [
-            ("pending", "Pending"),
-            ("scheduled", "Scheduled"),
-            ("running", "Running"),
-            ("done", "Done"),
-            ("failed", "Failed"),
-            ("cancelled", "Cancelled"),
+            (
+                "pending",
+                "Pending",
+            ),
+
+            (
+                "scheduled",
+                "Scheduled",
+            ),
+
+            (
+                "running",
+                "Running",
+            ),
+
+            (
+                "done",
+                "Done",
+            ),
+
+            (
+                "failed",
+                "Failed",
+            ),
+
+            (
+                "cancelled",
+                "Cancelled",
+            ),
+
         ],
         string="Status",
         default="pending",
@@ -102,17 +147,35 @@ class SCEJob(models.Model):
     )
 
 
+
     priority = fields.Selection(
         [
-            ("0", "Low"),
-            ("1", "Normal"),
-            ("2", "High"),
-            ("3", "Critical"),
+            (
+                "0",
+                "Low",
+            ),
+
+            (
+                "1",
+                "Normal",
+            ),
+
+            (
+                "2",
+                "High",
+            ),
+
+            (
+                "3",
+                "Critical",
+            ),
+
         ],
-        default="1",
         string="Priority",
+        default="1",
         index=True,
     )
+
 
 
     # -------------------------------------------------------------------------
@@ -125,22 +188,25 @@ class SCEJob(models.Model):
 
 
     started_at = fields.Datetime(
+        string="Started At",
         readonly=True,
     )
 
 
     finished_at = fields.Datetime(
+        string="Finished At",
         readonly=True,
     )
 
-        # -------------------------------------------------------------------------
+
+
+    # -------------------------------------------------------------------------
     # Execution Data
     # -------------------------------------------------------------------------
 
     payload = fields.Json(
         string="Payload",
         default=dict,
-        help="Input data for job execution.",
     )
 
 
@@ -158,35 +224,37 @@ class SCEJob(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Error Handling
+    # Errors
     # -------------------------------------------------------------------------
 
     error = fields.Text(
-        string="Error Message",
+        readonly=True,
+    )
+
+
+    error_message = fields.Text(
         readonly=True,
     )
 
 
     error_traceback = fields.Text(
-        string="Error Traceback",
         readonly=True,
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Retry Management
+    # Retry
     # -------------------------------------------------------------------------
 
     retry_count = fields.Integer(
-        string="Retry Count",
         default=0,
-        readonly=True,
     )
 
 
     max_retries = fields.Integer(
-        string="Maximum Retries",
         default=3,
     )
 
@@ -196,8 +264,9 @@ class SCEJob(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Execution Metrics
+    # Metrics
     # -------------------------------------------------------------------------
 
     duration = fields.Float(
@@ -207,21 +276,20 @@ class SCEJob(models.Model):
 
 
     records_processed = fields.Integer(
-        string="Records Processed",
         default=0,
         readonly=True,
     )
 
 
     records_failed = fields.Integer(
-        string="Records Failed",
         default=0,
         readonly=True,
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Technical Information
+    # Technical
     # -------------------------------------------------------------------------
 
     worker = fields.Char(
@@ -234,11 +302,13 @@ class SCEJob(models.Model):
         string="Execution ID",
         readonly=True,
         copy=False,
+        index=True,
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Compute
+    # Compute Retry
     # -------------------------------------------------------------------------
 
     @api.depends(
@@ -251,19 +321,15 @@ class SCEJob(models.Model):
         for job in self:
 
             job.can_retry = (
-
-                job.retry_count
-                <
-                job.max_retries
-
-                and
-
                 job.state == "failed"
-
+                and
+                job.retry_count < job.max_retries
             )
 
-                # -------------------------------------------------------------------------
-    # Execution
+
+
+    # -------------------------------------------------------------------------
+    # Start Execution
     # -------------------------------------------------------------------------
 
     def start(self):
@@ -289,9 +355,6 @@ class SCEJob(models.Model):
             "started_at":
                 fields.Datetime.now(),
 
-            "execution_id":
-                self._generate_execution_id(),
-
         })
 
 
@@ -299,6 +362,8 @@ class SCEJob(models.Model):
 
 
 
+    # -------------------------------------------------------------------------
+    # Execute
     # -------------------------------------------------------------------------
 
     def execute(self):
@@ -318,13 +383,13 @@ class SCEJob(models.Model):
 
             result = kernel.execute(
 
-                self.plugin_id.code,
+                self.connector_id.code,
 
                 self.type,
 
                 self.account_id,
 
-                payload=self.payload,
+                self.payload,
 
             )
 
@@ -349,17 +414,22 @@ class SCEJob(models.Model):
             raise
 
 
-
-    # -------------------------------------------------------------------------
-    # Finish
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Finish Success
+# -------------------------------------------------------------------------
 
     def finish_success(
         self,
         result=None,
     ):
+        """
+        Marks job as successfully completed.
+        """
 
         self.ensure_one()
+
+
+        now = fields.Datetime.now()
 
 
         values = {
@@ -368,7 +438,7 @@ class SCEJob(models.Model):
                 "done",
 
             "finished_at":
-                fields.Datetime.now(),
+                now,
 
             "result":
                 result or {},
@@ -381,7 +451,7 @@ class SCEJob(models.Model):
             values["duration"] = (
 
                 (
-                    fields.Datetime.now()
+                    now
                     -
                     self.started_at
 
@@ -395,24 +465,54 @@ class SCEJob(models.Model):
         )
 
 
+        # Central SCE logging
+
+        self.env[
+            "sce.log"
+        ].create({
+
+            "level":
+                "info",
+
+            "message":
+                "Job completed successfully",
+
+            "account_id":
+                self.account_id.id,
+
+            "payload": {
+
+                "job_id":
+                    self.id,
+
+                "type":
+                    self.type,
+
+            },
+
+        })
+
+
         return True
 
 
 
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Finish Error
+# -------------------------------------------------------------------------
 
     def finish_error(
         self,
         error,
     ):
+        """
+        Marks job as failed.
+        """
 
         self.ensure_one()
 
 
-        import traceback
-
-
-        values = {
+        self.write({
 
             "state":
                 "failed",
@@ -423,14 +523,30 @@ class SCEJob(models.Model):
             "error":
                 str(error),
 
+            "error_message":
+                str(error),
+
             "error_traceback":
                 traceback.format_exc(),
 
-        }
+        })
 
 
-        self.write(
-            values
+        kernel = self.env[
+            "sce.kernel"
+        ]
+
+
+        kernel.handle_error(
+
+            error,
+
+            account=self.account_id,
+
+            connector=self.connector_id,
+
+            payload=self.payload,
+
         )
 
 
@@ -438,11 +554,14 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
-    # Retry
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Retry
+# -------------------------------------------------------------------------
 
     def retry(self):
+        """
+        Returns failed job to pending.
+        """
 
         self.ensure_one()
 
@@ -462,11 +581,64 @@ class SCEJob(models.Model):
             "retry_count":
                 self.retry_count + 1,
 
+
+            "started_at":
+                False,
+
+
+            "finished_at":
+                False,
+
+
+            "duration":
+                0,
+
+
+            "result":
+                {},
+
+
+            "response":
+                {},
+
+
             "error":
                 False,
 
+
+            "error_message":
+                False,
+
+
             "error_traceback":
                 False,
+
+
+        })
+
+
+        self.env[
+            "sce.log"
+        ].create({
+
+            "level":
+                "warning",
+
+            "message":
+                "Job scheduled for retry",
+
+            "account_id":
+                self.account_id.id,
+
+            "payload": {
+
+                "job_id":
+                    self.id,
+
+                "retry":
+                    self.retry_count,
+
+            },
 
         })
 
@@ -475,9 +647,9 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
-    # Cancel
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Cancel
+# -------------------------------------------------------------------------
 
     def cancel(self):
 
@@ -501,9 +673,11 @@ class SCEJob(models.Model):
 
         return True
 
-            # -------------------------------------------------------------------------
-    # Actions
-    # -------------------------------------------------------------------------
+
+
+# -------------------------------------------------------------------------
+# Actions
+# -------------------------------------------------------------------------
 
     def action_execute(self):
 
@@ -512,8 +686,6 @@ class SCEJob(models.Model):
         return self.execute()
 
 
-
-    # -------------------------------------------------------------------------
 
     def action_retry(self):
 
@@ -525,8 +697,6 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
-
     def action_cancel(self):
 
         self.ensure_one()
@@ -537,13 +707,11 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
-    # Helpers
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Helpers
+# -------------------------------------------------------------------------
 
     def _generate_execution_id(self):
-
-        import uuid
 
         return str(
             uuid.uuid4()
@@ -551,7 +719,9 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Compute Name
+# -------------------------------------------------------------------------
 
     @api.depends(
         "type",
@@ -562,30 +732,34 @@ class SCEJob(models.Model):
 
         for job in self:
 
+
             if job.type and job.account_id:
 
                 job.name = (
 
                     "%s - %s"
+
                     %
                     (
+
                         job.account_id.name,
+
                         job.type,
+
                     )
 
                 )
 
+
             else:
 
-                job.name = (
-                    "SCE Job"
-                )
+                job.name = "SCE Job"
 
 
 
-    # -------------------------------------------------------------------------
-    # ORM
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# ORM Create
+# -------------------------------------------------------------------------
 
     @api.model_create_multi
     def create(
@@ -593,48 +767,76 @@ class SCEJob(models.Model):
         vals_list,
     ):
 
+
+        for values in vals_list:
+
+
+            if not values.get(
+                "execution_id"
+            ):
+
+                values[
+                    "execution_id"
+                ] = self._generate_execution_id()
+
+
+
         records = super().create(
             vals_list
         )
-
-
-        for job in records:
-
-            if not job.execution_id:
-
-                job.execution_id = (
-                    job._generate_execution_id()
-                )
 
 
         return records
 
 
 
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# ORM Write
+# -------------------------------------------------------------------------
 
     def write(
         self,
         vals,
     ):
 
-        if vals.get("state") == "running":
+
+        vals = dict(vals)
+
+
+        if vals.get(
+            "state"
+        ) == "running":
+
 
             vals.setdefault(
+
                 "started_at",
+
                 fields.Datetime.now(),
+
             )
 
 
-        if vals.get("state") in (
+
+        if vals.get(
+            "state"
+        ) in (
+
             "done",
+
             "failed",
+
             "cancelled",
+
         ):
 
+
             vals.setdefault(
+
                 "finished_at",
+
                 fields.Datetime.now(),
+
             )
 
 
@@ -644,18 +846,24 @@ class SCEJob(models.Model):
 
 
 
-    # -------------------------------------------------------------------------
-    # Search Helpers
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Search Helpers
+# -------------------------------------------------------------------------
 
     @api.model
     def get_pending_jobs(
         self,
         limit=50,
     ):
+        """
+        Returns pending and scheduled jobs.
+        """
+
 
         return self.search(
+
             [
+
                 (
                     "state",
                     "in",
@@ -664,15 +872,42 @@ class SCEJob(models.Model):
                         "scheduled",
                     ],
                 )
+
             ],
+
             order=
                 "priority desc, create_date asc",
+
             limit=limit,
+
         )
 
 
 
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+
+    @api.model
+    def get_running_jobs(
+        self,
+    ):
+
+        return self.search(
+
+            [
+
+                (
+                    "state",
+                    "=",
+                    "running",
+                )
+
+            ]
+
+        )
+
+
+
+# -------------------------------------------------------------------------
 
     @api.model
     def get_failed_jobs(
@@ -680,24 +915,31 @@ class SCEJob(models.Model):
         limit=50,
     ):
 
+
         return self.search(
+
             [
+
                 (
                     "state",
                     "=",
                     "failed",
                 )
+
             ],
+
             order=
                 "create_date desc",
+
             limit=limit,
+
         )
 
 
 
-    # -------------------------------------------------------------------------
-    # Constraints
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# Constraints
+# -------------------------------------------------------------------------
 
     @api.constrains(
         "max_retries",
@@ -709,18 +951,21 @@ class SCEJob(models.Model):
             if job.max_retries < 0:
 
                 raise ValueError(
+
                     "Maximum retries cannot be negative."
+
                 )
 
 
 
-    # -------------------------------------------------------------------------
-    # SQL Constraints
-    # -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# SQL Constraints
+# -------------------------------------------------------------------------
 
     _sql_constraints = [
 
         (
+
             "sce_job_execution_unique",
 
             "unique(execution_id)",

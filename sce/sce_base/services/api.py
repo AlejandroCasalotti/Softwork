@@ -1,63 +1,137 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
-Generic API Client Service
+API Service
+
+Provides common HTTP/API communication
+for all external connectors.
 """
 
-import json
-import time
+
+import uuid
 import requests
-
-
-from odoo import api, models
 
 
 from ..exceptions import (
     SCEAPIError,
-    SCEAuthenticationError,
     SCEConnectionError,
 )
 
 
 
-class SCEAPIService(models.AbstractModel):
+class SCEAPIClient:
+    """
+    Generic API Client.
 
-    _name = "sce.api.service"
-
-    _description = "SCE API Service"
-
+    Base HTTP client used by connectors.
+    """
 
 
-    # -------------------------------------------------------------------------
+    def __init__(
+        self,
+        base_url=None,
+        timeout=30,
+        provider=None,
+        headers=None,
+    ):
+
+        self.base_url = (
+            base_url.rstrip("/")
+            if base_url
+            else ""
+        )
+
+        self.timeout = timeout
+        self.provider = provider
+        self.headers = headers or {}
+
+        self.request_id = str(
+            uuid.uuid4()
+        )
+
+
+    # ---------------------------------------------------------
+    # URL
+    # ---------------------------------------------------------
+
+    def _build_url(
+        self,
+        endpoint,
+    ):
+
+        if endpoint.startswith("http"):
+            return endpoint
+
+        return (
+            f"{self.base_url}/"
+            f"{endpoint.lstrip('/')}"
+        )
+
+
+    # ---------------------------------------------------------
+    # Headers
+    # ---------------------------------------------------------
+
+    def _get_headers(
+        self,
+        headers=None,
+    ):
+
+        result = {}
+
+        result.update(
+            self.headers
+        )
+
+
+        result.setdefault(
+            "Accept",
+            "application/json",
+        )
+
+
+        result.setdefault(
+            "X-SCE-Request-ID",
+            self.request_id,
+        )
+
+
+        if headers:
+            result.update(
+                headers
+            )
+
+
+        return result
+
+
+    # ---------------------------------------------------------
     # Request
-    # -------------------------------------------------------------------------
+    # ---------------------------------------------------------
 
-    @api.model
     def request(
         self,
         method,
-        url,
-        headers=None,
+        endpoint,
         params=None,
         data=None,
-        json_data=None,
-        timeout=30,
-        **kwargs,
+        json=None,
+        headers=None,
     ):
-        """
-        Generic HTTP request.
-        """
+
+        url = self._build_url(
+            endpoint
+        )
 
 
-        start = time.time()
-
-
-        headers = headers or {}
+        request_headers = self._get_headers(
+            headers
+        )
 
 
         try:
-
 
             response = requests.request(
 
@@ -65,179 +139,88 @@ class SCEAPIService(models.AbstractModel):
 
                 url=url,
 
-                headers=headers,
-
                 params=params,
 
                 data=data,
 
-                json=json_data,
+                json=json,
 
-                timeout=timeout,
+                headers=request_headers,
 
-                **kwargs,
+                timeout=self.timeout,
 
             )
 
 
-        except requests.exceptions.Timeout as error:
-
+        except requests.exceptions.Timeout:
 
             raise SCEConnectionError(
-                "Connection timeout: %s"
-                %
-                error
+                message="API timeout",
+                provider=self.provider,
+                endpoint=url,
             )
 
 
-        except requests.exceptions.ConnectionError as error:
-
+        except requests.exceptions.ConnectionError:
 
             raise SCEConnectionError(
-                "Connection failed: %s"
-                %
-                error
+                message="API connection failed",
+                provider=self.provider,
+                endpoint=url,
             )
 
 
+        except Exception as error:
 
-        duration = (
-            time.time()
-            -
-            start
-        )
+            raise SCEConnectionError(
+                message=str(error),
+                provider=self.provider,
+                endpoint=url,
+            )
 
 
-        self._log_request(
-
-            method,
-
-            url,
-
+        return self._handle_response(
             response,
-
-            duration,
-
-        )
-
-
-        return self._parse_response(
-            response
-        )
-
-
-
-    # -------------------------------------------------------------------------
-    # GET
-    # -------------------------------------------------------------------------
-
-    @api.model
-    def get(
-        self,
-        url,
-        **kwargs,
-    ):
-
-        return self.request(
-            "GET",
             url,
-            **kwargs,
         )
 
 
+    # ---------------------------------------------------------
+    # Response
+    # ---------------------------------------------------------
 
-    # -------------------------------------------------------------------------
-    # POST
-    # -------------------------------------------------------------------------
-
-    @api.model
-    def post(
-        self,
-        url,
-        **kwargs,
-    ):
-
-        return self.request(
-            "POST",
-            url,
-            **kwargs,
-        )
-
-
-
-    # -------------------------------------------------------------------------
-    # PUT
-    # -------------------------------------------------------------------------
-
-    @api.model
-    def put(
-        self,
-        url,
-        **kwargs,
-    ):
-
-        return self.request(
-            "PUT",
-            url,
-            **kwargs,
-        )
-
-
-
-    # -------------------------------------------------------------------------
-    # DELETE
-    # -------------------------------------------------------------------------
-
-    @api.model
-    def delete(
-        self,
-        url,
-        **kwargs,
-    ):
-
-        return self.request(
-            "DELETE",
-            url,
-            **kwargs,
-        )
-
-
-
-    # -------------------------------------------------------------------------
-    # Response Handler
-    # -------------------------------------------------------------------------
-
-    def _parse_response(
+    def _handle_response(
         self,
         response,
+        endpoint,
     ):
-
-        if response.status_code in (
-            401,
-            403,
-        ):
-
-            raise SCEAuthenticationError(
-                response.text
-            )
 
 
         if response.status_code >= 400:
 
+            try:
+
+                response_data = response.json()
+
+
+            except Exception:
+
+                response_data = response.text
+
+
+
             raise SCEAPIError(
-
-                "API Error %s: %s"
-
-                %
-
-                (
-                    response.status_code,
-
-                    response.text,
-
-                )
-
+                message="API request failed",
+                provider=self.provider,
+                endpoint=endpoint,
+                status_code=response.status_code,
+                response=response_data,
             )
+
+
+        if not response.content:
+
+            return {}
 
 
         try:
@@ -250,53 +233,105 @@ class SCEAPIService(models.AbstractModel):
             return response.text
 
 
+    # ---------------------------------------------------------
+    # HTTP Helpers
+    # ---------------------------------------------------------
 
-    # -------------------------------------------------------------------------
-    # Logging
-    # -------------------------------------------------------------------------
-
-    def _log_request(
+    def get(
         self,
-        method,
-        url,
-        response,
-        duration,
+        endpoint,
+        **kwargs,
     ):
 
-        if not self.env:
-
-            return
-
-
-        try:
-
-            self.env[
-                "sce.log"
-            ].log_debug(
-
-                "API request executed",
-
-                category="connection",
-
-                metadata={
-
-                    "method":
-                        method,
-
-                    "url":
-                        url,
-
-                    "status":
-                        response.status_code,
-
-                    "duration":
-                        duration,
-
-                },
-
-            )
+        return self.request(
+            "GET",
+            endpoint,
+            **kwargs,
+        )
 
 
-        except Exception:
+    def post(
+        self,
+        endpoint,
+        **kwargs,
+    ):
 
-            pass
+        return self.request(
+            "POST",
+            endpoint,
+            **kwargs,
+        )
+
+
+    def post_form(
+        self,
+        endpoint,
+        data=None,
+        **kwargs,
+    ):
+        """
+        POST form encoded data.
+
+        Used mainly by OAuth.
+        """
+
+        headers = kwargs.pop(
+            "headers",
+            {}
+        )
+
+
+        headers.update({
+
+            "Content-Type":
+                "application/x-www-form-urlencoded"
+
+        })
+
+
+        return self.request(
+            "POST",
+            endpoint,
+            data=data,
+            headers=headers,
+            **kwargs,
+        )
+
+
+    def put(
+        self,
+        endpoint,
+        **kwargs,
+    ):
+
+        return self.request(
+            "PUT",
+            endpoint,
+            **kwargs,
+        )
+
+
+    def patch(
+        self,
+        endpoint,
+        **kwargs,
+    ):
+
+        return self.request(
+            "PATCH",
+            endpoint,
+            **kwargs,
+        )
+
+
+    def delete(
+        self,
+        endpoint,
+        **kwargs,
+    ):
+
+        return self.request(
+            "DELETE",
+            endpoint,
+            **kwargs,
+        )

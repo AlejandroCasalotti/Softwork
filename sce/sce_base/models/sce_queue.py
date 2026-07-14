@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -7,14 +8,18 @@ Queue Management
 
 from __future__ import annotations
 
+import traceback
+import uuid
+
 from odoo import api, fields, models
 
 
 class SCEQueue(models.Model):
+
     """
     Internal execution queue.
 
-    Controls execution scheduling
+    Controls asynchronous execution
     of SCE jobs.
     """
 
@@ -27,10 +32,7 @@ class SCEQueue(models.Model):
         "mail.activity.mixin",
     ]
 
-    _order = (
-        "priority desc, create_date asc"
-    )
-
+    _order = "priority desc, create_date asc"
 
 
     # -------------------------------------------------------------------------
@@ -93,7 +95,7 @@ class SCEQueue(models.Model):
 
 
     # -------------------------------------------------------------------------
-    # Queue State
+    # State
     # -------------------------------------------------------------------------
 
     state = fields.Selection(
@@ -104,6 +106,7 @@ class SCEQueue(models.Model):
             ("failed", "Failed"),
             ("cancelled", "Cancelled"),
         ],
+        string="State",
         default="pending",
         required=True,
         tracking=True,
@@ -118,6 +121,7 @@ class SCEQueue(models.Model):
             ("2", "High"),
             ("3", "Critical"),
         ],
+        string="Priority",
         default="1",
         index=True,
     )
@@ -141,14 +145,14 @@ class SCEQueue(models.Model):
         readonly=True,
     )
 
-        # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
     # Execution Data
     # -------------------------------------------------------------------------
 
     payload = fields.Json(
         string="Payload",
         default=dict,
-        help="Execution parameters.",
     )
 
 
@@ -167,33 +171,34 @@ class SCEQueue(models.Model):
 
 
     # -------------------------------------------------------------------------
-    # Error Handling
+    # Errors
     # -------------------------------------------------------------------------
 
     error = fields.Text(
-        string="Error",
+        readonly=True,
+    )
+
+
+    error_message = fields.Text(
         readonly=True,
     )
 
 
     error_traceback = fields.Text(
-        string="Traceback",
         readonly=True,
     )
 
 
     # -------------------------------------------------------------------------
-    # Retry Management
+    # Retry
     # -------------------------------------------------------------------------
 
     retry_count = fields.Integer(
-        string="Retry Count",
         default=0,
     )
 
 
     max_retries = fields.Integer(
-        string="Maximum Retries",
         default=3,
     )
 
@@ -204,18 +209,16 @@ class SCEQueue(models.Model):
 
 
     # -------------------------------------------------------------------------
-    # Worker Control
+    # Worker
     # -------------------------------------------------------------------------
 
     worker_id = fields.Char(
-        string="Worker ID",
         readonly=True,
         copy=False,
     )
 
 
     lock_date = fields.Datetime(
-        string="Lock Date",
         readonly=True,
     )
 
@@ -225,20 +228,17 @@ class SCEQueue(models.Model):
     # -------------------------------------------------------------------------
 
     execution_time = fields.Float(
-        string="Execution Time",
         readonly=True,
     )
 
 
     records_processed = fields.Integer(
-        string="Records Processed",
         default=0,
         readonly=True,
     )
 
 
     records_failed = fields.Integer(
-        string="Records Failed",
         default=0,
         readonly=True,
     )
@@ -258,25 +258,19 @@ class SCEQueue(models.Model):
         for item in self:
 
             item.can_retry = (
-
                 item.state == "failed"
-
                 and
-
-                item.retry_count
-                <
-                item.max_retries
-
+                item.retry_count < item.max_retries
             )
 
-                # -------------------------------------------------------------------------
-    # Queue Processing
+
+    # -------------------------------------------------------------------------
+    # Lock Management
     # -------------------------------------------------------------------------
 
     def acquire_lock(self):
 
         self.ensure_one()
-
 
         if self.state != "pending":
 
@@ -285,16 +279,13 @@ class SCEQueue(models.Model):
             )
 
 
-        import uuid
-
-
         self.write({
 
-            "state":
-                "processing",
+            "state": "processing",
 
-            "worker_id":
-                str(uuid.uuid4()),
+            "worker_id": str(
+                uuid.uuid4()
+            ),
 
             "lock_date":
                 fields.Datetime.now(),
@@ -309,6 +300,8 @@ class SCEQueue(models.Model):
 
 
 
+    # -------------------------------------------------------------------------
+    # Execution
     # -------------------------------------------------------------------------
 
     def execute(self):
@@ -328,13 +321,13 @@ class SCEQueue(models.Model):
 
             result = kernel.execute(
 
-                self.plugin_id.code,
+                self.account_id.connector_code,
 
                 self.action,
 
                 self.account_id,
 
-                payload=self.payload,
+                self.payload,
 
             )
 
@@ -361,7 +354,7 @@ class SCEQueue(models.Model):
 
 
     # -------------------------------------------------------------------------
-    # Completion
+    # Success
     # -------------------------------------------------------------------------
 
     def finish_success(
@@ -394,8 +387,7 @@ class SCEQueue(models.Model):
             values["execution_time"] = (
 
                 (
-                    now
-                    -
+                    now -
                     self.started_at
 
                 ).total_seconds()
@@ -413,6 +405,8 @@ class SCEQueue(models.Model):
 
 
     # -------------------------------------------------------------------------
+    # Error
+    # -------------------------------------------------------------------------
 
     def finish_error(
         self,
@@ -420,9 +414,6 @@ class SCEQueue(models.Model):
     ):
 
         self.ensure_one()
-
-
-        import traceback
 
 
         self.write({
@@ -436,14 +427,34 @@ class SCEQueue(models.Model):
             "error":
                 str(error),
 
+            "error_message":
+                str(error),
+
             "error_traceback":
                 traceback.format_exc(),
 
         })
 
 
-        return True
+        kernel = self.env[
+            "sce.kernel"
+        ]
 
+
+        kernel.handle_error(
+
+            error,
+
+            account=self.account_id,
+
+            connector=self.connector_id,
+
+            payload=self.payload,
+
+        )
+
+
+        return True
 
 
     # -------------------------------------------------------------------------
@@ -476,7 +487,22 @@ class SCEQueue(models.Model):
             "lock_date":
                 False,
 
+            "started_at":
+                False,
+
+            "finished_at":
+                False,
+
+            "execution_time":
+                0,
+
+            "result":
+                {},
+
             "error":
+                False,
+
+            "error_message":
                 False,
 
             "error_traceback":
@@ -487,7 +513,9 @@ class SCEQueue(models.Model):
 
         return True
 
-            # -------------------------------------------------------------------------
+
+
+    # -------------------------------------------------------------------------
     # Batch Processing
     # -------------------------------------------------------------------------
 
@@ -501,16 +529,31 @@ class SCEQueue(models.Model):
         """
 
         items = self.search(
+
             [
                 (
                     "state",
                     "=",
                     "pending",
-                )
+                ),
+                "|",
+                (
+                    "scheduled_at",
+                    "=",
+                    False,
+                ),
+                (
+                    "scheduled_at",
+                    "<=",
+                    fields.Datetime.now(),
+                ),
             ],
+
             order=
                 "priority desc, create_date asc",
+
             limit=limit,
+
         )
 
 
@@ -522,6 +565,7 @@ class SCEQueue(models.Model):
             try:
 
                 result = item.execute()
+
 
                 results.append({
 
@@ -620,6 +664,7 @@ class SCEQueue(models.Model):
 
         for item in self:
 
+
             if item.account_id:
 
                 item.name = (
@@ -627,7 +672,6 @@ class SCEQueue(models.Model):
                     "%s - %s"
 
                     %
-
                     (
                         item.account_id.name,
                         item.action,
@@ -635,11 +679,10 @@ class SCEQueue(models.Model):
 
                 )
 
+
             else:
 
-                item.name = (
-                    "SCE Queue Item"
-                )
+                item.name = "SCE Queue Item"
 
 
 
@@ -670,6 +713,9 @@ class SCEQueue(models.Model):
     ):
 
 
+        vals = dict(vals)
+
+
         if vals.get("state") == "processing":
 
             vals.setdefault(
@@ -679,9 +725,13 @@ class SCEQueue(models.Model):
 
 
         if vals.get("state") in (
+
             "done",
+
             "failed",
+
             "cancelled",
+
         ):
 
             vals.setdefault(
@@ -707,6 +757,7 @@ class SCEQueue(models.Model):
     ):
 
         return self.search(
+
             [
                 (
                     "state",
@@ -714,9 +765,12 @@ class SCEQueue(models.Model):
                     "pending",
                 )
             ],
+
             order=
                 "priority desc, create_date asc",
+
             limit=limit,
+
         )
 
 
@@ -729,6 +783,7 @@ class SCEQueue(models.Model):
     ):
 
         return self.search(
+
             [
                 (
                     "state",
@@ -736,6 +791,7 @@ class SCEQueue(models.Model):
                     "processing",
                 )
             ]
+
         )
 
 
@@ -766,6 +822,7 @@ class SCEQueue(models.Model):
     _sql_constraints = [
 
         (
+
             "sce_queue_job_action_unique",
 
             "unique(job_id, action)",

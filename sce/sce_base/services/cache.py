@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -47,11 +48,8 @@ class SCECacheService(models.AbstractModel):
 
 
         cache_key = self._build_key(
-
             key,
-
             account,
-
         )
 
 
@@ -73,13 +71,11 @@ class SCECacheService(models.AbstractModel):
         ].search(
 
             [
-
                 (
                     "key",
                     "=",
                     cache_key,
                 )
-
             ],
 
             limit=1,
@@ -90,22 +86,27 @@ class SCECacheService(models.AbstractModel):
         values = {
 
             "key":
-
                 cache_key,
 
 
             "value":
-
                 json.dumps(
-                    value
+                    value,
+                    default=str,
                 ),
 
 
             "expiration":
-
                 expiration,
 
         }
+
+
+        if account:
+
+            values[
+                "account_id"
+            ] = account.id
 
 
 
@@ -139,17 +140,10 @@ class SCECacheService(models.AbstractModel):
         default=None,
         account=None,
     ):
-        """
-        Retrieves cached value.
-        """
-
 
         cache_key = self._build_key(
-
             key,
-
             account,
-
         )
 
 
@@ -158,13 +152,11 @@ class SCECacheService(models.AbstractModel):
         ].search(
 
             [
-
                 (
                     "key",
                     "=",
                     cache_key,
                 )
-
             ],
 
             limit=1,
@@ -185,9 +177,7 @@ class SCECacheService(models.AbstractModel):
             and
 
             record.expiration
-
             <
-
             fields.Datetime.now()
 
         ):
@@ -214,6 +204,50 @@ class SCECacheService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
+    # Get Or Set
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def get_or_set(
+        self,
+        key,
+        callback,
+        ttl=3600,
+        account=None,
+    ):
+        """
+        Returns cache or generates value.
+        """
+
+
+        value = self.get(
+            key,
+            account=account,
+        )
+
+
+        if value is not None:
+
+            return value
+
+
+
+        value = callback()
+
+
+        self.set(
+            key,
+            value,
+            ttl,
+            account,
+        )
+
+
+        return value
+
+
+
+    # -------------------------------------------------------------------------
     # Exists
     # -------------------------------------------------------------------------
 
@@ -224,17 +258,10 @@ class SCECacheService(models.AbstractModel):
         account=None,
     ):
 
-
-        return (
-
-            self.get(
-                key,
-                account=account,
-            )
-
-            is not None
-
-        )
+        return self.get(
+            key,
+            account=account,
+        ) is not None
 
 
 
@@ -249,34 +276,25 @@ class SCECacheService(models.AbstractModel):
         account=None,
     ):
 
-
         cache_key = self._build_key(
-
             key,
-
             account,
-
         )
 
 
-        records = self.env[
+        self.env[
             "sce.cache"
         ].search(
 
             [
-
                 (
                     "key",
                     "=",
                     cache_key,
                 )
-
             ]
 
-        )
-
-
-        records.unlink()
+        ).unlink()
 
 
         return True
@@ -292,9 +310,6 @@ class SCECacheService(models.AbstractModel):
         self,
         account=None,
     ):
-        """
-        Clears cache.
-        """
 
 
         domain = []
@@ -303,13 +318,11 @@ class SCECacheService(models.AbstractModel):
         if account:
 
             domain.append(
-
                 (
                     "account_id",
                     "=",
                     account.id,
                 )
-
             )
 
 
@@ -329,10 +342,9 @@ class SCECacheService(models.AbstractModel):
     # -------------------------------------------------------------------------
 
     @api.model
-    def cleanup(self):
-        """
-        Removes expired cache.
-        """
+    def cleanup(
+        self,
+    ):
 
 
         self.env[
@@ -340,13 +352,11 @@ class SCECacheService(models.AbstractModel):
         ].search(
 
             [
-
                 (
                     "expiration",
                     "<",
                     fields.Datetime.now(),
                 )
-
             ]
 
         ).unlink()
@@ -373,19 +383,12 @@ class SCECacheService(models.AbstractModel):
         if account:
 
             value = (
-
                 "%s:%s"
-
                 %
-
                 (
-
                     account.id,
-
                     key,
-
                 )
-
             )
 
 

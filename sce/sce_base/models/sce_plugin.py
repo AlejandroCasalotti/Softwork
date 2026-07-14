@@ -7,7 +7,13 @@ Plugin Registry
 
 from __future__ import annotations
 
-from odoo import api, fields, models
+
+from odoo import (
+    api,
+    fields,
+    models,
+)
+
 
 
 class SCEPlugin(models.Model):
@@ -29,9 +35,11 @@ class SCEPlugin(models.Model):
     _order = "name"
 
 
+
     # -------------------------------------------------------------------------
     # Identity
     # -------------------------------------------------------------------------
+
 
     name = fields.Char(
         string="Plugin Name",
@@ -77,13 +85,17 @@ class SCEPlugin(models.Model):
 
 
     # -------------------------------------------------------------------------
-    # Technical
+    # Technical Configuration
     # -------------------------------------------------------------------------
+
 
     provider_model = fields.Char(
         string="Provider Model",
         required=True,
-        help="Technical provider model.",
+        help=(
+            "Technical Odoo model implementing "
+            "the provider logic."
+        ),
     )
 
 
@@ -91,6 +103,10 @@ class SCEPlugin(models.Model):
         string="Connector Code",
         required=True,
         index=True,
+        help=(
+            "Unique connector identifier "
+            "provided by this plugin."
+        ),
     )
 
 
@@ -102,19 +118,29 @@ class SCEPlugin(models.Model):
 
 
     state = fields.Selection(
+
         [
             ("draft", "Draft"),
             ("installed", "Installed"),
             ("enabled", "Enabled"),
             ("disabled", "Disabled"),
         ],
+
+        string="State",
+
         default="draft",
+
         tracking=True,
+
+        required=True,
+
     )
 
-        # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
     # Relations
     # -------------------------------------------------------------------------
+
 
     connector_ids = fields.One2many(
         "sce.connector",
@@ -128,10 +154,6 @@ class SCEPlugin(models.Model):
     )
 
 
-    # -------------------------------------------------------------------------
-    # Capabilities
-    # -------------------------------------------------------------------------
-
     capability_ids = fields.One2many(
         "sce.plugin.capability",
         "plugin_id",
@@ -144,13 +166,19 @@ class SCEPlugin(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
     # Configuration
     # -------------------------------------------------------------------------
 
+
     config_schema = fields.Json(
         string="Configuration Schema",
         default=dict,
+        help=(
+            "Definition of required "
+            "plugin configuration fields."
+        ),
     )
 
 
@@ -160,16 +188,18 @@ class SCEPlugin(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
     # Statistics
     # -------------------------------------------------------------------------
 
-    job_count = fields.Integer(
+
+    account_count = fields.Integer(
         compute="_compute_statistics",
     )
 
 
-    account_count = fields.Integer(
+    job_count = fields.Integer(
         compute="_compute_statistics",
     )
 
@@ -178,10 +208,10 @@ class SCEPlugin(models.Model):
         compute="_compute_statistics",
     )
 
+    # -------------------------------------------------------------------------
+    # Compute Statistics
+    # -------------------------------------------------------------------------
 
-    # -------------------------------------------------------------------------
-    # Compute
-    # -------------------------------------------------------------------------
 
     @api.depends(
         "connector_ids",
@@ -192,11 +222,17 @@ class SCEPlugin(models.Model):
     )
     def _compute_statistics(self):
 
-        Job = self.env["sce.job"]
+        Job = self.env[
+            "sce.job"
+        ]
 
-        Log = self.env["sce.log"]
+        Log = self.env[
+            "sce.log"
+        ]
+
 
         for plugin in self:
+
 
             plugin.connector_count = len(
                 plugin.connector_ids
@@ -209,56 +245,98 @@ class SCEPlugin(models.Model):
 
 
             plugin.account_count = sum(
-                len(connector.account_ids)
+
+                len(
+                    connector.account_ids
+                )
+
                 for connector in plugin.connector_ids
+
             )
 
 
-            plugin.job_count = Job.search_count([
-                (
-                    "connector_id",
-                    "in",
-                    plugin.connector_ids.ids,
-                )
-            ])
+            connector_ids = (
+                plugin.connector_ids.ids
+            )
 
 
-            plugin.log_count = Log.search_count([
-                (
-                    "connector_id",
-                    "in",
-                    plugin.connector_ids.ids,
-                )
-            ])
+            plugin.job_count = Job.search_count(
 
-                # -------------------------------------------------------------------------
-    # Provider
+                [
+                    (
+                        "connector_id",
+                        "in",
+                        connector_ids,
+                    )
+                ]
+
+            )
+
+
+            plugin.log_count = Log.search_count(
+
+                [
+                    (
+                        "connector_id",
+                        "in",
+                        connector_ids,
+                    )
+                ]
+
+            )
+
+
+
+    # -------------------------------------------------------------------------
+    # Provider Resolution
     # -------------------------------------------------------------------------
 
+
     def provider(self):
+
         """
-        Returns provider implementation.
+        Returns the provider implementation.
+
+        The provider is an Odoo AbstractModel
+        registered by the connector module.
         """
+
 
         self.ensure_one()
 
+
         if not self.provider_model:
+
             raise ValueError(
                 "Provider model is not configured."
             )
 
-        provider = self.env[
+
+        if self.provider_model not in self.env:
+
+            raise ValueError(
+
+                "Provider model '%s' "
+                "does not exist."
+
+                % self.provider_model
+
+            )
+
+
+        return self.env[
             self.provider_model
         ]
 
-        return provider
 
 
     # -------------------------------------------------------------------------
 
+
     def get_provider(self):
+
         """
-        Alias for provider().
+        Alias method.
         """
 
         self.ensure_one()
@@ -266,141 +344,245 @@ class SCEPlugin(models.Model):
         return self.provider()
 
 
+
     # -------------------------------------------------------------------------
     # Capabilities
     # -------------------------------------------------------------------------
 
+
     def capabilities(self):
+
         """
-        Returns provider capabilities.
+        Returns supported capabilities.
         """
+
 
         self.ensure_one()
 
+
         provider = self.provider()
+
+
+        if not hasattr(
+            provider,
+            "capabilities",
+        ):
+
+            return []
+
 
         return provider.capabilities()
 
 
+
     # -------------------------------------------------------------------------
+
 
     def has_capability(
         self,
         capability,
     ):
-        """
-        Checks if plugin supports capability.
-        """
 
         self.ensure_one()
 
-        return capability in self.capabilities()
+
+        return (
+
+            capability
+
+            in
+
+            self.capabilities()
+
+        )
+
 
 
     # -------------------------------------------------------------------------
     # Validation
     # -------------------------------------------------------------------------
 
+
     def validate_configuration(self):
+
         """
-        Validates plugin configuration.
+        Validates plugin configuration
+        against schema.
         """
+
 
         self.ensure_one()
 
-        provider = self.provider()
 
-        schema = provider.get_configuration_schema()
+        schema = (
+            self.config_schema
+            or {}
+        )
 
-        configuration = self.configuration or {}
+
+        configuration = (
+            self.configuration
+            or {}
+        )
 
 
         missing = []
 
-        for field_name in schema:
+
+        for field_name, definition in schema.items():
+
 
             if (
-                schema[field_name].get("required")
-                and not configuration.get(field_name)
+
+                definition.get(
+                    "required"
+                )
+
+                and
+
+                not configuration.get(
+                    field_name
+                )
+
             ):
+
                 missing.append(
                     field_name
                 )
 
 
+
         if missing:
 
             raise ValueError(
+
                 "Missing configuration fields: %s"
-                % ", ".join(missing)
+
+                %
+
+                ", ".join(
+                    missing
+                )
+
             )
 
 
         return True
+
 
 
     # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
 
+
     def install(self):
+
+        """
+        Install plugin.
+        """
+
 
         self.ensure_one()
 
+
         self.validate_configuration()
 
-        self.write({
 
-            "installed": True,
+        self.write(
 
-            "state": "installed",
+            {
 
-        })
+                "installed":
+
+                    True,
+
+
+                "state":
+
+                    "installed",
+
+            }
+
+        )
+
 
         return True
 
 
+
     # -------------------------------------------------------------------------
+
 
     def enable(self):
 
+        """
+        Enable plugin.
+        """
+
+
         self.ensure_one()
+
 
         if not self.installed:
 
             raise ValueError(
+
                 "Plugin must be installed first."
+
             )
 
 
-        self.write({
+        self.write(
 
-            "state": "enabled",
+            {
 
-        })
+                "state":
+
+                    "enabled",
+
+            }
+
+        )
 
 
         return True
 
 
+
     # -------------------------------------------------------------------------
+
 
     def disable(self):
 
+        """
+        Disable plugin.
+        """
+
+
         self.ensure_one()
 
-        self.write({
 
-            "state": "disabled",
+        self.write(
 
-        })
+            {
+
+                "state":
+
+                    "disabled",
+
+            }
+
+        )
 
 
         return True
 
-            # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
     # Actions
     # -------------------------------------------------------------------------
+
 
     def action_install(self):
 
@@ -409,7 +591,9 @@ class SCEPlugin(models.Model):
         return self.install()
 
 
+
     # -------------------------------------------------------------------------
+
 
     def action_enable(self):
 
@@ -418,7 +602,9 @@ class SCEPlugin(models.Model):
         return self.enable()
 
 
+
     # -------------------------------------------------------------------------
+
 
     def action_disable(self):
 
@@ -427,185 +613,413 @@ class SCEPlugin(models.Model):
         return self.disable()
 
 
+
     # -------------------------------------------------------------------------
+    # Provider Actions
+    # -------------------------------------------------------------------------
+
 
     def action_test_connection(self):
 
         self.ensure_one()
 
+
         provider = self.provider()
+
+
+        if not hasattr(
+            provider,
+            "test_connection",
+        ):
+
+            raise ValueError(
+                "Provider does not implement test_connection."
+            )
+
 
         return provider.test_connection(
             self,
         )
 
 
+
     # -------------------------------------------------------------------------
+
 
     def action_health_check(self):
 
         self.ensure_one()
 
+
         provider = self.provider()
+
+
+        if not hasattr(
+            provider,
+            "health_check",
+        ):
+
+            raise ValueError(
+                "Provider does not implement health_check."
+            )
+
 
         return provider.health_check(
             self,
         )
 
 
+
     # -------------------------------------------------------------------------
+
 
     def action_synchronize(self):
 
         self.ensure_one()
 
+
         provider = self.provider()
+
+
+        if not hasattr(
+            provider,
+            "synchronize",
+        ):
+
+            raise ValueError(
+                "Provider does not implement synchronize."
+            )
+
 
         return provider.synchronize(
             self,
         )
 
 
+
     # -------------------------------------------------------------------------
     # ORM
     # -------------------------------------------------------------------------
 
-    @api.model_create_multi
-    def create(self, vals_list):
 
-        records = super().create(vals_list)
+    @api.model_create_multi
+    def create(
+        self,
+        vals_list,
+    ):
+
+
+        records = super().create(
+            vals_list
+        )
+
 
         for plugin in records:
+
 
             if plugin.code:
 
                 plugin.code = (
+
                     plugin.code
+
                     .lower()
+
                     .strip()
+
                 )
+
+
+            if plugin.connector_code:
+
+                plugin.connector_code = (
+
+                    plugin.connector_code
+
+                    .lower()
+
+                    .strip()
+
+                )
+
 
         return records
 
 
+
     # -------------------------------------------------------------------------
 
-    def write(self, vals):
 
-        if vals.get("code"):
+    def write(
+        self,
+        vals,
+    ):
+
+
+        if vals.get(
+            "code"
+        ):
 
             vals["code"] = (
+
                 vals["code"]
+
                 .lower()
+
                 .strip()
+
             )
 
-        return super().write(vals)
+
+
+        if vals.get(
+            "connector_code"
+        ):
+
+            vals["connector_code"] = (
+
+                vals["connector_code"]
+
+                .lower()
+
+                .strip()
+
+            )
+
+
+        return super().write(
+            vals
+        )
+
 
 
     # -------------------------------------------------------------------------
 
-    def copy(self, default=None):
 
-        default = dict(default or {})
+    def copy(
+        self,
+        default=None,
+    ):
+
+
+        default = dict(
+            default or {}
+        )
+
 
         default.setdefault(
+
             "name",
-            "%s (Copy)" % self.name,
+
+            "%s (Copy)"
+
+            %
+
+            self.name,
+
         )
 
+
         default.setdefault(
+
+            "code",
+
+            "%s_copy"
+
+            %
+
+            self.code,
+
+        )
+
+
+        default.setdefault(
+
             "state",
+
             "draft",
+
         )
 
+
         default.setdefault(
+
             "installed",
+
             False,
+
         )
+
 
         return super().copy(
             default
         )
 
 
+
     # -------------------------------------------------------------------------
+
 
     def unlink(self):
 
+
         for plugin in self:
+
 
             if plugin.connector_ids:
 
                 raise ValueError(
-                    "Cannot delete plugin with connectors."
+
+                    "Cannot delete plugin "
+                    "with existing connectors."
+
                 )
 
+
         return super().unlink()
+
 
 
     # -------------------------------------------------------------------------
     # Constraints
     # -------------------------------------------------------------------------
 
-    @api.constrains("code")
-    def _check_code(self):
+
+    @api.constrains(
+        "code",
+    )
+    def _check_code(
+        self,
+    ):
+
 
         for plugin in self:
+
 
             if not plugin.code:
 
                 continue
 
 
+
             if " " in plugin.code:
 
+
                 raise ValueError(
+
                     "Plugin code cannot contain spaces."
+
                 )
+
+
+
+    # -------------------------------------------------------------------------
+
+
+    @api.constrains(
+        "connector_code",
+    )
+    def _check_connector_code(
+        self,
+    ):
+
+
+        for plugin in self:
+
+
+            if not plugin.connector_code:
+
+                continue
+
+
+
+            if " " in plugin.connector_code:
+
+
+                raise ValueError(
+
+                    "Connector code cannot contain spaces."
+
+                )
+
 
 
     # -------------------------------------------------------------------------
     # Display
     # -------------------------------------------------------------------------
 
-    def name_get(self):
+
+    def name_get(
+        self,
+    ):
+
 
         result = []
 
+
         for plugin in self:
 
-            name = "[%s] %s" % (
-                plugin.code.upper(),
-                plugin.name,
+
+            name = (
+
+                "[%s] %s"
+
+                %
+
+                (
+
+                    plugin.code.upper(),
+
+                    plugin.name,
+
+                )
+
             )
+
 
             result.append(
+
                 (
+
                     plugin.id,
+
                     name,
+
                 )
+
             )
 
+
         return result
+
 
 
     # -------------------------------------------------------------------------
     # SQL Constraints
     # -------------------------------------------------------------------------
 
+
     _sql_constraints = [
 
         (
+
             "sce_plugin_code_unique",
+
             "unique(code)",
+
             "Plugin code must be unique.",
+
         ),
 
+
         (
+
             "sce_plugin_connector_unique",
+
             "unique(connector_code)",
+
             "Connector code must be unique.",
+
         ),
 
     ]

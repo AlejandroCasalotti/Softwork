@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -39,9 +40,6 @@ class SCEUtilsService(models.AbstractModel):
         self,
         value,
     ):
-        """
-        Safe JSON encoder.
-        """
 
         return json.dumps(
 
@@ -49,13 +47,13 @@ class SCEUtilsService(models.AbstractModel):
 
             ensure_ascii=False,
 
+            sort_keys=True,
+
             default=str,
 
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def json_decode(
@@ -63,15 +61,11 @@ class SCEUtilsService(models.AbstractModel):
         value,
         default=None,
     ):
-        """
-        Safe JSON decoder.
-        """
 
 
         if not value:
 
             return default
-
 
 
         try:
@@ -96,10 +90,6 @@ class SCEUtilsService(models.AbstractModel):
         self,
         value,
     ):
-        """
-        Generates SHA256 hash.
-        """
-
 
         if isinstance(
             value,
@@ -131,9 +121,6 @@ class SCEUtilsService(models.AbstractModel):
         self,
         value,
     ):
-        """
-        Removes invalid characters.
-        """
 
 
         if not value:
@@ -145,17 +132,30 @@ class SCEUtilsService(models.AbstractModel):
 
 
         value = re.sub(
-
             r"\s+",
-
             " ",
-
             value,
-
         )
 
 
         return value.strip()
+
+
+
+    @api.model
+    def normalize_text(
+        self,
+        value,
+    ):
+        """
+        Normalizes external text.
+        """
+
+        value = self.clean_text(
+            value
+        )
+
+        return value.lower()
 
 
 
@@ -168,10 +168,6 @@ class SCEUtilsService(models.AbstractModel):
         self,
         value,
     ):
-        """
-        Generates URL friendly text.
-        """
-
 
         value = self.clean_text(
             value
@@ -182,13 +178,9 @@ class SCEUtilsService(models.AbstractModel):
 
 
         value = re.sub(
-
             r"[^a-z0-9]+",
-
             "-",
-
             value,
-
         )
 
 
@@ -205,15 +197,11 @@ class SCEUtilsService(models.AbstractModel):
         self,
         value,
     ):
-        """
-        Converts external dates.
-        """
 
 
         if not value:
 
             return False
-
 
 
         if isinstance(
@@ -244,13 +232,9 @@ class SCEUtilsService(models.AbstractModel):
             try:
 
                 return datetime.strptime(
-
                     value,
-
                     fmt,
-
                 )
-
 
             except Exception:
 
@@ -263,7 +247,7 @@ class SCEUtilsService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Datetime Format
+    # Format Datetime
     # -------------------------------------------------------------------------
 
     @api.model
@@ -272,10 +256,10 @@ class SCEUtilsService(models.AbstractModel):
         value,
     ):
 
+
         if not value:
 
             return False
-
 
 
         return fields.Datetime.to_string(
@@ -285,7 +269,7 @@ class SCEUtilsService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Compare Dictionaries
+    # Compare
     # -------------------------------------------------------------------------
 
     @api.model
@@ -294,23 +278,11 @@ class SCEUtilsService(models.AbstractModel):
         first,
         second,
     ):
-        """
-        Compares two dictionaries.
-        """
-
 
         return (
-
-            self.json_encode(
-                first
-            )
-
+            self.json_encode(first)
             ==
-
-            self.json_encode(
-                second
-            )
-
+            self.json_encode(second)
         )
 
 
@@ -326,18 +298,32 @@ class SCEUtilsService(models.AbstractModel):
         path,
         default=None,
     ):
-        """
-        Gets nested dictionary values.
-
-        Example:
-        deep_get(data,"user.id")
-        """
 
 
         current = data
 
 
         for key in path.split("."):
+
+
+            if isinstance(
+                current,
+                list,
+            ):
+
+                try:
+
+                    current = current[
+                        int(key)
+                    ]
+
+                except Exception:
+
+                    return default
+
+
+                continue
+
 
 
             if not isinstance(
@@ -354,6 +340,7 @@ class SCEUtilsService(models.AbstractModel):
             )
 
 
+
             if current is None:
 
                 return default
@@ -365,7 +352,60 @@ class SCEUtilsService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Chunk List
+    # Type Helpers
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def to_bool(
+        self,
+        value,
+    ):
+
+        return str(value).lower() in (
+            "true",
+            "1",
+            "yes",
+            "y",
+        )
+
+
+
+    @api.model
+    def to_int(
+        self,
+        value,
+        default=0,
+    ):
+
+        try:
+
+            return int(value)
+
+        except Exception:
+
+            return default
+
+
+
+    @api.model
+    def to_float(
+        self,
+        value,
+        default=0.0,
+    ):
+
+        try:
+
+            return float(value)
+
+        except Exception:
+
+            return default
+
+
+
+    # -------------------------------------------------------------------------
+    # Chunk
     # -------------------------------------------------------------------------
 
     @api.model
@@ -374,10 +414,6 @@ class SCEUtilsService(models.AbstractModel):
         values,
         size,
     ):
-        """
-        Splits list into chunks.
-        """
-
 
         return [
 

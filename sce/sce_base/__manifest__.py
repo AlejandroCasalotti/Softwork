@@ -50,46 +50,39 @@ Main Features
 
     "data": [
 
-        # =====================================================
-        # Security
-        # =====================================================
+    # Security
+    "security/security.xml",
+    "security/ir.model.access.csv",
 
-        "security/security.xml",
-        "security/ir.model.access.csv",
+    # Data
+    "data/ir_sequence.xml",
+    "data/ir_cron.xml",
+    "data/mail_template.xml",
 
-        # =====================================================
-        # Data
-        # =====================================================
+    # Menus
+    "views/menu.xml",
 
-        "data/ir_sequence.xml",
-        "data/ir_cron.xml",
-        "data/mail_template.xml",
+    # Dashboard
+    "views/dashboard_views.xml",
 
-        # =====================================================
-        # Menu
-        # =====================================================
+    # Models
+    "views/sce_connector_views.xml",
+    "views/sce_account_views.xml",
+    "views/sce_job_views.xml",
+    "views/sce_queue_views.xml",
+    "views/sce_webhook_views.xml",
+    "views/sce_log_views.xml",
 
-        "views/menu.xml",
+    # Settings
+    "views/settings_views.xml",
 
-        # =====================================================
-        # Dashboard / Settings
-        # =====================================================
+    # Wizards
+    "wizard/connection_wizard_views.xml",
 
-        "views/dashboard_views.xml",
-        "views/settings_views.xml",
-
-        # =====================================================
-        # Models
-        # =====================================================
-
-        "views/sce_connector_views.xml",
-        "views/sce_account_views.xml",
-        "views/sce_job_views.xml",
-        "views/sce_queue_views.xml",
-        "views/sce_webhook_views.xml",
-        "views/sce_log_views.xml",
-
-    ],
+    # Reports
+    # "report/report.xml",
+    # "report/job_report.xml",
+],
 
     "application": True,
 

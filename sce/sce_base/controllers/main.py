@@ -6,70 +6,107 @@ Softwork Commerce Engine (SCE)
 Main Controllers
 """
 
-
 from odoo import http
-
-
 from odoo.http import request
 
 
-
-class SCEController(http.Controller):
+class SCEMainController(http.Controller):
     """
-    Base SCE HTTP Controller.
+    Main HTTP endpoints for the Softwork Commerce Engine.
+
+    These endpoints are intended for health checks,
+    diagnostics and framework information.
     """
 
-
+    # -------------------------------------------------------------------------
+    # Framework Information
+    # -------------------------------------------------------------------------
 
     @http.route(
         "/sce",
         type="json",
         auth="public",
-        methods=["POST"],
+        methods=["GET"],
         csrf=False,
     )
     def index(self):
+        """
+        Returns basic framework information.
+        """
 
         return {
-
-            "name":
-                "Softwork Commerce Engine",
-
-            "status":
-                "running",
-
-            "version":
-                "19.0",
-
+            "application": "Softwork Commerce Engine",
+            "framework": "SCE",
+            "status": "running",
+            "version": "19.0.1.0.0",
         }
 
+    # -------------------------------------------------------------------------
+    # Ping
+    # -------------------------------------------------------------------------
 
+    @http.route(
+        "/sce/ping",
+        type="json",
+        auth="public",
+        methods=["GET"],
+        csrf=False,
+    )
+    def ping(self):
+        """
+        Simple heartbeat endpoint.
+        """
+
+        return {
+            "pong": True,
+        }
+
+    # -------------------------------------------------------------------------
+    # Framework Details
+    # -------------------------------------------------------------------------
 
     @http.route(
         "/sce/info",
         type="json",
-        auth="public",
+        auth="user",
+        methods=["GET"],
         csrf=False,
     )
     def info(self):
+        """
+        Returns framework information.
+        """
 
         return {
+            "application": "Softwork Commerce Engine",
+            "framework": "SCE",
+            "module": "sce_base",
+            "version": "19.0.1.0.0",
+            "company": request.env.company.name,
+            "database": request.env.cr.dbname,
+        }
 
-            "module":
-                "sce_base",
+    # -------------------------------------------------------------------------
+    # Health Check
+    # -------------------------------------------------------------------------
 
-            "odoo_version":
-                request.env[
-                    "ir.module.module"
-                ].search(
-                    [
-                        (
-                            "name",
-                            "=",
-                            "sce_base",
-                        )
-                    ],
-                    limit=1,
-                ).installed_version,
+    @http.route(
+        "/sce/health",
+        type="json",
+        auth="user",
+        methods=["GET"],
+        csrf=False,
+    )
+    def health(self):
+        """
+        Returns current framework health.
+        """
 
+        return {
+            "status": "healthy",
+            "framework": "SCE",
+            "version": "19.0.1.0.0",
+            "database": request.env.cr.dbname,
+            "company": request.env.company.name,
+            "user": request.env.user.name,
         }

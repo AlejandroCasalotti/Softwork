@@ -1,27 +1,43 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
-Logging System
+Central Logging System
 """
 
 from __future__ import annotations
 
-from odoo import api, fields, models
+import traceback
+
+from odoo import (
+    api,
+    fields,
+    models,
+)
+
 
 
 class SCELog(models.Model):
+
     """
     Central SCE logging system.
+
+    Stores technical and business
+    execution information.
     """
+
 
     _name = "sce.log"
 
     _description = "SCE Log"
 
-    _order = (
-        "create_date desc"
-    )
+    _inherit = [
+        "mail.thread",
+    ]
+
+
+    _order = "create_date desc"
 
 
 
@@ -42,38 +58,81 @@ class SCELog(models.Model):
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Log Classification
+    # Classification
     # -------------------------------------------------------------------------
 
     level = fields.Selection(
+
         [
+
             ("debug", "Debug"),
+
             ("info", "Information"),
+
             ("warning", "Warning"),
+
             ("error", "Error"),
+
             ("critical", "Critical"),
+
         ],
+
         string="Level",
+
         default="info",
+
         required=True,
+
         index=True,
+
+        tracking=True,
+
     )
+
 
 
     category = fields.Selection(
+
         [
+
             ("system", "System"),
-            ("connection", "Connection"),
+
+            ("kernel", "Kernel"),
+
+            ("api", "API"),
+
             ("authentication", "Authentication"),
+
+            ("connection", "Connection"),
+
+            ("provider", "Provider"),
+
+            ("connector", "Connector"),
+
+            ("plugin", "Plugin"),
+
+            ("queue", "Queue"),
+
+            ("job", "Job"),
+
             ("synchronization", "Synchronization"),
+
             ("webhook", "Webhook"),
+
             ("business", "Business"),
+
         ],
+
         string="Category",
+
         default="system",
+
         index=True,
+
     )
+
 
 
     # -------------------------------------------------------------------------
@@ -81,64 +140,127 @@ class SCELog(models.Model):
     # -------------------------------------------------------------------------
 
     account_id = fields.Many2one(
+
         "sce.account",
+
         string="Account",
+
         ondelete="cascade",
+
         index=True,
-    )
 
-
-    job_id = fields.Many2one(
-        "sce.job",
-        string="Job",
-        ondelete="cascade",
-        index=True,
-    )
-
-
-    queue_id = fields.Many2one(
-        "sce.queue",
-        string="Queue Item",
-        ondelete="cascade",
-        index=True,
     )
 
 
     connector_id = fields.Many2one(
+
         "sce.connector",
+
         string="Connector",
+
         index=True,
+
     )
 
 
     plugin_id = fields.Many2one(
+
         "sce.plugin",
+
         string="Plugin",
+
         index=True,
+
     )
 
-        # -------------------------------------------------------------------------
+
+    job_id = fields.Many2one(
+
+        "sce.job",
+
+        string="Job",
+
+        ondelete="cascade",
+
+        index=True,
+
+    )
+
+
+    queue_id = fields.Many2one(
+
+        "sce.queue",
+
+        string="Queue Item",
+
+        ondelete="cascade",
+
+        index=True,
+
+    )
+
+
+
+    # -------------------------------------------------------------------------
     # Technical Data
     # -------------------------------------------------------------------------
 
     payload = fields.Json(
+
         string="Payload",
+
         default=dict,
-        help="Data involved in execution.",
+
     )
 
 
     response = fields.Json(
+
         string="External Response",
+
         default=dict,
+
     )
 
 
     metadata = fields.Json(
+
         string="Metadata",
+
         default=dict,
-        help="Additional technical information.",
+
     )
+
+
+    provider = fields.Char(
+
+        string="Provider",
+
+        index=True,
+
+    )
+
+
+    endpoint = fields.Char(
+
+        string="API Endpoint",
+
+    )
+
+
+    operation = fields.Char(
+
+        string="Operation",
+
+    )
+
+
+    status_code = fields.Integer(
+
+        string="HTTP Status Code",
+
+    )
+
 
 
     # -------------------------------------------------------------------------
@@ -146,38 +268,56 @@ class SCELog(models.Model):
     # -------------------------------------------------------------------------
 
     error_code = fields.Char(
+
         string="Error Code",
+
     )
 
 
     error_type = fields.Char(
+
         string="Error Type",
+
     )
 
 
     traceback = fields.Text(
+
         string="Traceback",
+
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Environment Information
+    # Environment
     # -------------------------------------------------------------------------
 
     company_id = fields.Many2one(
+
         "res.company",
+
         string="Company",
+
         default=lambda self: self.env.company,
+
         index=True,
+
     )
 
 
     user_id = fields.Many2one(
+
         "res.users",
+
         string="User",
+
         default=lambda self: self.env.user,
+
         index=True,
+
     )
+
 
 
     # -------------------------------------------------------------------------
@@ -185,44 +325,61 @@ class SCELog(models.Model):
     # -------------------------------------------------------------------------
 
     external_id = fields.Char(
+
         string="External Reference",
-        help="Identifier from external marketplace.",
+
+        index=True,
+
     )
 
 
     external_model = fields.Char(
+
         string="External Model",
-        help="External entity type.",
+
     )
 
 
+
     # -------------------------------------------------------------------------
-    # Execution Information
+    # Execution Metrics
     # -------------------------------------------------------------------------
 
     execution_id = fields.Char(
+
         string="Execution ID",
+
         index=True,
+
     )
 
 
     duration = fields.Float(
+
         string="Duration (seconds)",
+
     )
 
 
     records_processed = fields.Integer(
+
         string="Records Processed",
+
         default=0,
+
     )
 
 
     records_failed = fields.Integer(
+
         string="Records Failed",
+
         default=0,
+
     )
 
-        # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
     # Generic Logger
     # -------------------------------------------------------------------------
 
@@ -234,7 +391,7 @@ class SCELog(models.Model):
         **kwargs,
     ):
         """
-        Creates SCE log entry.
+        Creates centralized SCE log entry.
         """
 
 
@@ -249,17 +406,18 @@ class SCELog(models.Model):
         }
 
 
+
         allowed_fields = [
 
             "account_id",
 
-            "job_id",
-
-            "queue_id",
-
             "connector_id",
 
             "plugin_id",
+
+            "job_id",
+
+            "queue_id",
 
             "category",
 
@@ -268,6 +426,14 @@ class SCELog(models.Model):
             "response",
 
             "metadata",
+
+            "provider",
+
+            "endpoint",
+
+            "operation",
+
+            "status_code",
 
             "error_code",
 
@@ -287,16 +453,20 @@ class SCELog(models.Model):
 
             "records_failed",
 
+            "company_id",
+
+            "user_id",
+
         ]
+
 
 
         for field_name in allowed_fields:
 
             if field_name in kwargs:
 
-                values[field_name] = (
-                    kwargs[field_name]
-                )
+                values[field_name] = kwargs[field_name]
+
 
 
         return self.create(
@@ -317,14 +487,16 @@ class SCELog(models.Model):
     ):
 
         return self.create_log(
+
             "debug",
+
             message,
+
             **kwargs,
+
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def log_info(
@@ -334,14 +506,16 @@ class SCELog(models.Model):
     ):
 
         return self.create_log(
+
             "info",
+
             message,
+
             **kwargs,
+
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def log_warning(
@@ -351,14 +525,16 @@ class SCELog(models.Model):
     ):
 
         return self.create_log(
+
             "warning",
+
             message,
+
             **kwargs,
+
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def log_error(
@@ -368,14 +544,16 @@ class SCELog(models.Model):
     ):
 
         return self.create_log(
+
             "error",
+
             message,
+
             **kwargs,
+
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def log_critical(
@@ -385,9 +563,13 @@ class SCELog(models.Model):
     ):
 
         return self.create_log(
+
             "critical",
+
             message,
+
             **kwargs,
+
         )
 
 
@@ -402,24 +584,39 @@ class SCELog(models.Model):
         exception,
         **kwargs,
     ):
+        """
+        Logs Python exception information.
+        """
 
-        import traceback
+
+        values = {
+
+            "error_type":
+                exception.__class__.__name__,
+
+            "traceback":
+                traceback.format_exc(),
+
+        }
+
+
+        values.update(kwargs)
+
 
 
         return self.create_log(
+
             "error",
+
             str(exception),
 
-            error_type=
-                exception.__class__.__name__,
+            **values,
 
-            traceback=
-                traceback.format_exc(),
-
-            **kwargs,
         )
 
-            # -------------------------------------------------------------------------
+
+
+    # -------------------------------------------------------------------------
     # Compute
     # -------------------------------------------------------------------------
 
@@ -431,6 +628,7 @@ class SCELog(models.Model):
     def _compute_name(self):
 
         for log in self:
+
 
             prefix = (
 
@@ -447,6 +645,7 @@ class SCELog(models.Model):
 
             if log.category:
 
+
                 log.name = (
 
                     "[%s][%s] %s"
@@ -454,14 +653,20 @@ class SCELog(models.Model):
                     %
 
                     (
+
                         prefix,
+
                         log.category,
-                        log.message[:80],
+
+                        (log.message or "")[:80],
+
                     )
 
                 )
 
+
             else:
+
 
                 log.name = (
 
@@ -470,8 +675,11 @@ class SCELog(models.Model):
                     %
 
                     (
+
                         prefix,
-                        log.message[:80],
+
+                        (log.message or "")[:80],
+
                     )
 
                 )
@@ -489,18 +697,26 @@ class SCELog(models.Model):
         limit=100,
     ):
         """
-        Returns error logs.
+        Returns error and critical logs.
         """
+
 
         domain = [
 
             (
+
                 "level",
+
                 "in",
+
                 [
+
                     "error",
+
                     "critical",
+
                 ],
+
             )
 
         ]
@@ -511,24 +727,29 @@ class SCELog(models.Model):
             domain.append(
 
                 (
+
                     "account_id",
+
                     "=",
+
                     account.id,
+
                 )
 
             )
 
 
         return self.search(
+
             domain,
-            order=
-                "create_date desc",
+
+            order="create_date desc",
+
             limit=limit,
+
         )
 
 
-
-    # -------------------------------------------------------------------------
 
     @api.model
     def get_account_logs(
@@ -540,15 +761,51 @@ class SCELog(models.Model):
         return self.search(
 
             [
+
                 (
+
                     "account_id",
+
                     "=",
+
                     account.id,
+
                 )
+
             ],
 
-            order=
-                "create_date desc",
+            order="create_date desc",
+
+            limit=limit,
+
+        )
+
+
+
+    @api.model
+    def get_execution_logs(
+        self,
+        execution_id,
+        limit=100,
+    ):
+
+        return self.search(
+
+            [
+
+                (
+
+                    "execution_id",
+
+                    "=",
+
+                    execution_id,
+
+                )
+
+            ],
+
+            order="create_date desc",
 
             limit=limit,
 
@@ -566,8 +823,9 @@ class SCELog(models.Model):
         days=90,
     ):
         """
-        Removes old debug logs.
+        Removes old low priority logs.
         """
+
 
         limit_date = fields.Datetime.subtract(
 
@@ -583,18 +841,29 @@ class SCELog(models.Model):
             [
 
                 (
+
                     "create_date",
+
                     "<",
+
                     limit_date,
+
                 ),
 
                 (
+
                     "level",
+
                     "in",
+
                     [
+
                         "debug",
+
                         "info",
+
                     ],
+
                 ),
 
             ]

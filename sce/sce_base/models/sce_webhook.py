@@ -10,22 +10,24 @@ from __future__ import annotations
 from odoo import api, fields, models
 
 
+
 class SCEWebhook(models.Model):
     """
-    External webhook events.
+    External webhook events received by SCE.
     """
+
 
     _name = "sce.webhook"
 
     _description = "SCE Webhook"
 
+
     _inherit = [
         "mail.thread",
     ]
 
-    _order = (
-        "create_date desc"
-    )
+
+    _order = "create_date desc"
 
 
 
@@ -41,17 +43,15 @@ class SCEWebhook(models.Model):
 
 
     event = fields.Char(
-        string="Event",
+        string="External Event",
         required=True,
         index=True,
         tracking=True,
-        help="External event name.",
     )
 
 
-    description = fields.Text(
-        string="Description",
-    )
+    description = fields.Text()
+
 
 
     # -------------------------------------------------------------------------
@@ -67,7 +67,6 @@ class SCEWebhook(models.Model):
 
 
     connector_id = fields.Many2one(
-        "sce.connector",
         related="account_id.connector_id",
         store=True,
         readonly=True,
@@ -75,10 +74,17 @@ class SCEWebhook(models.Model):
 
 
     plugin_id = fields.Many2one(
-        "sce.plugin",
         related="account_id.plugin_id",
         store=True,
         readonly=True,
+    )
+
+
+    queue_id = fields.Many2one(
+        "sce.queue",
+        string="Generated Queue",
+        ondelete="set null",
+        index=True,
     )
 
 
@@ -90,187 +96,55 @@ class SCEWebhook(models.Model):
     )
 
 
-    queue_id = fields.Many2one(
-        "sce.queue",
-        string="Generated Queue Item",
-        ondelete="set null",
-        index=True,
-    )
-
-
     # -------------------------------------------------------------------------
-    # Webhook State
-    # -------------------------------------------------------------------------
-
-    state = fields.Selection(
-        [
-            ("received", "Received"),
-            ("processing", "Processing"),
-            ("processed", "Processed"),
-            ("failed", "Failed"),
-            ("ignored", "Ignored"),
-        ],
-        default="received",
-        required=True,
-        tracking=True,
-        index=True,
-    )
-
-        # -------------------------------------------------------------------------
-    # Incoming Data
-    # -------------------------------------------------------------------------
-
-    payload = fields.Json(
-        string="Payload",
-        default=dict,
-        help="Webhook body received.",
-    )
-
-
-    headers = fields.Json(
-        string="HTTP Headers",
-        default=dict,
-        help="HTTP headers received.",
-    )
-
-
-    query_params = fields.Json(
-        string="Query Parameters",
-        default=dict,
-    )
-
-
-    # -------------------------------------------------------------------------
-    # Security
-    # -------------------------------------------------------------------------
-
-    signature = fields.Char(
-        string="Signature",
-    )
-
-
-    signature_valid = fields.Boolean(
-        string="Signature Valid",
-        default=False,
-    )
-
-
-    source_ip = fields.Char(
-        string="Source IP",
-    )
-
-
-    user_agent = fields.Char(
-        string="User Agent",
-    )
-
-
-    # -------------------------------------------------------------------------
-    # External Information
-    # -------------------------------------------------------------------------
-
-    external_id = fields.Char(
-        string="External Event ID",
-        index=True,
-    )
-
-
-    external_resource = fields.Char(
-        string="External Resource",
-        help="External object reference.",
-    )
-
-
-    external_type = fields.Char(
-        string="External Type",
-    )
-
-
-    # -------------------------------------------------------------------------
-    # Processing Information
-    # -------------------------------------------------------------------------
-
-    received_at = fields.Datetime(
-        string="Received At",
-        default=fields.Datetime.now,
-        readonly=True,
-    )
-
-
-    processed_at = fields.Datetime(
-        string="Processed At",
-        readonly=True,
-    )
-
-
-    processing_time = fields.Float(
-        string="Processing Time (seconds)",
-        readonly=True,
-    )
-
-
-    response_status = fields.Integer(
-        string="Response Status",
-        readonly=True,
-    )
-
-
-    response_body = fields.Json(
-        string="Response Body",
-        default=dict,
-        readonly=True,
-    )
-
-
-    # -------------------------------------------------------------------------
-    # Error Handling
-    # -------------------------------------------------------------------------
-
-    error_message = fields.Text(
-        string="Error Message",
-        readonly=True,
-    )
-
-
-    error_traceback = fields.Text(
-        string="Error Traceback",
-        readonly=True,
-    )
-
-        # -------------------------------------------------------------------------
     # Webhook Processing
     # -------------------------------------------------------------------------
 
     def validate_signature(self):
+        """
+        Validate webhook signature using connector provider.
+        """
 
         self.ensure_one()
 
 
-        """
-        Base signature validation.
-
-        Each connector can override
-        this method.
-        """
+        provider = self.account_id.get_provider()
 
 
-        if not self.signature:
-
-            self.signature_valid = False
-
-            return False
+        result = provider.validate_webhook_signature(
+            self
+        )
 
 
-        self.signature_valid = True
+        self.signature_valid = bool(result)
 
 
-        return True
+        return self.signature_valid
 
 
 
     # -------------------------------------------------------------------------
 
     def process(self):
+        """
+        Process incoming webhook event.
+
+        Flow:
+
+        Webhook
+            |
+            v
+        Validation
+            |
+            v
+        Job
+            |
+            v
+        Queue
+            |
+            v
+        Worker
+        """
 
         self.ensure_one()
 
@@ -293,10 +167,20 @@ class SCEWebhook(models.Model):
         })
 
 
+        kernel = self.env[
+            "sce.kernel"
+        ]
+
+
         try:
 
 
+            # -------------------------------------------------------------
+            # Validate signature
+            # -------------------------------------------------------------
+
             if not self.validate_signature():
+
 
                 self.write({
 
@@ -304,20 +188,46 @@ class SCEWebhook(models.Model):
                         "failed",
 
                     "error_message":
-                        "Invalid signature",
+                        "Invalid webhook signature",
 
                 })
+
+
+                kernel.log(
+
+                    "warning",
+
+                    "Webhook signature validation failed",
+
+                    account=self.account_id,
+
+                    connector=self.connector_id,
+
+                    payload=self.payload,
+
+                )
+
 
                 return False
 
 
 
+            # -------------------------------------------------------------
+            # Create Job
+            # -------------------------------------------------------------
+
             job = self.create_job()
 
+
+
+            # -------------------------------------------------------------
+            # Create Queue
+            # -------------------------------------------------------------
 
             queue = self.create_queue(
                 job
             )
+
 
 
             self.write({
@@ -329,6 +239,41 @@ class SCEWebhook(models.Model):
                     queue.id,
 
             })
+
+
+
+            # -------------------------------------------------------------
+            # Logging
+            # -------------------------------------------------------------
+
+            kernel.log(
+
+                "info",
+
+                "Webhook queued successfully",
+
+                account=self.account_id,
+
+                connector=self.connector_id,
+
+                payload={
+
+                    "webhook_id":
+                        self.id,
+
+                    "event":
+                        self.event,
+
+                    "job_id":
+                        job.id,
+
+                    "queue_id":
+                        queue.id,
+
+                },
+
+            )
+
 
 
             self.finish_success()
@@ -344,6 +289,22 @@ class SCEWebhook(models.Model):
 
             self.finish_error(
                 error
+            )
+
+
+            self.env[
+                "sce.log"
+            ].log_exception(
+
+                error,
+
+                category="webhook",
+
+                account_id=
+                    self.account_id.id
+                    if self.account_id
+                    else False,
+
             )
 
 
@@ -365,13 +326,49 @@ class SCEWebhook(models.Model):
         ].create({
 
             "type":
-                self.event,
+
+                "webhook.%s"
+                % self.event,
+
+
+            "description":
+
+                "Webhook execution: %s"
+                % self.event,
+
 
             "account_id":
+
                 self.account_id.id,
 
-            "payload":
-                self.payload,
+
+            "payload": {
+
+                "webhook_id":
+
+                    self.id,
+
+
+                "event":
+
+                    self.event,
+
+
+                "external_id":
+
+                    self.external_id,
+
+
+                "external_resource":
+
+                    self.external_resource,
+
+
+                "payload":
+
+                    self.payload,
+
+            },
 
         })
 
@@ -397,18 +394,37 @@ class SCEWebhook(models.Model):
         ].create({
 
             "action":
-                self.event,
+
+                "execute_job",
+
 
             "account_id":
+
                 self.account_id.id,
 
+
             "job_id":
+
                 job.id,
 
-            "payload":
-                self.payload,
+
+            "payload": {
+
+                "webhook_id":
+
+                    self.id,
+
+
+                "event":
+
+                    self.event,
+
+
+            },
+
 
             "priority":
+
                 "2",
 
         })
@@ -450,15 +466,22 @@ class SCEWebhook(models.Model):
         self.write({
 
             "state":
+
                 "processed",
 
+
             "processed_at":
+
                 now,
 
+
             "processing_time":
+
                 duration,
 
+
             "response_status":
+
                 200,
 
         })
@@ -484,15 +507,22 @@ class SCEWebhook(models.Model):
         self.write({
 
             "state":
+
                 "failed",
 
+
             "error_message":
+
                 str(error),
 
+
             "error_traceback":
+
                 traceback.format_exc(),
 
+
             "response_status":
+
                 500,
 
         })
@@ -500,7 +530,8 @@ class SCEWebhook(models.Model):
 
         return True
 
-            # -------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------
     # Compute
     # -------------------------------------------------------------------------
 
@@ -512,7 +543,6 @@ class SCEWebhook(models.Model):
     def _compute_name(self):
 
         for webhook in self:
-
 
             if webhook.account_id:
 
@@ -531,7 +561,6 @@ class SCEWebhook(models.Model):
                     )
 
                 )
-
 
             else:
 
@@ -557,7 +586,7 @@ class SCEWebhook(models.Model):
         limit=100,
     ):
         """
-        Returns received webhooks.
+        Returns received webhooks waiting processing.
         """
 
         return self.search(
@@ -572,8 +601,7 @@ class SCEWebhook(models.Model):
 
             ],
 
-            order=
-                "create_date asc",
+            order="create_date asc",
 
             limit=limit,
 
@@ -588,6 +616,9 @@ class SCEWebhook(models.Model):
         self,
         limit=100,
     ):
+        """
+        Returns failed webhook events.
+        """
 
         return self.search(
 
@@ -601,8 +632,7 @@ class SCEWebhook(models.Model):
 
             ],
 
-            order=
-                "create_date desc",
+            order="create_date desc",
 
             limit=limit,
 
@@ -618,7 +648,11 @@ class SCEWebhook(models.Model):
     def count_events(
         self,
         account=None,
+        event=None,
     ):
+        """
+        Count webhook events.
+        """
 
         domain = []
 
@@ -636,8 +670,66 @@ class SCEWebhook(models.Model):
             )
 
 
+        if event:
+
+            domain.append(
+
+                (
+                    "event",
+                    "=",
+                    event,
+                )
+
+            )
+
+
         return self.search_count(
             domain
+        )
+
+
+
+    # -------------------------------------------------------------------------
+    # Duplicate Detection
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def exists_external_event(
+        self,
+        account,
+        external_id,
+    ):
+        """
+        Check duplicated external webhook.
+        """
+
+        if not external_id:
+
+            return False
+
+
+        return bool(
+
+            self.search_count(
+
+                [
+
+                    (
+                        "account_id",
+                        "=",
+                        account.id,
+                    ),
+
+                    (
+                        "external_id",
+                        "=",
+                        external_id,
+                    ),
+
+                ]
+
+            )
+
         )
 
 
@@ -652,9 +744,8 @@ class SCEWebhook(models.Model):
         days=30,
     ):
         """
-        Removes processed webhook events.
+        Remove processed webhook events older than given days.
         """
-
 
         limit_date = fields.Datetime.subtract(
 
@@ -710,18 +801,27 @@ class SCEWebhook(models.Model):
         return {
 
             "type":
+
                 "ir.actions.act_window",
 
+
             "name":
+
                 "Generated Job",
 
+
             "res_model":
+
                 "sce.job",
 
+
             "view_mode":
+
                 "form",
 
+
             "res_id":
+
                 self.job_id.id,
 
         }
@@ -743,18 +843,27 @@ class SCEWebhook(models.Model):
         return {
 
             "type":
+
                 "ir.actions.act_window",
 
+
             "name":
+
                 "Queue Item",
 
+
             "res_model":
+
                 "sce.queue",
 
+
             "view_mode":
+
                 "form",
 
+
             "res_id":
+
                 self.queue_id.id,
 
         }

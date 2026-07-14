@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -12,6 +13,16 @@ import traceback
 from odoo import (
     api,
     models,
+)
+
+
+
+from ..exceptions import (
+    SCEAPIError,
+    SCEConnectionError,
+    SCEAuthenticationError,
+    SCEConnectorError,
+    SCEQueueError,
 )
 
 
@@ -45,22 +56,45 @@ class SCEExceptionService(models.AbstractModel):
         values = {
 
             "message":
-
                 str(error),
 
-
             "category":
-
                 category,
 
-
             "traceback":
-
                 traceback.format_exc(),
 
         }
 
 
+
+        # -------------------------------------------------
+        # SCE Metadata
+        # -------------------------------------------------
+
+        for field in (
+            "provider",
+            "endpoint",
+            "operation",
+            "status_code",
+            "response",
+        ):
+
+            if hasattr(
+                error,
+                field,
+            ):
+
+                values[field] = getattr(
+                    error,
+                    field,
+                )
+
+
+
+        # -------------------------------------------------
+        # Context
+        # -------------------------------------------------
 
         if account:
 
@@ -106,7 +140,7 @@ class SCEExceptionService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # API Error
+    # Categories
     # -------------------------------------------------------------------------
 
     @api.model
@@ -118,7 +152,7 @@ class SCEExceptionService(models.AbstractModel):
 
         return self.handle(
 
-            Exception(
+            SCEAPIError(
                 message
             ),
 
@@ -130,10 +164,6 @@ class SCEExceptionService(models.AbstractModel):
 
 
 
-    # -------------------------------------------------------------------------
-    # Authentication Error
-    # -------------------------------------------------------------------------
-
     @api.model
     def auth_error(
         self,
@@ -143,7 +173,7 @@ class SCEExceptionService(models.AbstractModel):
 
         return self.handle(
 
-            Exception(
+            SCEAuthenticationError(
                 message
             ),
 
@@ -155,10 +185,6 @@ class SCEExceptionService(models.AbstractModel):
 
 
 
-    # -------------------------------------------------------------------------
-    # Queue Error
-    # -------------------------------------------------------------------------
-
     @api.model
     def queue_error(
         self,
@@ -168,7 +194,7 @@ class SCEExceptionService(models.AbstractModel):
 
         return self.handle(
 
-            Exception(
+            SCEQueueError(
                 message
             ),
 
@@ -180,10 +206,6 @@ class SCEExceptionService(models.AbstractModel):
 
 
 
-    # -------------------------------------------------------------------------
-    # Connector Error
-    # -------------------------------------------------------------------------
-
     @api.model
     def connector_error(
         self,
@@ -193,7 +215,7 @@ class SCEExceptionService(models.AbstractModel):
 
         return self.handle(
 
-            Exception(
+            SCEConnectorError(
                 message
             ),
 
@@ -221,12 +243,41 @@ class SCEExceptionService(models.AbstractModel):
 
         retryable = (
 
+            SCEConnectionError,
+
             TimeoutError,
 
         )
 
 
-        return isinstance(
+        if isinstance(
             error,
             retryable,
-        )
+        ):
+
+            return True
+
+
+
+        if isinstance(
+            error,
+            SCEAPIError,
+        ):
+
+            status = getattr(
+                error,
+                "status_code",
+                None,
+            )
+
+
+            return status in (
+                429,
+                500,
+                502,
+                503,
+                504,
+            )
+
+
+        return False

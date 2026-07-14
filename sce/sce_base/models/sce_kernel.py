@@ -7,25 +7,40 @@ Kernel Engine
 
 from __future__ import annotations
 
-from odoo import api, models
+
+from odoo import (
+    api,
+    models,
+)
+
 
 
 class SCEKernel(models.AbstractModel):
     """
-    Central engine for SCE framework.
+    Central execution engine.
 
-    Responsible for resolving plugins,
-    providers and executing operations.
+    Responsible for:
+
+    - Plugin resolution
+    - Provider execution
+    - Job creation
+    - Queue execution
+    - Event dispatching
+    - Service resolution
+
     """
+
 
     _name = "sce.kernel"
 
     _description = "SCE Kernel"
 
 
+
     # -------------------------------------------------------------------------
     # Plugin Registry
     # -------------------------------------------------------------------------
+
 
     def get_plugin(
         self,
@@ -35,9 +50,11 @@ class SCEKernel(models.AbstractModel):
         Returns plugin by code.
         """
 
+
         plugin = self.env[
             "sce.plugin"
         ].search(
+
             [
                 (
                     "code",
@@ -45,23 +62,37 @@ class SCEKernel(models.AbstractModel):
                     code,
                 )
             ],
+
             limit=1,
+
         )
+
 
 
         if not plugin:
 
             raise ValueError(
+
                 "Plugin not found: %s"
-                % code
+
+                %
+
+                code
+
             )
+
 
 
         if not plugin.active:
 
             raise ValueError(
-                "Plugin is inactive: %s"
-                % code
+
+                "Plugin inactive: %s"
+
+                %
+
+                code
+
             )
 
 
@@ -71,26 +102,69 @@ class SCEKernel(models.AbstractModel):
 
     # -------------------------------------------------------------------------
 
+
+    def validate_plugin(
+        self,
+        code,
+    ):
+        """
+        Validates plugin availability.
+        """
+
+
+        plugin = self.get_plugin(
+            code
+        )
+
+
+        if not plugin.installed:
+
+            raise ValueError(
+
+                "Plugin is not installed."
+
+            )
+
+
+
+        if plugin.state != "enabled":
+
+            raise ValueError(
+
+                "Plugin is not enabled."
+
+            )
+
+
+        return plugin
+
+
+
+    # -------------------------------------------------------------------------
+    # Provider Resolver
+    # -------------------------------------------------------------------------
+
+
     def get_provider(
         self,
         code,
     ):
         """
-        Returns provider instance.
+        Returns provider from plugin.
         """
 
-        plugin = self.get_plugin(
-            code,
+
+        plugin = self.validate_plugin(
+            code
         )
 
 
         return plugin.provider()
 
-
-
     # -------------------------------------------------------------------------
     # Connector Resolution
     # -------------------------------------------------------------------------
+
 
     def get_connector(
         self,
@@ -100,9 +174,11 @@ class SCEKernel(models.AbstractModel):
         Returns connector by code.
         """
 
+
         connector = self.env[
             "sce.connector"
         ].search(
+
             [
                 (
                     "code",
@@ -110,23 +186,34 @@ class SCEKernel(models.AbstractModel):
                     code,
                 )
             ],
+
             limit=1,
+
         )
+
 
 
         if not connector:
 
             raise ValueError(
+
                 "Connector not found: %s"
-                % code
+
+                %
+
+                code
+
             )
 
 
         return connector
 
-            # -------------------------------------------------------------------------
+
+
+    # -------------------------------------------------------------------------
     # Account Resolution
     # -------------------------------------------------------------------------
+
 
     def get_account(
         self,
@@ -135,6 +222,7 @@ class SCEKernel(models.AbstractModel):
         """
         Returns SCE account.
         """
+
 
         account = self.env[
             "sce.account"
@@ -146,8 +234,13 @@ class SCEKernel(models.AbstractModel):
         if not account.exists():
 
             raise ValueError(
+
                 "Account not found: %s"
-                % account_id
+
+                %
+
+                account_id
+
             )
 
 
@@ -157,15 +250,16 @@ class SCEKernel(models.AbstractModel):
 
     # -------------------------------------------------------------------------
 
+
     def find_account(
         self,
         connector_code,
         external_user_id=None,
     ):
         """
-        Finds account by connector
-        and optional external identifier.
+        Finds account by connector.
         """
+
 
         domain = [
 
@@ -178,69 +272,42 @@ class SCEKernel(models.AbstractModel):
         ]
 
 
+
         if external_user_id:
+
 
             domain.append(
 
                 (
+
                     "external_user_id",
+
                     "=",
+
                     external_user_id,
+
                 )
 
             )
 
 
-        account = self.env[
+
+        return self.env[
             "sce.account"
         ].search(
+
             domain,
+
             limit=1,
+
         )
-
-
-        return account
-
-
-
-    # -------------------------------------------------------------------------
-    # Plugin Validation
-    # -------------------------------------------------------------------------
-
-    def validate_plugin(
-        self,
-        code,
-    ):
-        """
-        Validates plugin availability.
-        """
-
-        plugin = self.get_plugin(
-            code
-        )
-
-
-        if not plugin.installed:
-
-            raise ValueError(
-                "Plugin is not installed."
-            )
-
-
-        if plugin.state != "enabled":
-
-            raise ValueError(
-                "Plugin is not enabled."
-            )
-
-
-        return plugin
 
 
 
     # -------------------------------------------------------------------------
     # Capability Validation
     # -------------------------------------------------------------------------
+
 
     def check_capability(
         self,
@@ -251,24 +318,31 @@ class SCEKernel(models.AbstractModel):
         Checks plugin capability.
         """
 
+
         plugin = self.validate_plugin(
             plugin_code
         )
+
 
 
         if not plugin.has_capability(
             capability
         ):
 
+
             raise ValueError(
 
-                "Plugin %s does not support %s"
-                % (
+                "Plugin %s does not support capability %s"
+
+                %
+
+                (
                     plugin_code,
                     capability,
                 )
 
             )
+
 
 
         return True
@@ -278,6 +352,7 @@ class SCEKernel(models.AbstractModel):
     # -------------------------------------------------------------------------
     # Provider Execution
     # -------------------------------------------------------------------------
+
 
     def execute(
         self,
@@ -290,9 +365,11 @@ class SCEKernel(models.AbstractModel):
         Executes provider method dynamically.
         """
 
+
         provider = self.get_provider(
             plugin_code
         )
+
 
 
         if not hasattr(
@@ -300,12 +377,17 @@ class SCEKernel(models.AbstractModel):
             method,
         ):
 
+
             raise ValueError(
 
                 "Provider method not found: %s"
-                % method
+
+                %
+
+                method
 
             )
+
 
 
         operation = getattr(
@@ -319,9 +401,12 @@ class SCEKernel(models.AbstractModel):
             **kwargs,
         )
 
-            # -------------------------------------------------------------------------
+
+
+    # -------------------------------------------------------------------------
     # Job Management
     # -------------------------------------------------------------------------
+
 
     def create_job(
         self,
@@ -330,94 +415,53 @@ class SCEKernel(models.AbstractModel):
         payload=None,
     ):
         """
-        Creates a synchronization job.
+        Creates internal SCE job.
         """
 
-        return self.env[
-            "sce.job"
-        ].create({
 
-            "account_id":
-                account.id,
+        if not account:
 
-            "type":
-                job_type,
-
-            "payload":
-                payload or {},
-
-            "state":
-                "pending",
-
-        })
-
-
-    # -------------------------------------------------------------------------
-
-    def execute_job(
-        self,
-        job,
-    ):
-        """
-        Executes a SCE job.
-        """
-
-        job.write({
-
-            "state":
-                "running",
-
-        })
-
-
-        try:
-
-            result = self.execute(
-
-                job.account_id.connector_code,
-
-                job.type,
-
-                job.account_id,
-
+            raise ValueError(
+                "Account is required."
             )
 
 
-            job.write({
+
+        return self.env[
+            "sce.job"
+        ].create(
+
+            {
+
+                "account_id":
+
+                    account.id,
+
+
+                "type":
+
+                    job_type,
+
+
+                "payload":
+
+                    payload or {},
+
 
                 "state":
-                    "done",
 
-                "result":
-                    result,
+                    "pending",
 
-            })
+            }
 
-
-            return result
-
-
-        except Exception as error:
-
-
-            job.write({
-
-                "state":
-                    "failed",
-
-                "error":
-                    str(error),
-
-            })
-
-
-            raise
+        )
 
 
 
     # -------------------------------------------------------------------------
-    # Queue Management
+    # Queue Creation
     # -------------------------------------------------------------------------
+
 
     def enqueue(
         self,
@@ -426,183 +470,151 @@ class SCEKernel(models.AbstractModel):
         payload=None,
     ):
         """
-        Adds operation to queue.
+        Adds execution to queue.
         """
+
+
+        if not account:
+
+            raise ValueError(
+                "Account is required."
+            )
+
+
 
         return self.env[
             "sce.queue"
-        ].create({
+        ].create(
 
-            "account_id":
-                account.id,
+            {
 
-            "action":
-                action,
+                "account_id":
 
-            "payload":
-                payload or {},
-
-            "state":
-                "pending",
-
-        })
+                    account.id,
 
 
+                "action":
 
-    # -------------------------------------------------------------------------
+                    action,
 
-    def process_queue(
-        self,
-        limit=50,
-    ):
-        """
-        Processes pending queue items.
-        """
 
-        queue_items = self.env[
-            "sce.queue"
-        ].search(
-            [
-                (
-                    "state",
-                    "=",
+                "payload":
+
+                    payload or {},
+
+
+                "state":
+
                     "pending",
-                )
-            ],
-            limit=limit,
+
+            }
+
         )
 
-
-        results = []
-
-
-        for item in queue_items:
-
-            try:
-
-                item.write({
-
-                    "state":
-                        "running",
-
-                })
-
-
-                result = self.execute(
-
-                    item.account_id.connector_code,
-
-                    item.action,
-
-                    item.account_id,
-
-                )
-
-
-                item.write({
-
-                    "state":
-                        "done",
-
-                    "result":
-                        result,
-
-                })
-
-
-                results.append(
-                    result
-                )
-
-
-            except Exception as error:
-
-
-                item.write({
-
-                    "state":
-                        "failed",
-
-                    "error":
-                        str(error),
-
-                })
-
-
-        return results
-
-            # -------------------------------------------------------------------------
-    # Logging
+    # -------------------------------------------------------------------------
+    # Safe Execution Wrapper
     # -------------------------------------------------------------------------
 
-    def log(
+    def safe_execute(
         self,
-        level,
-        message,
-        *,
+        plugin_code,
+        method,
+        *args,
         account=None,
         connector=None,
         payload=None,
+        **kwargs,
     ):
         """
-        Creates SCE log entry.
+        Executes provider operation with
+        centralized error handling and logging.
         """
 
-        values = {
+        try:
 
-            "level":
-                level,
-
-            "message":
-                message,
-
-            "payload":
-                payload or {},
-
-        }
-
-
-        if account:
-
-            values["account_id"] = (
-                account.id
+            result = self.execute(
+                plugin_code,
+                method,
+                *args,
+                **kwargs,
             )
 
 
-        if connector:
-
-            values["connector_id"] = (
-                connector.id
+            self.log(
+                "info",
+                "Operation executed successfully: %s" % method,
+                account=account,
+                connector=connector,
+                payload=payload,
             )
 
 
-        return self.env[
-            "sce.log"
-        ].create(values)
+            return {
+
+                "success":
+                    True,
+
+                "result":
+                    result,
+
+            }
+
+
+        except Exception as error:
+
+
+            return self.handle_error(
+
+                error,
+
+                account=account,
+
+                connector=connector,
+
+                payload=payload,
+
+            )
 
 
 
     # -------------------------------------------------------------------------
-    # Error Handling
+    # Account Execution
     # -------------------------------------------------------------------------
 
-    def handle_error(
+    def execute_account_action(
         self,
-        error,
-        *,
-        account=None,
-        connector=None,
+        account,
+        action,
         payload=None,
     ):
         """
-        Handles execution errors.
+        Executes action using account connector.
         """
 
-        self.log(
+        if not account:
 
-            "error",
+            raise ValueError(
+                "Account is required."
+            )
 
-            str(error),
+
+        if not account.connector_id:
+
+            raise ValueError(
+                "Account has no connector configured."
+            )
+
+
+        connector = account.connector_id
+
+
+        return self.safe_execute(
+
+            connector.code,
+
+            action,
+
+            account,
 
             account=account,
 
@@ -613,29 +625,128 @@ class SCEKernel(models.AbstractModel):
         )
 
 
+
+    # -------------------------------------------------------------------------
+    # Connector Health
+    # -------------------------------------------------------------------------
+
+    def health_check(
+        self,
+        connector_code,
+    ):
+        """
+        Executes connector health check.
+        """
+
+        connector = self.get_connector(
+            connector_code
+        )
+
+
+        provider = connector.get_provider()
+
+
+        if not hasattr(
+            provider,
+            "health_check",
+        ):
+
+            return True
+
+
+        return provider.health_check(
+            connector
+        )
+
+
+
+    # -------------------------------------------------------------------------
+    # Connector Synchronization
+    # -------------------------------------------------------------------------
+
+    def synchronize(
+        self,
+        connector_code,
+        account=None,
+    ):
+        """
+        Executes connector synchronization.
+        """
+
+        connector = self.get_connector(
+            connector_code
+        )
+
+
+        provider = connector.get_provider()
+
+
+        if account:
+
+            return provider.synchronize(
+                account
+            )
+
+
+        return provider.synchronize(
+            connector
+        )
+
+
+
+    # -------------------------------------------------------------------------
+    # Plugin Information
+    # -------------------------------------------------------------------------
+
+    def plugin_info(
+        self,
+        code,
+    ):
+        """
+        Returns plugin metadata.
+        """
+
+        plugin = self.get_plugin(
+            code
+        )
+
+
         return {
 
-            "success":
-                False,
+            "name":
+                plugin.name,
 
-            "error":
-                str(error),
+            "code":
+                plugin.code,
+
+            "version":
+                plugin.version,
+
+            "author":
+                plugin.author,
+
+            "state":
+                plugin.state,
+
+            "capabilities":
+                plugin.capabilities(),
 
         }
 
 
 
     # -------------------------------------------------------------------------
-    # Execution Context
+    # Execution Context Builder
     # -------------------------------------------------------------------------
 
-    def get_context(
+    def build_execution_context(
         self,
         account=None,
         connector=None,
+        payload=None,
     ):
         """
-        Returns SCE execution context.
+        Creates execution context object.
         """
 
         return {
@@ -652,127 +763,138 @@ class SCEKernel(models.AbstractModel):
             "user":
                 self.env.user,
 
+            "payload":
+                payload or {},
+
         }
 
 
 
     # -------------------------------------------------------------------------
-    # Event Dispatcher
+    # Queue Helpers
     # -------------------------------------------------------------------------
 
-    def dispatch_event(
+    def enqueue_job(
         self,
-        event,
+        account,
+        action,
         payload=None,
+        priority="1",
     ):
         """
-        Dispatches internal SCE event.
+        Creates queue execution item.
         """
 
-        listeners = self.env[
-            "sce.event.listener"
-        ].search(
-            [
-                (
-                    "event",
-                    "=",
-                    event,
+        return self.env[
+            "sce.queue"
+        ].create({
+
+            "account_id":
+                account.id,
+
+            "action":
+                action,
+
+            "payload":
+                payload or {},
+
+            "priority":
+                priority,
+
+            "state":
+                "pending",
+
+        })
+
+
+
+    # -------------------------------------------------------------------------
+    # Statistics
+    # -------------------------------------------------------------------------
+
+    def get_statistics(self):
+        """
+        Returns SCE global statistics.
+        """
+
+        return {
+
+            "plugins":
+                self.env[
+                    "sce.plugin"
+                ].search_count([]),
+
+
+            "connectors":
+                self.env[
+                    "sce.connector"
+                ].search_count([]),
+
+
+            "accounts":
+                self.env[
+                    "sce.account"
+                ].search_count([]),
+
+
+            "jobs":
+                self.env[
+                    "sce.job"
+                ].search_count([]),
+
+
+            "queue":
+                self.env[
+                    "sce.queue"
+                ].search_count([]),
+
+
+            "logs":
+                self.env[
+                    "sce.log"
+                ].search_count([]),
+
+        }
+
+
+
+    # -------------------------------------------------------------------------
+    # Maintenance
+    # -------------------------------------------------------------------------
+
+    def cleanup(
+        self,
+        days=90,
+    ):
+        """
+        Executes SCE cleanup tasks.
+        """
+
+        result = {}
+
+
+        if "sce.log" in self.env:
+
+            result["logs"] = (
+                self.env[
+                    "sce.log"
+                ].cleanup_old_logs(
+                    days
                 )
-            ]
-        )
-
-
-        results = []
-
-
-        for listener in listeners:
-
-            handler = getattr(
-
-                listener,
-
-                "execute",
-
-                None,
-
             )
 
 
-            if handler:
-
-                results.append(
-
-                    handler(
-                        payload or {}
-                    )
-
-                )
-
-
-        return results
+        return result
 
 
 
     # -------------------------------------------------------------------------
-    # Service Resolver
+    # Version
     # -------------------------------------------------------------------------
 
-    def get_service(
-        self,
-        service_name,
-    ):
+    def version(self):
         """
-        Returns SCE service model.
+        Returns SCE kernel version.
         """
 
-        service = self.env[
-            service_name
-        ]
-
-        return service
-
-
-
-    # -------------------------------------------------------------------------
-    # Generic Call
-    # -------------------------------------------------------------------------
-
-    def call(
-        self,
-        model,
-        method,
-        *args,
-        **kwargs,
-    ):
-        """
-        Generic service execution.
-        """
-
-        service = self.get_service(
-            model
-        )
-
-
-        if not hasattr(
-            service,
-            method,
-        ):
-
-            raise ValueError(
-
-                "Method %s not found in %s"
-                % (
-                    method,
-                    model,
-                )
-
-            )
-
-
-        return getattr(
-            service,
-            method,
-        )(
-            *args,
-            **kwargs,
-        )
+        return "19.0.1.0.0"

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 Softwork Commerce Engine (SCE)
 
@@ -19,6 +20,8 @@ from odoo import (
 
 from ..exceptions import (
     SCEQueueError,
+    SCEJobError,
+    SCERetryLimitError,
 )
 
 
@@ -44,55 +47,38 @@ class SCEQueueService(models.AbstractModel):
         job=None,
         priority="3",
     ):
-        """
-        Creates queue item.
-        """
-
 
         values = {
 
-            "action":
-                action,
+            "action": action,
 
-            "payload":
-                payload or {},
+            "payload": payload or {},
 
-            "priority":
-                priority,
+            "priority": priority,
 
-            "state":
-                "pending",
+            "state": "pending",
 
         }
 
 
-
         if account:
 
-            values[
-                "account_id"
-            ] = account.id
-
+            values["account_id"] = account.id
 
 
         if job:
 
-            values[
-                "job_id"
-            ] = job.id
-
+            values["job_id"] = job.id
 
 
         return self.env[
             "sce.queue"
-        ].create(
-            values
-        )
+        ].create(values)
 
 
 
     # -------------------------------------------------------------------------
-    # Execute Queue
+    # Execute Pending
     # -------------------------------------------------------------------------
 
     @api.model
@@ -100,27 +86,21 @@ class SCEQueueService(models.AbstractModel):
         self,
         limit=50,
     ):
-        """
-        Processes pending queue items.
-        """
-
 
         queues = self.env[
             "sce.queue"
         ].search(
 
             [
-
                 (
                     "state",
                     "=",
                     "pending",
                 )
-
             ],
 
             order=
-                "priority asc, create_date asc",
+            "priority asc, create_date asc",
 
             limit=limit,
 
@@ -134,12 +114,8 @@ class SCEQueueService(models.AbstractModel):
 
             try:
 
-                result = self.process(
-                    queue
-                )
-
                 results.append(
-                    result
+                    self.process(queue)
                 )
 
 
@@ -148,8 +124,15 @@ class SCEQueueService(models.AbstractModel):
                 self.env[
                     "sce.logger.service"
                 ].exception(
+
                     error,
+
                     category="queue",
+
+                    queue_id=queue.id,
+
+                    action=queue.action,
+
                 )
 
 
@@ -158,7 +141,7 @@ class SCEQueueService(models.AbstractModel):
 
 
     # -------------------------------------------------------------------------
-    # Process Single Item
+    # Process Item
     # -------------------------------------------------------------------------
 
     @api.model
@@ -166,9 +149,6 @@ class SCEQueueService(models.AbstractModel):
         self,
         queue,
     ):
-        """
-        Executes one queue item.
-        """
 
 
         if queue.state != "pending":
@@ -187,7 +167,6 @@ class SCEQueueService(models.AbstractModel):
                 fields.Datetime.now(),
 
         })
-
 
 
         try:
@@ -233,12 +212,14 @@ class SCEQueueService(models.AbstractModel):
             )
 
 
-            raise
+            raise SCEJobError(
+                str(error)
+            )
 
 
 
     # -------------------------------------------------------------------------
-    # Fail Handling
+    # Fail
     # -------------------------------------------------------------------------
 
     @api.model
@@ -247,6 +228,34 @@ class SCEQueueService(models.AbstractModel):
         queue,
         error,
     ):
+
+
+        retry_count = (
+            queue.retry_count + 1
+        )
+
+
+        if retry_count >= queue.max_retry:
+
+            queue.write({
+
+                "state":
+                    "failed",
+
+                "error_message":
+                    str(error),
+
+                "retry_count":
+                    retry_count,
+
+            })
+
+
+            raise SCERetryLimitError(
+                "Maximum retries reached."
+            )
+
+
 
         queue.write({
 
@@ -257,7 +266,7 @@ class SCEQueueService(models.AbstractModel):
                 str(error),
 
             "retry_count":
-                queue.retry_count + 1,
+                retry_count,
 
         })
 
@@ -275,9 +284,6 @@ class SCEQueueService(models.AbstractModel):
         self,
         queue,
     ):
-        """
-        Returns failed queue to pending.
-        """
 
 
         queue.write({
@@ -305,12 +311,12 @@ class SCEQueueService(models.AbstractModel):
         days=30,
     ):
 
+
         limit_date = (
 
             fields.Datetime.now()
 
             -
-
             timedelta(
                 days=days
             )
@@ -358,6 +364,7 @@ class SCEQueueService(models.AbstractModel):
         account=None,
     ):
 
+
         domain = []
 
 
@@ -382,59 +389,41 @@ class SCEQueueService(models.AbstractModel):
         return {
 
             "pending":
-
                 Queue.search_count(
-
                     domain +
-
                     [
-
                         (
                             "state",
                             "=",
                             "pending",
                         )
-
                     ]
-
                 ),
 
 
             "processing":
-
                 Queue.search_count(
-
                     domain +
-
                     [
-
                         (
                             "state",
                             "=",
                             "processing",
                         )
-
                     ]
-
                 ),
 
 
             "failed":
-
                 Queue.search_count(
-
                     domain +
-
                     [
-
                         (
                             "state",
                             "=",
                             "failed",
                         )
-
                     ]
-
                 ),
 
         }
