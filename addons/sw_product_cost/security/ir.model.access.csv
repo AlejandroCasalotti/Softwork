@@ -1,5 +1,5 @@
 id,name,model_id:id,group_id,perm_read,perm_write,perm_create,perm_unlink
-access_sw_product_cost_rule_user,sw.product.cost.rule user,model_sw_product_cost_rule,product.group_product_manager,1,1,1,1
-access_sw_product_cost_rule_line_user,sw.product.cost.rule.line user,model_sw_product_cost_rule_line,product.group_product_manager,1,1,1,1
+access_sw_product_cost_rule_user,sw.product.cost.rule user,model_sw_product_cost_rule,base.group_user,1,1,1,0
+access_sw_product_cost_rule_line_user,sw.product.cost.rule.line user,model_sw_product_cost_rule_line,base.group_user,1,1,1,0
 access_sw_product_cost_rule_admin,sw.product.cost.rule admin,model_sw_product_cost_rule,base.group_system,1,1,1,1
 access_sw_product_cost_rule_line_admin,sw.product.cost.rule.line admin,model_sw_product_cost_rule_line,base.group_system,1,1,1,1
