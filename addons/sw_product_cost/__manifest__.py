@@ -37,11 +37,11 @@ with Softwork Commerce Engine (SCE).
     "data": [
         "security/ir.model.access.csv",
 
+        "data/cost_rule_data.xml",
+
         "views/cost_rule_views.xml",
         "views/product_template_views.xml",
         "views/menu_views.xml",
-
-        "data/cost_rule_data.xml",
     ],
 
     "assets": {
