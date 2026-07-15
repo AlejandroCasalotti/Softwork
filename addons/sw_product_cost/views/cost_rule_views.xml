@@ -7,13 +7,9 @@
     <!-- ===================================================== -->
 
     <record id="sw_product_cost_rule_tree_view" model="ir.ui.view">
-        <field name="name">
-            sw.product.cost.rule.tree
-        </field>
+        <field name="name">sw.product.cost.rule.list</field>
 
-        <field name="model">
-            sw.product.cost.rule
-        </field>
+        <field name="model">sw.product.cost.rule</field>
 
         <field name="arch" type="xml">
 
