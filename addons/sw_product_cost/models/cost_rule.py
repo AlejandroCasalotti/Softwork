@@ -78,7 +78,7 @@ class SWProductCostRule(models.Model):
     )
 
     brand_id = fields.Many2one(
-        comodel_name="product.brand",
+        comodel_name="sw.product.brand",
         string="Brand",
     )
 
