@@ -6,33 +6,27 @@
     <!-- Cost Rule Tree View -->
     <!-- ===================================================== -->
 
-    <record id="sw_product_cost_rule_tree_view" model="ir.ui.view">
-        <field name="name">sw.product.cost.rule.list</field>
+    <record id="sw_product_cost_rule_form_view" model="ir.ui.view">
 
-        <field name="model">sw.product.cost.rule</field>
+    <field name="name">sw.product.cost.rule.form</field>
 
-        <field name="arch" type="xml">
+    <field name="model">sw.product.cost.rule</field>
 
-            <list string="Cost Rules">
+    <field name="arch" type="xml">
 
-                <field name="sequence"/>
+        <form string="Cost Rule">
 
-                <field name="name"/>
+            <sheet>
 
-                <field name="rule_type"/>
+                ...
 
-                <field name="margin_type"/>
+            </sheet>
 
-                <field name="margin_value"/>
+        </form>
 
-                <field name="company_id"/>
+    </field>
 
-                <field name="active"/>
-
-            </list>
-
-        </field>
-    </record>
+</record>
 
 
     <!-- ===================================================== -->
