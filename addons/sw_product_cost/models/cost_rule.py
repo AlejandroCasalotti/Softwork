@@ -7,25 +7,29 @@ class SWProductCostRule(models.Model):
     """
     Product cost calculation rules.
 
-    Rules can be applied by:
-    - Product
-    - Category
-    - Brand
-    - Global
+    Defines how the final sale price is calculated.
 
-    The rule supports chained calculations:
-    Base cost
-        +
-    Additional costs
-        +
-    Margin
-        -
-    Discounts
+    Priority:
+        1. Product rule
+        2. Brand rule
+        3. Category rule
+        4. Global rule
+
+    Calculation flow:
+
+        Base Cost
+            +
+        Cascade Lines
+            +
+        Margin
+            =
+        Suggested Sale Price
     """
 
     _name = "sw.product.cost.rule"
     _description = "Product Cost Rule"
     _order = "sequence, id"
+
 
     # ---------------------------------------------------------
     # Basic information
@@ -36,16 +40,19 @@ class SWProductCostRule(models.Model):
         required=True,
     )
 
+
     active = fields.Boolean(
         string="Active",
         default=True,
     )
+
 
     sequence = fields.Integer(
         string="Priority",
         default=10,
         help="Lower values have higher priority.",
     )
+
 
     company_id = fields.Many2one(
         comodel_name="res.company",
@@ -56,7 +63,7 @@ class SWProductCostRule(models.Model):
 
 
     # ---------------------------------------------------------
-    # Rule scope
+    # Rule type
     # ---------------------------------------------------------
 
     rule_type = fields.Selection(
@@ -95,7 +102,7 @@ class SWProductCostRule(models.Model):
 
 
     # ---------------------------------------------------------
-    # Margin
+    # Margin configuration
     # ---------------------------------------------------------
 
     margin_type = fields.Selection(
@@ -125,50 +132,36 @@ class SWProductCostRule(models.Model):
     # Cascade calculation lines
     # ---------------------------------------------------------
 
-    extra_cost_ids = fields.One2many(
+    line_ids = fields.One2many(
         comodel_name="sw.product.cost.rule.line",
         inverse_name="rule_id",
-        string="Additional Costs",
-        domain=[
-            ("line_type", "=", "cost")
-        ],
-    )
-
-
-    discount_ids = fields.One2many(
-        comodel_name="sw.product.cost.rule.line",
-        inverse_name="rule_id",
-        string="Discounts",
-        domain=[
-            ("line_type", "=", "discount")
-        ],
+        string="Calculation Lines",
+        copy=True,
     )
 
 
     # ---------------------------------------------------------
-    # Calculation
+    # Calculation engine
     # ---------------------------------------------------------
 
     def calculate_sale_price(self, cost):
         """
-        Execute complete cost calculation.
+        Calculates final sale price.
 
         Example:
 
-        Base cost:
+        Cost:
             100
 
-        Extra cost:
-            +10
+        Lines:
+            + transport 10
+            + import tax 5%
 
         Margin:
-            +30%
-
-        Discount:
-            -5%
+            30%
 
         Result:
-            136.85
+            final suggested price
         """
 
         self.ensure_one()
@@ -178,10 +171,10 @@ class SWProductCostRule(models.Model):
 
 
         # -----------------------------------------------------
-        # Additional costs
+        # Apply cascade lines
         # -----------------------------------------------------
 
-        for line in self.extra_cost_ids.sorted(
+        for line in self.line_ids.sorted(
             key=lambda x: x.sequence
         ):
 
@@ -189,12 +182,13 @@ class SWProductCostRule(models.Model):
 
 
         # -----------------------------------------------------
-        # Margin
+        # Apply margin
         # -----------------------------------------------------
 
         if self.margin_type == "percentage":
 
             margin = self.margin_value / 100
+
 
             if margin < 1:
 
@@ -204,17 +198,6 @@ class SWProductCostRule(models.Model):
         elif self.margin_type == "fixed":
 
             result += self.margin_value
-
-
-        # -----------------------------------------------------
-        # Discounts
-        # -----------------------------------------------------
-
-        for line in self.discount_ids.sorted(
-            key=lambda x: x.sequence
-        ):
-
-            result = line.apply(result)
 
 
         return result
