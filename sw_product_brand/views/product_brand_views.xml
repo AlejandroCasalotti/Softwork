@@ -1,26 +1,21 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ===================================================== -->
-    <!-- Tree View -->
-    <!-- ===================================================== -->
+    <!-- ====================================================== -->
+    <!-- List View -->
+    <!-- ====================================================== -->
 
-    <record id="view_sw_product_brand_tree" model="ir.ui.view">
-        <field name="name">sw.product.brand.tree</field>
+    <record id="view_sw_product_brand_list" model="ir.ui.view">
+        <field name="name">sw.product.brand.list</field>
         <field name="model">sw.product.brand</field>
         <field name="arch" type="xml">
+            <list string="Brands" default_order="sequence,name">
 
-            <list
-                string="Brands"
-                default_order="sequence,name">
+                <field name="sequence" widget="handle"/>
 
-                <field
-                    name="sequence"
-                    widget="handle"/>
-
-                <field
-                    name="image_1920"
-                    widget="image"/>
+                <field name="image_1920"
+                       widget="image"
+                       options="{'size': [32, 32]}"/>
 
                 <field name="name"/>
 
@@ -28,53 +23,51 @@
 
                 <field name="country_id"/>
 
-                <field
-                    name="product_count"
-                    optional="show"/>
+                <field name="product_count"/>
 
-                <field
-                    name="company_id"
-                    optional="hide"
-                    groups="base.group_multi_company"/>
+                <field name="company_id"
+                       groups="base.group_multi_company"
+                       optional="hide"/>
 
-                <field
-                    name="active"
-                    widget="boolean_toggle"/>
+                <field name="active"
+                       widget="boolean_toggle"/>
 
             </list>
-
         </field>
     </record>
 
-    <!-- ===================================================== -->
+    <!-- ====================================================== -->
     <!-- Form View -->
-    <!-- ===================================================== -->
+    <!-- ====================================================== -->
 
     <record id="view_sw_product_brand_form" model="ir.ui.view">
         <field name="name">sw.product.brand.form</field>
         <field name="model">sw.product.brand</field>
         <field name="arch" type="xml">
 
-            <form>
-
-                <header>
-
-                    <button
-                        name="action_open_products"
-                        type="object"
-                        class="oe_stat_button"
-                        icon="fa-cubes">
-
-                        <field
-                            name="product_count"
-                            widget="statinfo"
-                            string="Products"/>
-
-                    </button>
-
-                </header>
+            <form string="Brand">
 
                 <sheet>
+
+                    <div class="oe_button_box" name="button_box">
+
+                        <button
+                            name="action_open_products"
+                            type="object"
+                            class="oe_stat_button"
+                            icon="fa-cubes">
+
+                            <field name="product_count"
+                                   widget="statinfo"
+                                   string="Products"/>
+
+                        </button>
+
+                    </div>
+
+                    <field name="active" invisible="1"/>
+
+                    <field name="color" invisible="1"/>
 
                     <div class="oe_title">
 
@@ -82,9 +75,8 @@
 
                         <h1>
 
-                            <field
-                                name="name"
-                                placeholder="Brand"/>
+                            <field name="name"
+                                   placeholder="Brand"/>
 
                         </h1>
 
@@ -94,15 +86,13 @@
 
                         <group>
 
-                            <field
-                                name="image_1920"
-                                widget="image"/>
+                            <field name="image_1920"
+                                   widget="image"
+                                   class="oe_avatar"/>
 
                             <field name="code"/>
 
                             <field name="sequence"/>
-
-                            <field name="active"/>
 
                         </group>
 
@@ -116,9 +106,8 @@
 
                             <field name="phone"/>
 
-                            <field
-                                name="company_id"
-                                groups="base.group_multi_company"/>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"/>
 
                         </group>
 
@@ -127,20 +116,20 @@
                     <notebook>
 
                         <page
-                            name="description"
-                            string="Description">
+                            string="Description"
+                            name="description">
 
-                            <field
-                                name="description"/>
+                            <field name="description"
+                                   placeholder="Brand description..."/>
 
                         </page>
 
                         <page
-                            name="notes"
-                            string="Internal Notes">
+                            string="Internal Notes"
+                            name="notes">
 
-                            <field
-                                name="notes"/>
+                            <field name="notes"
+                                   widget="html"/>
 
                         </page>
 
@@ -148,31 +137,23 @@
 
                 </sheet>
 
-                <div class="oe_chatter">
-
-                    <field name="message_follower_ids"/>
-
-                    <field name="activity_ids"/>
-
-                    <field name="message_ids"/>
-
-                </div>
+                <chatter/>
 
             </form>
 
         </field>
     </record>
 
-    <!-- ===================================================== -->
+    <!-- ====================================================== -->
     <!-- Search View -->
-    <!-- ===================================================== -->
+    <!-- ====================================================== -->
 
     <record id="view_sw_product_brand_search" model="ir.ui.view">
         <field name="name">sw.product.brand.search</field>
         <field name="model">sw.product.brand</field>
         <field name="arch" type="xml">
 
-            <search>
+            <search string="Brands">
 
                 <field name="name"/>
 
@@ -183,13 +164,13 @@
                 <separator/>
 
                 <filter
-                    name="filter_active"
                     string="Active"
+                    name="active"
                     domain="[('active','=',True)]"/>
 
                 <filter
-                    name="filter_archived"
                     string="Archived"
+                    name="archived"
                     domain="[('active','=',False)]"/>
 
                 <separator/>
@@ -197,13 +178,13 @@
                 <group>
 
                     <filter
-                        name="group_country"
                         string="Country"
+                        name="group_country"
                         context="{'group_by':'country_id'}"/>
 
                     <filter
-                        name="group_company"
                         string="Company"
+                        name="group_company"
                         context="{'group_by':'company_id'}"/>
 
                 </group>
@@ -211,6 +192,17 @@
             </search>
 
         </field>
+    </record>
+
+    <!-- ====================================================== -->
+    <!-- Action -->
+    <!-- ====================================================== -->
+
+    <record id="action_sw_product_brand" model="ir.actions.act_window">
+        <field name="name">Brands</field>
+        <field name="res_model">sw.product.brand</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_sw_product_brand_search"/>
     </record>
 
 </odoo>
