@@ -6,11 +6,11 @@
     <menuitem id="menu_sce_operations" name="Operations" parent="menu_sce_root" sequence="20"/>
     <menuitem id="menu_sce_billing" name="Billing" parent="menu_sce_root" sequence="30"/>
 
-    <record id="action_sce_ml_connect_quick" model="ir.actions.act_url">
+    <record id="action_sce_ml_connect_quick" model="ir.actions.act_window">
         <field name="name">Conectar MercadoLibre</field>
-        <field name="type">ir.actions.act_url</field>
-        <field name="url">/sce/oauth/mercadolibre/start</field>
-        <field name="target">new</field>
+        <field name="res_model">sce.account</field>
+        <field name="view_mode">list,form</field>
+        <field name="target">current</field>
     </record>
 
     <menuitem id="menu_sce_ml_connect_quick"

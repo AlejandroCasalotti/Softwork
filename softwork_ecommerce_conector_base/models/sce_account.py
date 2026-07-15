@@ -80,6 +80,10 @@ class SceAccount(models.Model):
     ml_client_id = fields.Char(string="MercadoLibre Client ID")
     ml_client_secret = fields.Char(string="MercadoLibre Client Secret")
     ml_redirect_uri = fields.Char(string="MercadoLibre Redirect URI")
+    sync_orders = fields.Boolean(string="Sincronizar Ventas", default=True)
+    sync_stock = fields.Boolean(string="Sincronizar Stock", default=True)
+    sync_prices = fields.Boolean(string="Sincronizar Precios", default=True)
+    last_sync = fields.Datetime(string="Última sincronización")
 
     def _generate_pkce_pair(self):
         verifier_raw = secrets.token_urlsafe(64)
@@ -210,6 +214,79 @@ class SceAccount(models.Model):
 
         self._sync_onboarding_to_oauth_fields()
         return self.action_open_oauth_url()
+
+    def action_test_and_confirm(self):
+        for rec in self:
+            missing = []
+            if not rec.odoo_base_url:
+                missing.append("URL de Odoo")
+            if not rec.odoo_db_name:
+                missing.append("Base de datos Odoo")
+            if not rec.odoo_user:
+                missing.append("Usuario Odoo")
+            if not rec.odoo_password:
+                missing.append("API Key / Password Odoo")
+            if not rec.ml_client_id:
+                missing.append("MercadoLibre Client ID")
+            if not rec.ml_client_secret:
+                missing.append("MercadoLibre Client Secret")
+            if not rec.ml_redirect_uri:
+                missing.append("MercadoLibre Redirect URI")
+            if missing:
+                raise UserError("Faltan datos para confirmar:\n- " + "\n- ".join(missing))
+            rec.write({"state": "connected", "last_error": False})
+        return True
+
+    def action_back_to_draft(self):
+        self.write({"state": "draft"})
+        return True
+
+    def action_check_integration_status(self):
+        self.ensure_one()
+        lines = []
+
+        def add_line(test_name, status, message, error_details=""):
+            lines.append((0, 0, {
+                "test_name": test_name,
+                "status": status,
+                "message": message,
+                "error_details": error_details,
+            }))
+
+        if self.connector_id and self.connector_id.provider_type == "mercadolibre":
+            add_line("Proveedor", "success", "Proveedor MercadoLibre configurado")
+        else:
+            add_line("Proveedor", "error", "Proveedor inválido", "La cuenta no está asociada a MercadoLibre")
+
+        if self.odoo_base_url and self.odoo_db_name and self.odoo_user and self.odoo_password:
+            add_line("Conexión Odoo", "success", "Credenciales Odoo completas")
+        else:
+            add_line("Conexión Odoo", "warning", "Faltan credenciales Odoo")
+
+        if self.ml_client_id and self.ml_client_secret and self.ml_redirect_uri:
+            add_line("OAuth MercadoLibre", "success", "Credenciales OAuth completas")
+        else:
+            add_line("OAuth MercadoLibre", "error", "Faltan credenciales OAuth")
+
+        if self.state == "connected":
+            add_line("Estado de integración", "success", "Integración conectada")
+        elif self.state == "error":
+            add_line("Estado de integración", "error", "Integración en error", self.last_error or "")
+        else:
+            add_line("Estado de integración", "warning", "Integración en borrador")
+
+        wizard = self.env["sce.integration.status.wizard"].create({
+            "account_id": self.id,
+            "test_line_ids": lines,
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Verificar Estado de Integración",
+            "res_model": "sce.integration.status.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
+        }
 
     def action_open_oauth_url(self):
         self.ensure_one()
