@@ -5,10 +5,11 @@ from odoo import fields, models
 
 class SWProductCostRuleLine(models.Model):
     """
-    Product Cost Rule Lines.
+    Individual calculation step inside a cost rule.
 
-    Allows cascading cost operations inside
-    a single product cost rule.
+    A rule can contain multiple lines.
+    Lines are executed sequentially according
+    to sequence field.
     """
 
     _name = "sw.product.cost.rule.line"
@@ -29,7 +30,7 @@ class SWProductCostRuleLine(models.Model):
 
 
     # ---------------------------------------------------------
-    # Basic information
+    # Basic
     # ---------------------------------------------------------
 
     name = fields.Char(
@@ -41,12 +42,11 @@ class SWProductCostRuleLine(models.Model):
     sequence = fields.Integer(
         string="Sequence",
         default=10,
-        help="Order in which this operation is executed.",
+        help="Execution order. Lower values execute first.",
     )
 
 
     active = fields.Boolean(
-        string="Active",
         default=True,
     )
 
@@ -55,28 +55,45 @@ class SWProductCostRuleLine(models.Model):
     # Operation
     # ---------------------------------------------------------
 
-    operation_type = fields.Selection(
+    operation = fields.Selection(
         selection=[
             (
-                "increase_percentage",
-                "Increase Percentage"
+                "increase",
+                "Increase Cost"
             ),
             (
-                "increase_fixed",
-                "Increase Fixed Amount"
+                "discount",
+                "Discount Cost"
             ),
             (
-                "discount_percentage",
-                "Discount Percentage"
-            ),
-            (
-                "discount_fixed",
-                "Discount Fixed Amount"
+                "margin",
+                "Sales Margin"
             ),
         ],
         string="Operation",
         required=True,
-        default="increase_percentage",
+        default="increase",
+    )
+
+
+    # ---------------------------------------------------------
+    # Value
+    # ---------------------------------------------------------
+
+    value_type = fields.Selection(
+        selection=[
+            (
+                "percentage",
+                "Percentage"
+            ),
+            (
+                "fixed",
+                "Fixed Amount"
+            ),
+        ],
+        string="Value Type",
+        required=True,
+        default="percentage",
     )
 
 
@@ -91,47 +108,77 @@ class SWProductCostRuleLine(models.Model):
     # Calculation
     # ---------------------------------------------------------
 
-    def apply_operation(self, amount):
-        """
-        Apply this line operation.
-
-        Receives current amount and returns
-        calculated amount.
-        """
+    def apply(self, amount):
 
         self.ensure_one()
 
-
-        if not self.active:
-            return amount
+        result = amount
 
 
-        # Increase %
-        if self.operation_type == "increase_percentage":
+        # -----------------------------
+        # Increase
+        # -----------------------------
 
-            return amount + (
-                amount * self.value / 100
-            )
+        if self.operation == "increase":
 
+            if self.value_type == "percentage":
 
-        # Increase fixed
-        elif self.operation_type == "increase_fixed":
+                result += (
+                    amount *
+                    self.value /
+                    100
+                )
 
-            return amount + self.value
+            else:
 
-
-        # Discount %
-        elif self.operation_type == "discount_percentage":
-
-            return amount - (
-                amount * self.value / 100
-            )
+                result += self.value
 
 
-        # Discount fixed
-        elif self.operation_type == "discount_fixed":
 
-            return amount - self.value
+        # -----------------------------
+        # Discount
+        # -----------------------------
+
+        elif self.operation == "discount":
 
 
-        return amount
+            if self.value_type == "percentage":
+
+                result -= (
+                    amount *
+                    self.value /
+                    100
+                )
+
+            else:
+
+                result -= self.value
+
+
+
+        # -----------------------------
+        # Margin
+        # -----------------------------
+
+        elif self.operation == "margin":
+
+
+            if self.value_type == "percentage":
+
+                margin = self.value / 100
+
+
+                if margin < 1:
+
+                    result = (
+                        amount /
+                        (1 - margin)
+                    )
+
+            else:
+
+                result += self.value
+
+
+
+        return result

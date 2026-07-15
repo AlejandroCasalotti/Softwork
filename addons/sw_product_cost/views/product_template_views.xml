@@ -2,57 +2,120 @@
 
 <odoo>
 
-    <!-- Product Template Cost Information -->
+
+    <!-- ===================================================== -->
+    <!-- Product Template Form -->
+    <!-- ===================================================== -->
+
 
     <record id="sw_product_cost_product_template_form_view"
-        model="ir.ui.view">
+            model="ir.ui.view">
 
-    <field name="name">product.template.form.sw.product.cost</field>
+        <field name="name">
+            product.template.form.sw.product.cost
+        </field>
 
-    <field name="model">product.template</field>
+        <field name="model">
+            product.template
+        </field>
 
-    <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="inherit_id"
+               ref="product.product_template_only_form_view"/>
 
-    <field name="arch" type="xml">
+        <field name="arch"
+               type="xml">
 
-            <!-- Add Cost Page -->
 
-            <xpath expr="//notebook" position="inside">
+            <!-- Add Cost Management tab -->
+
+            <xpath expr="//notebook"
+                   position="inside">
+
 
                 <page string="Cost Management"
-                      name="sw_product_cost_page">
+                      name="sw_cost_management">
+
 
                     <group>
 
+
                         <group string="Cost Information">
 
-                            <field name="sw_cost_amount"
-                                   readonly="1"/>
 
                             <field name="sw_cost_rule_id"
                                    readonly="1"/>
 
-                            <field name="sw_cost_margin"
+
+                            <field name="sw_base_cost"
                                    readonly="1"/>
 
-                        </group>
 
+                            <field name="sw_final_cost"
+                                   readonly="1"/>
 
-                        <group string="Suggested Pricing">
 
                             <field name="sw_suggested_price"
                                    readonly="1"/>
 
+
                         </group>
+
+
+
+                        <group string="Original Cost">
+
+
+                            <field name="standard_price"
+                                   readonly="1"/>
+
+
+                        </group>
+
 
                     </group>
 
+
+
+                    <separator string="Applied Calculation Steps"/>
+
+
+
+                    <field name="sw_cost_rule_id"
+                           invisible="1"/>
+
+
+
+                    <field name="sw_cost_rule_id">
+
+
+                        <tree>
+
+                            <field name="name"/>
+
+                            <field name="sequence"/>
+
+                            <field name="operation"/>
+
+                            <field name="value_type"/>
+
+                            <field name="value"/>
+
+
+                        </tree>
+
+
+                    </field>
+
+
                 </page>
 
+
             </xpath>
+
 
         </field>
 
     </record>
+
 
 </odoo>

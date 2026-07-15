@@ -2,42 +2,160 @@
 
 <odoo>
 
-    <!-- ===================================================== -->
+
+    <!-- ================================================= -->
     <!-- Default Global Cost Rule -->
-    <!-- ===================================================== -->
+    <!-- ================================================= -->
+
 
     <record id="sw_product_cost_rule_default"
             model="sw.product.cost.rule">
 
-        <field name="name">Standard Margin Rule</field>
 
-        <field name="active">True</field>
+        <field name="name">
+            Standard Cost Rule
+        </field>
 
-        <field name="sequence">100</field>
 
-        <field name="rule_type">global</field>
+        <field name="active">
+            True
+        </field>
+
+
+        <field name="sequence">
+            100
+        </field>
+
+
+        <field name="rule_type">
+            global
+        </field>
+
 
     </record>
 
 
-    <!-- ===================================================== -->
-    <!-- Default Margin Line -->
-    <!-- ===================================================== -->
+
+    <!-- ================================================= -->
+    <!-- Default Rule Lines -->
+    <!-- ================================================= -->
+
+
+    <!-- Extra cost -->
+
+
+    <record id="sw_product_cost_rule_default_freight"
+            model="sw.product.cost.rule.line">
+
+
+        <field name="rule_id"
+               ref="sw_product_cost_rule_default"/>
+
+
+        <field name="name">
+            Logistics Cost
+        </field>
+
+
+        <field name="sequence">
+            10
+        </field>
+
+
+        <field name="operation">
+            increase
+        </field>
+
+
+        <field name="value_type">
+            percentage
+        </field>
+
+
+        <field name="value">
+            5
+        </field>
+
+
+    </record>
+
+
+
+    <!-- Discount -->
+
+
+    <record id="sw_product_cost_rule_default_discount"
+            model="sw.product.cost.rule.line">
+
+
+        <field name="rule_id"
+               ref="sw_product_cost_rule_default"/>
+
+
+        <field name="name">
+            Supplier Discount
+        </field>
+
+
+        <field name="sequence">
+            20
+        </field>
+
+
+        <field name="operation">
+            discount
+        </field>
+
+
+        <field name="value_type">
+            percentage
+        </field>
+
+
+        <field name="value">
+            3
+        </field>
+
+
+    </record>
+
+
+
+    <!-- Margin -->
+
 
     <record id="sw_product_cost_rule_default_margin"
             model="sw.product.cost.rule.line">
 
-        <field name="rule_id" ref="sw_product_cost_rule_default"/>
 
-        <field name="name">Default Sales Margin 30%</field>
+        <field name="rule_id"
+               ref="sw_product_cost_rule_default"/>
 
-        <field name="sequence">10</field>
 
-        <field name="operation">margin</field>
+        <field name="name">
+            Sales Margin
+        </field>
 
-        <field name="value_type">percentage</field>
 
-        <field name="value">30</field>
+        <field name="sequence">
+            30
+        </field>
+
+
+        <field name="operation">
+            margin
+        </field>
+
+
+        <field name="value_type">
+            percentage
+        </field>
+
+
+        <field name="value">
+            30
+        </field>
+
 
     </record>
 

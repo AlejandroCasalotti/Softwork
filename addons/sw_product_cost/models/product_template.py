@@ -4,63 +4,31 @@ from odoo import api, fields, models
 
 
 class ProductTemplate(models.Model):
-    """
-    Extension of product.template for advanced
-    cost calculation and pricing rules.
-    """
 
     _inherit = "product.template"
 
 
-    # ---------------------------------------------------------
-    # Applied rule
-    # ---------------------------------------------------------
-
     sw_cost_rule_id = fields.Many2one(
-        comodel_name="sw.product.cost.rule",
+        "sw.product.cost.rule",
         string="Applied Cost Rule",
-        compute="_compute_sw_cost_rule",
+        compute="_compute_sw_cost_values",
         store=True,
     )
 
 
-    # ---------------------------------------------------------
-    # Base cost
-    # ---------------------------------------------------------
-
-    sw_cost_amount = fields.Float(
+    sw_base_cost = fields.Float(
         string="Base Cost",
         compute="_compute_sw_cost_values",
         store=True,
     )
 
 
-    # ---------------------------------------------------------
-    # Final calculated cost
-    # ---------------------------------------------------------
-
     sw_final_cost = fields.Float(
-        string="Calculated Final Cost",
-        compute="_compute_sw_cost_values",
-        store=True,
-        help="Final cost after applying cascade rules.",
-    )
-
-
-    # ---------------------------------------------------------
-    # Margin
-    # ---------------------------------------------------------
-
-    sw_cost_margin = fields.Float(
-        string="Applied Margin (%)",
+        string="Final Calculated Cost",
         compute="_compute_sw_cost_values",
         store=True,
     )
 
-
-    # ---------------------------------------------------------
-    # Suggested sale price
-    # ---------------------------------------------------------
 
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
@@ -69,25 +37,18 @@ class ProductTemplate(models.Model):
     )
 
 
-    # =========================================================
-    # Find applicable rule
-    # =========================================================
-
     def _get_sw_cost_rule(self):
 
         self.ensure_one()
 
         Rule = self.env["sw.product.cost.rule"]
 
-
         rules = Rule.search(
             [
                 ("active", "=", True),
-                (
-                    "|",
-                    ("company_id", "=", self.env.company.id),
-                    ("company_id", "=", False),
-                ),
+                "|",
+                ("company_id", "=", self.env.company.id),
+                ("company_id", "=", False),
             ],
             order="sequence asc",
         )
@@ -95,23 +56,21 @@ class ProductTemplate(models.Model):
 
         for rule in rules:
 
+            if rule.rule_type == "global":
+                return rule
 
-            # Product rule
+
             if rule.rule_type == "product":
-
                 if rule.product_id == self:
                     return rule
 
 
-            # Category rule
-            elif rule.rule_type == "category":
-
+            if rule.rule_type == "category":
                 if rule.categ_id == self.categ_id:
                     return rule
 
 
-            # Brand rule
-            elif rule.rule_type == "brand":
+            if rule.rule_type == "brand":
 
                 if hasattr(self, "brand_id"):
 
@@ -119,110 +78,49 @@ class ProductTemplate(models.Model):
                         return rule
 
 
-            # Global rule
-            elif rule.rule_type == "global":
-
-                return rule
-
-
         return False
 
 
-    # =========================================================
-    # Compute rule
-    # =========================================================
 
     @api.depends(
         "standard_price",
         "categ_id",
-    )
-    def _compute_sw_cost_rule(self):
-
-        for product in self:
-
-            product.sw_cost_rule_id = (
-                product._get_sw_cost_rule()
-            )
-
-
-    # =========================================================
-    # Calculate values
-    # =========================================================
-
-    @api.depends(
-        "standard_price",
-        "sw_cost_rule_id",
-        "sw_cost_rule_id.margin_type",
-        "sw_cost_rule_id.margin_value",
-        "sw_cost_rule_id.line_ids",
+        "sw_cost_rule_id.line_ids.sequence",
+        "sw_cost_rule_id.line_ids.operation",
+        "sw_cost_rule_id.line_ids.value",
     )
     def _compute_sw_cost_values(self):
 
         for product in self:
 
 
-            base_cost = product.standard_price or 0.0
+            rule = product._get_sw_cost_rule()
+
+            product.sw_cost_rule_id = rule
 
 
-            product.sw_cost_amount = base_cost
+            base = product.standard_price
 
 
-            final_cost = base_cost
-
-
-            margin = 0.0
-
-
-            rule = product.sw_cost_rule_id
+            product.sw_base_cost = base
 
 
             if rule:
 
-
-                # ---------------------------------------------
-                # Apply cascade lines
-                # ---------------------------------------------
-
-                for line in rule.line_ids.sorted(
-                    key=lambda x: x.sequence
-                ):
-
-                    final_cost = line.apply(final_cost)
+                product.sw_final_cost = (
+                    rule.calculate_cost(base)
+                )
 
 
-                # ---------------------------------------------
-                # Apply margin
-                # ---------------------------------------------
-
-                margin = rule.margin_value
-
-
-                if rule.margin_type == "percentage":
-
-                    percentage = (
-                        rule.margin_value / 100
+                product.sw_suggested_price = (
+                    rule.calculate_sale_price(
+                        product.sw_final_cost
                     )
+                )
 
 
-                    if percentage < 1:
+            else:
 
-                        final_cost = (
-                            final_cost /
-                            (1 - percentage)
-                        )
+                product.sw_final_cost = base
 
-
-                elif rule.margin_type == "fixed":
-
-                    final_cost += (
-                        rule.margin_value
-                    )
-
-
-            product.sw_final_cost = final_cost
-
-
-            product.sw_cost_margin = margin
-
-
-            product.sw_suggested_price = final_cost
+                product.sw_suggested_price = base

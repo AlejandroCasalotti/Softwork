@@ -7,65 +7,85 @@ class ProductSupplierInfo(models.Model):
     """
     Extension of product.supplierinfo.
 
-    Adds additional cost management information
-    for supplier prices.
+    Provides supplier cost information
+    for advanced cost calculation.
     """
 
     _inherit = "product.supplierinfo"
 
-    # ---------------------------------------------------------
-    # Cost information
-    # ---------------------------------------------------------
 
-    sw_cost_valid_from = fields.Date(
-        string="Cost Valid From",
-        default=fields.Date.context_today,
-        help="Date from which this supplier cost is considered valid.",
+    sw_is_cost_reference = fields.Boolean(
+        string="Use as Cost Reference",
+        default=False,
+        help="Use this supplier price as product cost reference.",
     )
 
-    sw_cost_active = fields.Boolean(
-        string="Active Cost",
-        default=True,
-        help="Defines if this supplier cost is currently active.",
-    )
 
-    sw_last_update = fields.Datetime(
-        string="Last Cost Update",
-        readonly=True,
-    )
+    def get_supplier_cost(self):
+        """
+        Return supplier purchase price.
+        """
 
-    sw_cost_margin_note = fields.Char(
-        string="Internal Note",
-        help="Internal reference for this supplier cost.",
-    )
+        self.ensure_one()
 
-    # ---------------------------------------------------------
-    # Override price update
-    # ---------------------------------------------------------
+        return self.price or 0.0
 
-    @api.model_create_multi
-    def create(self, vals_list):
 
-        records = super().create(vals_list)
 
-        records.write(
-            {
-                "sw_last_update": fields.Datetime.now(),
-            }
+    @api.model
+    def get_reference_cost(self, product, quantity=1.0):
+        """
+        Get the supplier cost to use as base cost.
+
+        Priority:
+
+        1. Supplier marked as reference.
+        2. First valid supplier.
+        3. Product standard price fallback.
+        """
+
+
+        domain = [
+            "|",
+            (
+                "product_tmpl_id",
+                "=",
+                product.id,
+            ),
+            (
+                "product_id",
+                "in",
+                product.product_variant_ids.ids,
+            ),
+            (
+                "min_qty",
+                "<=",
+                quantity,
+            ),
+        ]
+
+
+        suppliers = self.search(
+            domain,
+            order="min_qty desc, id asc",
         )
 
-        return records
 
-    def write(self, vals):
+        reference_supplier = suppliers.filtered(
+            lambda x: x.sw_is_cost_reference
+        )
 
-        result = super().write(vals)
 
-        if "price" in vals:
+        if reference_supplier:
 
-            self.write(
-                {
-                    "sw_last_update": fields.Datetime.now(),
-                }
-            )
+            return reference_supplier[0].get_supplier_cost()
 
-        return result
+
+
+        if suppliers:
+
+            return suppliers[0].get_supplier_cost()
+
+
+
+        return product.standard_price or 0.0
