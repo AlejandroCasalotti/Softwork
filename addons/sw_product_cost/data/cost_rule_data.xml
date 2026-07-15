@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<odoo noupdate="1">
+<odoo>
+
 
     <!-- ===================================================== -->
     <!-- Default Global Cost Rule -->
@@ -9,18 +10,70 @@
     <record id="sw_product_cost_rule_default"
             model="sw.product.cost.rule">
 
-        <field name="name">Standard Margin Rule</field>
 
-        <field name="active">True</field>
+        <field name="name">
+            Standard Margin Rule
+        </field>
 
-        <field name="sequence">100</field>
 
-        <field name="rule_type">global</field>
+        <field name="active">
+            True
+        </field>
 
-        <field name="margin_type">percentage</field>
 
-        <field name="margin_value">30</field>
+        <field name="sequence">
+            100
+        </field>
+
+
+        <field name="rule_type">
+            global
+        </field>
+
 
     </record>
+
+
+
+    <!-- ===================================================== -->
+    <!-- Default Rule Line -->
+    <!-- ===================================================== -->
+
+
+    <record id="sw_product_cost_rule_default_margin"
+            model="sw.product.cost.rule.line">
+
+
+        <field name="rule_id"
+               ref="sw_product_cost_rule_default"/>
+
+
+        <field name="name">
+            Default Sales Margin 30%
+        </field>
+
+
+        <field name="sequence">
+            10
+        </field>
+
+
+        <field name="operation">
+            margin
+        </field>
+
+
+        <field name="value_type">
+            percentage
+        </field>
+
+
+        <field name="value">
+            30
+        </field>
+
+
+    </record>
+
 
 </odoo>
