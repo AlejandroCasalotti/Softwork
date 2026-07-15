@@ -1,35 +1,32 @@
 # -*- coding: utf-8 -*-
+
 {
     "name": "Softwork Product Brand",
-    "summary": "Product brand management for Odoo 19.",
+    "summary": "Manage product brands and manufacturers.",
     "description": """
 Softwork Product Brand
 
-Adds a complete brand management system to products.
+Adds brand management to products.
 
-Features
-========
+Main Features
+-------------
 * Product brands
-* Brand logo
-* Brand code
-* Company support
 * Manufacturer information
-* Product integration
-* Ready for Pricing Suite
-* Ready for SCE
+* Brand logo
 * Multi-company
-* Odoo.sh compatible
-    """,
+* Chatter support
+* Odoo 19 compatible
+* Ready for Softwork Pricing Suite
+* Ready for Softwork Commerce Engine (SCE)
+""",
     "version": "19.0.1.0.0",
     "category": "Inventory/Product",
     "author": "Softwork",
     "website": "https://swsistemas.com",
     "license": "LGPL-3",
     "depends": [
-        "base",
         "mail",
         "product",
-        "stock",
     ],
     "data": [
         "security/ir.model.access.csv",

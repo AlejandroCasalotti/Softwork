@@ -4,14 +4,9 @@
 Softwork Product Brand
 
 Brand model.
-
-This model stores product brands/manufacturers and their
-business information.
 """
 
-from __future__ import annotations
-
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class ProductBrand(models.Model):
@@ -25,17 +20,9 @@ class ProductBrand(models.Model):
     ]
     _order = "sequence, name"
 
-    _sql_constraints = [
-        (
-            "code_company_uniq",
-            "unique(code, company_id)",
-            "The brand code must be unique per company.",
-        ),
-    ]
-
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # General
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     active = fields.Boolean(
         string="Active",
@@ -59,6 +46,12 @@ class ProductBrand(models.Model):
         string="Code",
         index=True,
         tracking=True,
+        help="Internal brand code.",
+    )
+
+    display_name = fields.Char(
+        compute="_compute_display_name",
+        store=True,
     )
 
     description = fields.Text(
@@ -69,24 +62,22 @@ class ProductBrand(models.Model):
         string="Internal Notes",
     )
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Image
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     image_1920 = fields.Image(
         string="Logo",
-        max_width=1920,
-        max_height=1920,
     )
 
     color = fields.Integer(
-        string="Color Index",
+        string="Color",
         default=0,
     )
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Contact
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     website = fields.Char(
         string="Website",
@@ -105,9 +96,9 @@ class ProductBrand(models.Model):
         string="Country",
     )
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Company
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     company_id = fields.Many2one(
         "res.company",
@@ -116,24 +107,83 @@ class ProductBrand(models.Model):
         index=True,
     )
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Statistics
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     product_count = fields.Integer(
         string="Products",
         compute="_compute_product_count",
     )
 
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
     # Compute
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
 
+    @api.depends("name", "code")
+    def _compute_display_name(self):
+        """Compute display name."""
+
+        for record in self:
+            if record.code:
+                record.display_name = f"[{record.code}] {record.name}"
+            else:
+                record.display_name = record.name
+
+    @api.depends()
     def _compute_product_count(self):
-        """Compute the number of products linked to each brand."""
-        template_model = self.env["product.template"]
+        """Compute number of products."""
 
-        for brand in self:
-            brand.product_count = template_model.search_count([
-                ("brand_id", "=", brand.id),
+        template = self.env["product.template"]
+
+        for record in self:
+            record.product_count = template.search_count([
+                ("brand_id", "=", record.id),
             ])
+
+    # -------------------------------------------------------------------------
+    # Constraints
+    # -------------------------------------------------------------------------
+
+    @api.constrains("code", "company_id")
+    def _check_code_company(self):
+        """Ensure code is unique per company."""
+
+        for record in self:
+            if not record.code:
+                continue
+
+            duplicate = self.search([
+                ("id", "!=", record.id),
+                ("company_id", "=", record.company_id.id),
+                ("code", "=", record.code),
+            ], limit=1)
+
+            if duplicate:
+                from odoo.exceptions import ValidationError
+
+                raise ValidationError(
+                    "The brand code must be unique per company."
+                )
+
+    # -------------------------------------------------------------------------
+    # Actions
+    # -------------------------------------------------------------------------
+
+    def action_open_products(self):
+        """Open products of this brand."""
+
+        self.ensure_one()
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Products",
+            "res_model": "product.template",
+            "view_mode": "list,form",
+            "domain": [
+                ("brand_id", "=", self.id),
+            ],
+            "context": {
+                "default_brand_id": self.id,
+            },
+        }

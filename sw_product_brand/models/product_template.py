@@ -3,10 +3,8 @@
 """
 Softwork Product Brand
 
-Extends product.template to add brand information.
+Product Template extension.
 """
-
-from __future__ import annotations
 
 from odoo import fields, models
 
@@ -16,17 +14,30 @@ class ProductTemplate(models.Model):
 
     _inherit = "product.template"
 
+    # -------------------------------------------------------------------------
+    # Softwork
+    # -------------------------------------------------------------------------
+
     brand_id = fields.Many2one(
         comodel_name="sw.product.brand",
         string="Brand",
         index=True,
         tracking=True,
-        help="Brand or manufacturer associated with this product.",
+        ondelete="restrict",
+        help="Brand or manufacturer of this product.",
     )
 
     brand_code = fields.Char(
         string="Brand Code",
         related="brand_id.code",
+        store=True,
+        readonly=True,
+    )
+
+    brand_country_id = fields.Many2one(
+        comodel_name="res.country",
+        string="Brand Country",
+        related="brand_id.country_id",
         store=True,
         readonly=True,
     )
