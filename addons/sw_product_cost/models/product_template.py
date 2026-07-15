@@ -10,6 +10,7 @@ class ProductTemplate(models.Model):
 
     _inherit = "product.template"
 
+
     # ---------------------------------------------------------
     # Cost information
     # ---------------------------------------------------------
@@ -18,14 +19,16 @@ class ProductTemplate(models.Model):
         string="Calculated Cost",
         compute="_compute_sw_cost_amount",
         store=True,
-        help="Calculated internal cost used for margin calculation.",
+        help="Base cost used for calculations.",
     )
+
 
     sw_cost_margin = fields.Float(
         string="Applied Margin (%)",
         compute="_compute_sw_cost_margin",
         store=True,
     )
+
 
     sw_cost_rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
@@ -34,14 +37,16 @@ class ProductTemplate(models.Model):
         store=True,
     )
 
+
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
         compute="_compute_sw_suggested_price",
         store=True,
     )
 
+
     # ---------------------------------------------------------
-    # Compute cost
+    # Base cost
     # ---------------------------------------------------------
 
     @api.depends(
@@ -50,9 +55,11 @@ class ProductTemplate(models.Model):
     def _compute_sw_cost_amount(self):
 
         for product in self:
+
             product.sw_cost_amount = (
                 product.standard_price or 0.0
             )
+
 
     # ---------------------------------------------------------
     # Find applicable rule
@@ -64,19 +71,27 @@ class ProductTemplate(models.Model):
 
         Rule = self.env["sw.product.cost.rule"]
 
+
         domain = [
             ("active", "=", True),
             "|",
             ("company_id", "=", False),
-            ("company_id", "=", self.company_id.id),
+            (
+                "company_id",
+                "=",
+                self.company_id.id,
+            ),
         ]
+
 
         rules = Rule.search(
             domain,
             order="sequence asc",
         )
 
+
         for rule in rules:
+
 
             if rule.rule_type == "product":
 
@@ -84,10 +99,12 @@ class ProductTemplate(models.Model):
                     return rule
 
 
+
             elif rule.rule_type == "category":
 
                 if rule.categ_id == self.categ_id:
                     return rule
+
 
 
             elif rule.rule_type == "brand":
@@ -99,21 +116,25 @@ class ProductTemplate(models.Model):
                     return rule
 
 
+
             elif rule.rule_type == "global":
 
                 return rule
 
 
+
         return False
 
 
+
     # ---------------------------------------------------------
-    # Compute applied rule
+    # Applied rule
     # ---------------------------------------------------------
 
     @api.depends(
         "company_id",
         "categ_id",
+        "brand_id",
     )
     def _compute_sw_cost_rule(self):
 
@@ -122,44 +143,65 @@ class ProductTemplate(models.Model):
             rule = product._get_sw_cost_rule()
 
             product.sw_cost_rule_id = (
-                rule.id if rule else False
+                rule.id
+                if rule
+                else False
             )
 
 
+
     # ---------------------------------------------------------
-    # Compute margin
+    # Margin calculation
     # ---------------------------------------------------------
 
     @api.depends(
         "sw_cost_rule_id",
+        "sw_cost_rule_id.line_ids.value",
+        "sw_cost_rule_id.line_ids.calculation_type",
     )
     def _compute_sw_cost_margin(self):
 
         for product in self:
 
+            margin = 0.0
+
+
             if product.sw_cost_rule_id:
 
-                product.sw_cost_margin = (
-                    product.sw_cost_rule_id.margin_value
-                    or 0.0
+                lines = product.sw_cost_rule_id.line_ids.filtered(
+                    lambda l:
+                    l.calculation_type in (
+                        "margin_percentage",
+                        "margin_fixed",
+                    )
                 )
 
-            else:
 
-                product.sw_cost_margin = 0.0
+                for line in lines:
+
+                    if line.calculation_type == "margin_percentage":
+
+                        margin += line.value
+
+
+            product.sw_cost_margin = margin
+
 
 
     # ---------------------------------------------------------
-    # Compute suggested price
+    # Suggested sale price
     # ---------------------------------------------------------
 
     @api.depends(
         "sw_cost_amount",
         "sw_cost_rule_id",
+        "sw_cost_rule_id.line_ids.value",
+        "sw_cost_rule_id.line_ids.calculation_type",
     )
     def _compute_sw_suggested_price(self):
 
         for product in self:
+
 
             if product.sw_cost_rule_id:
 
@@ -169,6 +211,7 @@ class ProductTemplate(models.Model):
                         product.sw_cost_amount
                     )
                 )
+
 
             else:
 
