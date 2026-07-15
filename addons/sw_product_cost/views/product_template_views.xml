@@ -3,12 +3,12 @@
 <odoo>
 
 
-<record id="product_template_cost_form_view"
+<record id="sw_product_cost_product_template_form_view"
         model="ir.ui.view">
 
 
     <field name="name">
-        product.template.cost.form
+        product.template.form.sw.product.cost
     </field>
 
 
@@ -34,8 +34,6 @@
 
                 <group>
 
-
-                    <field name="sw_cost_amount"/>
 
                     <field name="sw_cost_rule_id"/>
 

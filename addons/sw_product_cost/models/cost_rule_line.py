@@ -7,7 +7,7 @@ class SWProductCostRuleLine(models.Model):
 
     _name = "sw.product.cost.rule.line"
     _description = "Product Cost Rule Line"
-    _order = "sequence,id"
+    _order = "sequence, id"
 
 
     rule_id = fields.Many2one(
@@ -29,12 +29,11 @@ class SWProductCostRuleLine(models.Model):
 
     operation = fields.Selection(
         [
-            ("margin", "Margin"),
-            ("discount", "Discount"),
-            ("extra_cost", "Extra Cost"),
+            ("increase", "Increase"),
+            ("decrease", "Discount"),
         ],
         required=True,
-        default="margin",
+        default="increase",
     )
 
 
@@ -50,45 +49,40 @@ class SWProductCostRuleLine(models.Model):
 
     value = fields.Float(
         required=True,
-        default=0,
     )
 
 
-    def apply(self, amount):
+    def apply_operation(self, amount):
 
         self.ensure_one()
 
-
-        if self.operation == "margin":
-
-            if self.value_type == "percentage":
-                return amount / (
-                    1 - (self.value / 100)
-                )
-
-            return amount + self.value
+        result = amount
 
 
+        if self.value_type == "percentage":
 
-        if self.operation == "discount":
+            factor = self.value / 100
 
-            if self.value_type == "percentage":
-                return amount * (
-                    1 - (self.value / 100)
-                )
+            if self.operation == "increase":
 
-            return amount - self.value
+                result += amount * factor
 
 
+            elif self.operation == "decrease":
 
-        if self.operation == "extra_cost":
-
-            if self.value_type == "percentage":
-                return amount * (
-                    1 + (self.value / 100)
-                )
-
-            return amount + self.value
+                result -= amount * factor
 
 
-        return amount
+        elif self.value_type == "fixed":
+
+            if self.operation == "increase":
+
+                result += self.value
+
+
+            elif self.operation == "decrease":
+
+                result -= self.value
+
+
+        return max(result, 0)

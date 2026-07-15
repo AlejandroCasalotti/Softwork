@@ -3,161 +3,63 @@
 <odoo>
 
 
-    <!-- ================================================= -->
-    <!-- Default Global Cost Rule -->
-    <!-- ================================================= -->
+<record id="sw_product_cost_rule_default"
+        model="sw.product.cost.rule">
 
 
-    <record id="sw_product_cost_rule_default"
-            model="sw.product.cost.rule">
+    <field name="name">
+        Default Cost Rule
+    </field>
 
 
-        <field name="name">
-            Standard Cost Rule
-        </field>
+    <field name="rule_type">
+        global
+    </field>
 
 
-        <field name="active">
-            True
-        </field>
+    <field name="sequence">
+        100
+    </field>
 
 
-        <field name="sequence">
-            100
-        </field>
+</record>
 
 
-        <field name="rule_type">
-            global
-        </field>
 
+<record id="sw_product_cost_rule_default_line"
+        model="sw.product.cost.rule.line">
 
-    </record>
 
+    <field name="rule_id"
+           ref="sw_product_cost_rule_default"/>
 
 
-    <!-- ================================================= -->
-    <!-- Default Rule Lines -->
-    <!-- ================================================= -->
+    <field name="name">
+        Standard Margin 30%
+    </field>
 
 
-    <!-- Extra cost -->
+    <field name="sequence">
+        10
+    </field>
 
 
-    <record id="sw_product_cost_rule_default_freight"
-            model="sw.product.cost.rule.line">
+    <field name="operation">
+        increase
+    </field>
 
 
-        <field name="rule_id"
-               ref="sw_product_cost_rule_default"/>
+    <field name="value_type">
+        percentage
+    </field>
 
 
-        <field name="name">
-            Logistics Cost
-        </field>
+    <field name="value">
+        30
+    </field>
 
 
-        <field name="sequence">
-            10
-        </field>
-
-
-        <field name="operation">
-            increase
-        </field>
-
-
-        <field name="value_type">
-            percentage
-        </field>
-
-
-        <field name="value">
-            5
-        </field>
-
-
-    </record>
-
-
-
-    <!-- Discount -->
-
-
-    <record id="sw_product_cost_rule_default_discount"
-            model="sw.product.cost.rule.line">
-
-
-        <field name="rule_id"
-               ref="sw_product_cost_rule_default"/>
-
-
-        <field name="name">
-            Supplier Discount
-        </field>
-
-
-        <field name="sequence">
-            20
-        </field>
-
-
-        <field name="operation">
-            discount
-        </field>
-
-
-        <field name="value_type">
-            percentage
-        </field>
-
-
-        <field name="value">
-            3
-        </field>
-
-
-    </record>
-
-
-
-    <!-- Margin -->
-
-
-    <record id="sw_product_cost_rule_default_margin"
-            model="sw.product.cost.rule.line">
-
-
-        <field name="rule_id"
-               ref="sw_product_cost_rule_default"/>
-
-
-        <field name="name">
-            Sales Margin
-        </field>
-
-
-        <field name="sequence">
-            30
-        </field>
-
-
-        <field name="operation">
-            margin
-        </field>
-
-
-        <field name="value_type">
-            percentage
-        </field>
-
-
-        <field name="value">
-            30
-        </field>
-
-
-    </record>
+</record>
 
 
 </odoo>

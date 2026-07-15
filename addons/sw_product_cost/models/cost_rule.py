@@ -15,35 +15,31 @@ class SWProductCostRule(models.Model):
     _description = "Product Cost Rule"
     _order = "sequence, id"
 
-
     name = fields.Char(
-        required=True,
         string="Rule Name",
+        required=True,
     )
-
 
     active = fields.Boolean(
         default=True,
     )
-
 
     sequence = fields.Integer(
         default=10,
         string="Priority",
     )
 
-
     company_id = fields.Many2one(
         "res.company",
+        string="Company",
         default=lambda self: self.env.company,
         required=True,
     )
 
-
     rule_type = fields.Selection(
         [
             ("global", "Global"),
-            ("category", "Category"),
+            ("category", "Product Category"),
             ("brand", "Brand"),
             ("product", "Product"),
         ],
@@ -51,63 +47,73 @@ class SWProductCostRule(models.Model):
         default="global",
     )
 
-
     product_id = fields.Many2one(
         "product.template",
+        string="Product",
     )
-
 
     categ_id = fields.Many2one(
         "product.category",
+        string="Category",
     )
-
 
     brand_id = fields.Many2one(
         "sw.product.brand",
+        string="Brand",
     )
-
 
     line_ids = fields.One2many(
         "sw.product.cost.rule.line",
         "rule_id",
-        string="Calculation Steps",
+        string="Calculation Lines",
     )
 
 
-    def calculate_cost(self, cost):
+    def get_applicable_rule(self, product):
 
-        self.ensure_one()
+        domain = [
+            ("active", "=", True),
+            "|",
+            ("company_id", "=", product.company_id.id),
+            ("company_id", "=", False),
+        ]
 
-        result = cost
+        rules = self.search(
+            domain,
+            order="sequence asc"
+        )
 
-        for line in self.line_ids.sorted(
-            key=lambda x: x.sequence
-        ):
-            result = line.apply(result)
+        for rule in rules:
 
-        return result
+            if rule.rule_type == "global":
+                return rule
 
+            if rule.rule_type == "product":
+                if rule.product_id == product:
+                    return rule
 
-    def match_product(self, product):
+            if rule.rule_type == "category":
+                if rule.categ_id == product.categ_id:
+                    return rule
 
-        self.ensure_one()
+            if rule.rule_type == "brand":
 
-        if self.rule_type == "global":
-            return True
+                if hasattr(product, "brand_id"):
 
-
-        if self.rule_type == "product":
-            return self.product_id == product
-
-
-        if self.rule_type == "category":
-            return self.categ_id == product.categ_id
-
-
-        if self.rule_type == "brand":
-
-            if hasattr(product, "brand_id"):
-                return self.brand_id == product.brand_id
-
+                    if rule.brand_id == product.brand_id:
+                        return rule
 
         return False
+
+
+    def calculate_cost(self, base_cost):
+
+        self.ensure_one()
+
+        result = base_cost
+
+        for line in self.line_ids.sorted("sequence"):
+
+            result = line.apply_operation(result)
+
+        return result
