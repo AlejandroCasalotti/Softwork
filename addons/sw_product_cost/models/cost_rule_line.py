@@ -4,9 +4,6 @@ from odoo import fields, models
 
 
 class SWProductCostRuleLine(models.Model):
-    """
-    Individual calculation step inside a cost rule.
-    """
 
     _name = "sw.product.cost.rule.line"
     _description = "Product Cost Rule Line"
@@ -21,35 +18,99 @@ class SWProductCostRuleLine(models.Model):
     )
 
 
-    sequence = fields.Integer(
-        string="Sequence",
-        default=10,
-    )
-
-
     name = fields.Char(
         string="Description",
         required=True,
     )
 
 
-    calculation_type = fields.Selection(
+    sequence = fields.Integer(
+        string="Sequence",
+        default=10,
+    )
+
+
+    active = fields.Boolean(
+        default=True,
+    )
+
+
+    operation = fields.Selection(
         selection=[
-            ("extra_percentage", "Extra Cost (%)"),
-            ("extra_fixed", "Extra Cost Fixed"),
-            ("discount_percentage", "Discount (%)"),
-            ("discount_fixed", "Discount Fixed"),
-            ("margin_percentage", "Sale Margin (%)"),
-            ("margin_fixed", "Sale Margin Fixed"),
+            ("increase", "Increase"),
+            ("discount", "Discount"),
+            ("margin", "Sales Margin"),
         ],
         string="Operation",
         required=True,
-        default="margin_percentage",
+        default="increase",
+    )
+
+
+    value_type = fields.Selection(
+        selection=[
+            ("percentage", "Percentage"),
+            ("fixed", "Fixed Amount"),
+        ],
+        string="Value Type",
+        required=True,
+        default="percentage",
     )
 
 
     value = fields.Float(
         string="Value",
         required=True,
-        default=0.0,
+        default=0,
     )
+
+
+    def apply(self, amount):
+
+        self.ensure_one()
+
+
+        if self.value_type == "percentage":
+
+
+            percent = self.value / 100
+
+
+            if self.operation == "discount":
+
+                return amount * (
+                    1 - percent
+                )
+
+
+            elif self.operation == "increase":
+
+                return amount * (
+                    1 + percent
+                )
+
+
+            elif self.operation == "margin":
+
+                if percent >= 1:
+                    return amount
+
+                return amount / (
+                    1 - percent
+                )
+
+
+        elif self.value_type == "fixed":
+
+
+            if self.operation == "discount":
+
+                return amount - self.value
+
+
+            else:
+
+                return amount + self.value
+
+
+        return amount
