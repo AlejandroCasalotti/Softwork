@@ -62,10 +62,21 @@ class SceOAuthController(http.Controller):
                 account.write({"auth_code": code})
                 account.action_exchange_code()
             except Exception as err:
+                err_msg = str(err)
+                if "invalid_grant" in err_msg:
+                    account.write(
+                        {
+                            "state": "draft",
+                            "auth_code": False,
+                            "oauth_code_verifier": False,
+                            "last_error": "El código OAuth expiró o ya fue usado. Reautorizá la conexión.",
+                        }
+                    )
+                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
                 account.write(
                     {
                         "state": "error",
-                        "last_error": str(err),
+                        "last_error": err_msg,
                     }
                 )
                 return request.redirect("/sce/oauth/mercadolibre/result?status=error")
@@ -101,6 +112,16 @@ class SceOAuthController(http.Controller):
               <li><code>sce.mercadolibre.redirect_uri</code></li>
             </ul>
             <p><a href="/web#action=base.action_system_parameter">Ir a Parámetros del sistema</a></p>
+            <p><a href="/web">Volver a Odoo</a></p>
+            </body></html>
+            """
+        elif status == "reauthorize":
+            html = """
+            <html><body style="font-family: Arial, sans-serif; padding: 24px;">
+            <h2>🔁 Reautorización requerida</h2>
+            <p>El código OAuth de MercadoLibre expiró o ya fue utilizado.</p>
+            <p>Para generar el token automáticamente, necesitás autorizar nuevamente la conexión.</p>
+            <p><a href="/sce/oauth/mercadolibre/start">Reintentar conexión ahora</a></p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
             """
