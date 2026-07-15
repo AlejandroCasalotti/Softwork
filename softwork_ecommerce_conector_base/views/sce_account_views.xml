@@ -50,36 +50,35 @@
                     </group>
                     <group string="Conexión MercadoLibre">
                         <group>
+                            <field name="state" readonly="1"/>
+                            <field name="external_user_id" readonly="1"/>
+                            <field name="last_connection_check" readonly="1"/>
+                            <field name="last_error" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="token_expires_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <button name="action_open_oauth_url" type="object" string="Conectar con MercadoLibre" class="btn-primary"/>
+                        <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
+                    </group>
+                    <group string="OAuth / Tokens (advanced)" invisible="1">
+                        <group>
                             <field name="client_id"/>
                             <field name="client_secret" password="True"/>
                             <field name="redirect_uri"/>
                             <field name="oauth_url" readonly="1"/>
                             <field name="provider_timeout_seconds"/>
-                        </group>
-                        <group>
-                            <field name="external_user_id" readonly="1"/>
-                            <field name="token_expires_at" readonly="1"/>
-                            <field name="token_circuit_open_until" readonly="1"/>
-                            <field name="token_refresh_fail_count" readonly="1"/>
-                            <field name="last_token_refresh_error" readonly="1"/>
-                            <field name="last_connection_check" readonly="1"/>
-                            <field name="last_error" readonly="1"/>
-                        </group>
-                    </group>
-                    <group>
-                        <button name="action_open_oauth_url" type="object" string="Conectar MercadoLibre" class="btn-primary"/>
-                        <button name="action_refresh_token" type="object" string="Refrescar Token" invisible="state != 'connected'"/>
-                        <button name="action_force_unlock_token_refresh" type="object" string="Forzar desbloqueo refresh" invisible="not token_refresh_in_progress"/>
-                        <button name="action_reset_token_circuit" type="object" string="Reset circuit breaker" invisible="not token_circuit_open_until"/>
-                    </group>
-                    <group string="OAuth / Tokens (advanced)" invisible="1">
-                        <group>
                             <field name="auth_code"/>
                             <field name="access_token" password="True"/>
                             <field name="refresh_token" password="True"/>
                             <field name="token_type" readonly="1"/>
                             <field name="token_refresh_in_progress" readonly="1"/>
                             <field name="token_refresh_started_at" readonly="1"/>
+                            <field name="token_circuit_open_until" readonly="1"/>
+                            <field name="token_refresh_fail_count" readonly="1"/>
+                            <field name="last_token_refresh_error" readonly="1"/>
                         </group>
                         <group>
                             <field name="credentials_json" widget="text"/>

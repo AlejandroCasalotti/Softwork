@@ -97,12 +97,73 @@ class SceAccount(models.Model):
             else:
                 rec.oauth_url = False
 
+    @api.model
+    def get_or_create_quick_ml_account(self, company=None):
+        company = company or self.env.company
+        connector = self.env["sce.connector"].search(
+            [
+                ("provider_type", "=", "mercadolibre"),
+                ("company_id", "=", company.id),
+                ("active", "=", True),
+            ],
+            limit=1,
+        )
+        if not connector:
+            connector = self.env["sce.connector"].create(
+                {
+                    "name": "MercadoLibre",
+                    "code": "mercadolibre",
+                    "provider_type": "mercadolibre",
+                    "state": "active",
+                    "active": True,
+                    "company_id": company.id,
+                }
+            )
+
+        account = self.search(
+            [
+                ("connector_id", "=", connector.id),
+                ("company_id", "=", company.id),
+                ("active", "=", True),
+            ],
+            limit=1,
+        )
+        if account:
+            return account
+
+        client_id = (
+            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.client_id", "") or ""
+        )
+        client_secret = (
+            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.client_secret", "") or ""
+        )
+        redirect_uri = (
+            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.redirect_uri", "") or ""
+        )
+
+        return self.create(
+            {
+                "name": "Cuenta MercadoLibre",
+                "connector_id": connector.id,
+                "company_id": company.id,
+                "active": True,
+                "state": "draft",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+            }
+        )
+
     def action_open_oauth_url(self):
         self.ensure_one()
         if self.connector_id.provider_type != "mercadolibre":
             raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
         if not self.client_id or not self.redirect_uri:
-            raise UserError("No se pudo generar URL OAuth. Verifica client_id y redirect_uri.")
+            raise UserError(
+                "Falta configurar Client ID / Client Secret / Redirect URI. "
+                "Cargalos en Parámetros del sistema: "
+                "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
+            )
         verifier, challenge = self._generate_pkce_pair()
         self.oauth_code_verifier = verifier
         params = urlencode(

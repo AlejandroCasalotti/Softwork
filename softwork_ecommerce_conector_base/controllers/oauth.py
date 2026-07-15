@@ -6,6 +6,19 @@ from odoo.http import request
 class SceOAuthController(http.Controller):
 
     @http.route(
+        ["/sce/oauth/mercadolibre/start"],
+        type="http",
+        auth="user",
+        methods=["GET"],
+        csrf=False,
+    )
+    def sce_ml_oauth_start(self, **kwargs):
+        company = request.env.company
+        account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
+        action = account.action_open_oauth_url()
+        return request.redirect(action.get("url"))
+
+    @http.route(
         ["/sce/oauth/mercadolibre/callback"],
         type="http",
         auth="user",
@@ -36,7 +49,7 @@ class SceOAuthController(http.Controller):
                     "last_error": f"OAuth error: {error}",
                 }
             )
-            return request.redirect(f"/web#id={account.id}&model=sce.account&view_type=form")
+            return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
         if code:
             try:
@@ -49,5 +62,33 @@ class SceOAuthController(http.Controller):
                         "last_error": str(err),
                     }
                 )
+                return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
-        return request.redirect(f"/web#id={account.id}&model=sce.account&view_type=form")
+        return request.redirect("/sce/oauth/mercadolibre/result?status=ok")
+
+    @http.route(
+        ["/sce/oauth/mercadolibre/result"],
+        type="http",
+        auth="user",
+        methods=["GET"],
+        csrf=False,
+    )
+    def sce_ml_oauth_result(self, **kwargs):
+        status = kwargs.get("status")
+        if status == "ok":
+            html = """
+            <html><body style="font-family: Arial, sans-serif; padding: 24px;">
+            <h2>✅ Cuenta conectada correctamente</h2>
+            <p>Tu cuenta de MercadoLibre ya está conectada y sincronizada automáticamente.</p>
+            <p><a href="/web">Volver a Odoo</a></p>
+            </body></html>
+            """
+        else:
+            html = """
+            <html><body style="font-family: Arial, sans-serif; padding: 24px;">
+            <h2>⚠️ No se pudo completar la conexión</h2>
+            <p>Reintentá la conexión desde Odoo. Si persiste, revisá la configuración OAuth.</p>
+            <p><a href="/web">Volver a Odoo</a></p>
+            </body></html>
+            """
+        return request.make_response(html, headers=[("Content-Type", "text/html; charset=utf-8")])
