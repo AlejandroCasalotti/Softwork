@@ -15,8 +15,14 @@ class SceOAuthController(http.Controller):
     def sce_ml_oauth_start(self, **kwargs):
         company = request.env.company
         account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
-        action = account.action_open_oauth_url()
-        return request.redirect(action.get("url"))
+        try:
+            action = account.action_open_oauth_url()
+            return request.redirect(action.get("url"))
+        except Exception as err:
+            msg = str(err) or "No se pudo iniciar la conexión OAuth."
+            if "sce.mercadolibre.client_id" in msg or "Redirect URI" in msg:
+                return request.redirect("/sce/oauth/mercadolibre/result?status=missing_config")
+            return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
     @http.route(
         ["/sce/oauth/mercadolibre/callback"],
@@ -80,6 +86,21 @@ class SceOAuthController(http.Controller):
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
             <h2>✅ Cuenta conectada correctamente</h2>
             <p>Tu cuenta de MercadoLibre ya está conectada y sincronizada automáticamente.</p>
+            <p><a href="/web">Volver a Odoo</a></p>
+            </body></html>
+            """
+        elif status == "missing_config":
+            html = """
+            <html><body style="font-family: Arial, sans-serif; padding: 24px;">
+            <h2>⚙️ Falta configuración inicial</h2>
+            <p>Para conectar MercadoLibre necesitamos configurar credenciales OAuth una sola vez.</p>
+            <p>Parámetros requeridos:</p>
+            <ul>
+              <li><code>sce.mercadolibre.client_id</code></li>
+              <li><code>sce.mercadolibre.client_secret</code></li>
+              <li><code>sce.mercadolibre.redirect_uri</code></li>
+            </ul>
+            <p><a href="/web#action=base.action_system_parameter">Ir a Parámetros del sistema</a></p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
             """
