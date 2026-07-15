@@ -2,18 +2,17 @@
 
 <odoo>
 
-    <!-- Cost Management Menu -->
+    <!-- Softwork Product Management -->
 
-    <menuitem id="menu_sw_product_cost_root"
-              name="Cost Management"
-              parent="product.menu_product_root"
-              sequence="80"/>
+    <menuitem id="menu_sw_product_root"
+              name="Softwork Products"
+              sequence="60"/>
 
 
-    <menuitem id="menu_sw_product_cost_rules"
-              name="Cost Rules"
-              parent="menu_sw_product_cost_root"
-              action="action_sw_product_cost_rules"
+    <menuitem id="menu_sw_product_brand"
+              name="Brands"
+              parent="menu_sw_product_root"
+              action="action_sw_product_brand"
               sequence="10"/>
 
 </odoo>
