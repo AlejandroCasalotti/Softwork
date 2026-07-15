@@ -30,7 +30,6 @@ Features
         "mail",
         "product",
         "stock",
-        "sw_product_pricing_base",
     ],
     "data": [
         "security/ir.model.access.csv",
