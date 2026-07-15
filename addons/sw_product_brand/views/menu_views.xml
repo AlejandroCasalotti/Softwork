@@ -1,18 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <odoo>
 
-    <!-- Softwork Product Management -->
+    <!-- ====================================================== -->
+    <!-- Menu -->
+    <!-- ====================================================== -->
 
-    <menuitem id="menu_sw_product_root"
-              name="Softwork Products"
-              sequence="60"/>
+    <menuitem
+        id="menu_sw_product_brand_root"
+        name="Brands"
+        sequence="100"/>
 
-
-    <menuitem id="menu_sw_product_brand"
-              name="Brands"
-              parent="menu_sw_product_root"
-              action="action_sw_product_brand"
-              sequence="10"/>
+    <menuitem
+        id="menu_sw_product_brand"
+        name="Brands"
+        parent="menu_sw_product_brand_root"
+        action="action_sw_product_brand"
+        sequence="10"/>
 
 </odoo>
