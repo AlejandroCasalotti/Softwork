@@ -4,19 +4,33 @@ from odoo import fields, models
 
 
 class SWProductCostRuleLine(models.Model):
+    """
+    Product Cost Rule Lines.
+
+    Allows cascading cost operations inside
+    a single product cost rule.
+    """
 
     _name = "sw.product.cost.rule.line"
     _description = "Product Cost Rule Line"
     _order = "sequence, id"
 
 
+    # ---------------------------------------------------------
+    # Relation
+    # ---------------------------------------------------------
+
     rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
-        string="Rule",
+        string="Cost Rule",
         required=True,
         ondelete="cascade",
     )
 
+
+    # ---------------------------------------------------------
+    # Basic information
+    # ---------------------------------------------------------
 
     name = fields.Char(
         string="Description",
@@ -27,90 +41,97 @@ class SWProductCostRuleLine(models.Model):
     sequence = fields.Integer(
         string="Sequence",
         default=10,
+        help="Order in which this operation is executed.",
     )
 
 
     active = fields.Boolean(
+        string="Active",
         default=True,
     )
 
 
-    operation = fields.Selection(
+    # ---------------------------------------------------------
+    # Operation
+    # ---------------------------------------------------------
+
+    operation_type = fields.Selection(
         selection=[
-            ("increase", "Increase"),
-            ("discount", "Discount"),
-            ("margin", "Sales Margin"),
+            (
+                "increase_percentage",
+                "Increase Percentage"
+            ),
+            (
+                "increase_fixed",
+                "Increase Fixed Amount"
+            ),
+            (
+                "discount_percentage",
+                "Discount Percentage"
+            ),
+            (
+                "discount_fixed",
+                "Discount Fixed Amount"
+            ),
         ],
         string="Operation",
         required=True,
-        default="increase",
-    )
-
-
-    value_type = fields.Selection(
-        selection=[
-            ("percentage", "Percentage"),
-            ("fixed", "Fixed Amount"),
-        ],
-        string="Value Type",
-        required=True,
-        default="percentage",
+        default="increase_percentage",
     )
 
 
     value = fields.Float(
         string="Value",
         required=True,
-        default=0,
+        default=0.0,
     )
 
 
-    def apply(self, amount):
+    # ---------------------------------------------------------
+    # Calculation
+    # ---------------------------------------------------------
+
+    def apply_operation(self, amount):
+        """
+        Apply this line operation.
+
+        Receives current amount and returns
+        calculated amount.
+        """
 
         self.ensure_one()
 
 
-        if self.value_type == "percentage":
+        if not self.active:
+            return amount
 
 
-            percent = self.value / 100
+        # Increase %
+        if self.operation_type == "increase_percentage":
+
+            return amount + (
+                amount * self.value / 100
+            )
 
 
-            if self.operation == "discount":
+        # Increase fixed
+        elif self.operation_type == "increase_fixed":
 
-                return amount * (
-                    1 - percent
-                )
-
-
-            elif self.operation == "increase":
-
-                return amount * (
-                    1 + percent
-                )
+            return amount + self.value
 
 
-            elif self.operation == "margin":
+        # Discount %
+        elif self.operation_type == "discount_percentage":
 
-                if percent >= 1:
-                    return amount
-
-                return amount / (
-                    1 - percent
-                )
+            return amount - (
+                amount * self.value / 100
+            )
 
 
-        elif self.value_type == "fixed":
+        # Discount fixed
+        elif self.operation_type == "discount_fixed":
 
-
-            if self.operation == "discount":
-
-                return amount - self.value
-
-
-            else:
-
-                return amount + self.value
+            return amount - self.value
 
 
         return amount
