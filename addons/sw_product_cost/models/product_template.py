@@ -4,9 +4,31 @@ from odoo import api, fields, models
 
 
 class ProductTemplate(models.Model):
+    """
+    Extension of product.template.
+
+    Applies advanced cost rules with
+    sequential calculation lines.
+    """
 
     _inherit = "product.template"
 
+
+    # ---------------------------------------------------------
+    # Base cost
+    # ---------------------------------------------------------
+
+    sw_cost_amount = fields.Float(
+        string="Base Cost",
+        compute="_compute_sw_cost_values",
+        store=True,
+        help="Original product cost.",
+    )
+
+
+    # ---------------------------------------------------------
+    # Applied rule
+    # ---------------------------------------------------------
 
     sw_cost_rule_id = fields.Many2one(
         "sw.product.cost.rule",
@@ -16,19 +38,21 @@ class ProductTemplate(models.Model):
     )
 
 
-    sw_base_cost = fields.Float(
-        string="Base Cost",
-        compute="_compute_sw_cost_values",
-        store=True,
-    )
-
+    # ---------------------------------------------------------
+    # Final calculated cost
+    # ---------------------------------------------------------
 
     sw_final_cost = fields.Float(
         string="Final Calculated Cost",
         compute="_compute_sw_cost_values",
         store=True,
+        help="Cost after applying all rule operations.",
     )
 
+
+    # ---------------------------------------------------------
+    # Suggested price
+    # ---------------------------------------------------------
 
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
@@ -37,18 +61,25 @@ class ProductTemplate(models.Model):
     )
 
 
-    def _get_sw_cost_rule(self):
+    # =========================================================
+    # Find rule
+    # =========================================================
+
+    def _find_cost_rule(self):
 
         self.ensure_one()
 
         Rule = self.env["sw.product.cost.rule"]
 
+
         rules = Rule.search(
             [
                 ("active", "=", True),
-                "|",
-                ("company_id", "=", self.env.company.id),
-                ("company_id", "=", False),
+                (
+                    "|",
+                    ("company_id", "=", self.company_id.id),
+                    ("company_id", "=", False),
+                ),
             ],
             order="sequence asc",
         )
@@ -56,35 +87,24 @@ class ProductTemplate(models.Model):
 
         for rule in rules:
 
-            if rule.rule_type == "global":
+            if rule.match_product(self):
                 return rule
-
-
-            if rule.rule_type == "product":
-                if rule.product_id == self:
-                    return rule
-
-
-            if rule.rule_type == "category":
-                if rule.categ_id == self.categ_id:
-                    return rule
-
-
-            if rule.rule_type == "brand":
-
-                if hasattr(self, "brand_id"):
-
-                    if rule.brand_id == self.brand_id:
-                        return rule
 
 
         return False
 
 
 
+    # =========================================================
+    # Calculate costs
+    # =========================================================
+
     @api.depends(
         "standard_price",
         "categ_id",
+        "company_id",
+        "sw_cost_rule_id",
+        "sw_cost_rule_id.line_ids",
         "sw_cost_rule_id.line_ids.sequence",
         "sw_cost_rule_id.line_ids.operation",
         "sw_cost_rule_id.line_ids.value",
@@ -94,33 +114,41 @@ class ProductTemplate(models.Model):
         for product in self:
 
 
-            rule = product._get_sw_cost_rule()
+            base_cost = product.standard_price
+
+
+            product.sw_cost_amount = base_cost
+
+
+            rule = product._find_cost_rule()
+
 
             product.sw_cost_rule_id = rule
 
 
-            base = product.standard_price
-
-
-            product.sw_base_cost = base
-
 
             if rule:
 
-                product.sw_final_cost = (
-                    rule.calculate_cost(base)
+
+                final_cost = rule.calculate_cost(
+                    base_cost
                 )
 
 
-                product.sw_suggested_price = (
-                    rule.calculate_sale_price(
-                        product.sw_final_cost
-                    )
-                )
+                product.sw_final_cost = final_cost
+
+
+                # La regla ya calcula precio final
+                # usando margen incluido
+
+                product.sw_suggested_price = final_cost
+
 
 
             else:
 
-                product.sw_final_cost = base
 
-                product.sw_suggested_price = base
+                product.sw_final_cost = base_cost
+
+
+                product.sw_suggested_price = base_cost

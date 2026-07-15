@@ -3,61 +3,38 @@
 <odoo>
 
 
-    <!-- ===================================================== -->
-    <!-- Cost Rule Tree View -->
-    <!-- ===================================================== -->
-
-
-    <record id="sw_product_cost_rule_tree_view"
+    <record id="sw_product_cost_rule_list_view"
             model="ir.ui.view">
 
-
         <field name="name">
-            sw.product.cost.rule.tree
+            sw.product.cost.rule.list
         </field>
-
 
         <field name="model">
             sw.product.cost.rule
         </field>
 
-
         <field name="arch"
                type="xml">
 
-
-            <tree string="Cost Rules">
-
+            <list>
 
                 <field name="sequence"/>
-
                 <field name="name"/>
-
                 <field name="rule_type"/>
-
                 <field name="company_id"/>
-
                 <field name="active"/>
 
-
-            </tree>
-
+            </list>
 
         </field>
-
 
     </record>
 
 
 
-    <!-- ===================================================== -->
-    <!-- Cost Rule Form View -->
-    <!-- ===================================================== -->
-
-
     <record id="sw_product_cost_rule_form_view"
             model="ir.ui.view">
-
 
         <field name="name">
             sw.product.cost.rule.form
@@ -73,7 +50,7 @@
                type="xml">
 
 
-            <form string="Cost Rule">
+            <form>
 
 
                 <sheet>
@@ -81,42 +58,26 @@
 
                     <group>
 
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="sequence"/>
+                        <field name="company_id"/>
+                        <field name="rule_type"/>
 
-                        <group>
-
-
-                            <field name="name"/>
-
-                            <field name="active"/>
-
-                            <field name="sequence"/>
-
-                            <field name="company_id"/>
+                    </group>
 
 
-                        </group>
+                    <group>
+
+                        <field name="product_id"
+                               invisible="rule_type != 'product'"/>
+
+                        <field name="categ_id"
+                               invisible="rule_type != 'category'"/>
 
 
-
-                        <group>
-
-
-                            <field name="rule_type"/>
-
-
-                            <field name="product_id"
-                                   invisible="rule_type != 'product'"/>
-
-
-                            <field name="categ_id"
-                                   invisible="rule_type != 'category'"/>
-
-
-                            <field name="brand_id"
-                                   invisible="rule_type != 'brand'"/>
-
-
-                        </group>
+                        <field name="brand_id"
+                               invisible="rule_type != 'brand'"/>
 
 
                     </group>
@@ -126,45 +87,29 @@
                     <notebook>
 
 
-                        <!-- ================================= -->
-                        <!-- Cascade Calculation -->
-                        <!-- ================================= -->
+                        <page string="Calculation Steps">
 
 
-                        <page string="Calculation Steps"
-                              name="calculation_steps">
+                            <field name="line_ids">
 
 
-                            <field name="line_ids"
-                                   nolabel="1">
-
-
-                                <tree editable="bottom">
+                                <list editable="bottom">
 
 
                                     <field name="sequence"/>
-
-
                                     <field name="name"/>
-
-
                                     <field name="operation"/>
-
-
                                     <field name="value_type"/>
-
-
                                     <field name="value"/>
 
 
-                                </tree>
+                                </list>
 
 
                             </field>
 
 
                         </page>
-
 
 
                     </notebook>
@@ -178,50 +123,7 @@
 
         </field>
 
-
     </record>
-
-
-
-    <!-- ===================================================== -->
-    <!-- Action -->
-    <!-- ===================================================== -->
-
-
-    <record id="sw_product_cost_rule_action"
-            model="ir.actions.act_window">
-
-
-        <field name="name">
-            Cost Rules
-        </field>
-
-
-        <field name="res_model">
-            sw.product.cost.rule
-        </field>
-
-
-        <field name="view_mode">
-            tree,form
-        </field>
-
-
-    </record>
-
-
-
-    <!-- ===================================================== -->
-    <!-- Menu -->
-    <!-- ===================================================== -->
-
-
-    <menuitem
-        id="sw_product_cost_rule_menu"
-        name="Cost Rules"
-        parent="sw_product_cost.menu_configuration"
-        action="sw_product_cost_rule_action"
-        sequence="20"/>
 
 
 </odoo>
