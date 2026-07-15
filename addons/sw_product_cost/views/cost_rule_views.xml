@@ -3,93 +3,190 @@
 <odoo>
 
 
-<record id="sw_product_cost_rule_list_view" model="ir.ui.view">
+    <!-- ===================================================== -->
+    <!-- COST RULE LIST -->
+    <!-- ===================================================== -->
 
-    <field name="name">
-        sw.product.cost.rule.list
-    </field>
+    <record id="sw_product_cost_rule_list_view"
+            model="ir.ui.view">
 
-    <field name="model">
-        sw.product.cost.rule
-    </field>
+        <field name="name">
+            sw.product.cost.rule.list
+        </field>
 
-    <field name="arch" type="xml">
+        <field name="model">
+            sw.product.cost.rule
+        </field>
 
-        <list>
+        <field name="arch"
+               type="xml">
 
-            <field name="sequence"/>
-            <field name="name"/>
-            <field name="rule_type"/>
-            <field name="company_id"/>
-            <field name="active"/>
+            <list>
 
-        </list>
+                <field name="sequence"/>
 
-    </field>
+                <field name="name"/>
 
-</record>
+                <field name="rule_type"/>
 
+                <field name="company_id"/>
 
+                <field name="active"/>
 
-<record id="sw_product_cost_rule_form_view" model="ir.ui.view">
+            </list>
 
-    <field name="name">
-        sw.product.cost.rule.form
-    </field>
+        </field>
 
-    <field name="model">
-        sw.product.cost.rule
-    </field>
-
-    <field name="arch" type="xml">
-
-        <form>
-
-            <sheet>
-
-                <group>
-
-                    <field name="name"/>
-                    <field name="rule_type"/>
-                    <field name="sequence"/>
-                    <field name="company_id"/>
-
-                </group>
+    </record>
 
 
-                <notebook>
 
-                    <page string="Calculation">
+    <!-- ===================================================== -->
+    <!-- COST RULE FORM -->
+    <!-- ===================================================== -->
 
-                        <field name="line_ids">
-
-                            <list editable="bottom">
-
-                                <field name="sequence"/>
-                                <field name="name"/>
-                                <field name="operation"/>
-                                <field name="value_type"/>
-                                <field name="value"/>
-
-                            </list>
-
-                        </field>
-
-                    </page>
-
-                </notebook>
+    <record id="sw_product_cost_rule_form_view"
+            model="ir.ui.view">
 
 
-            </sheet>
+        <field name="name">
+            sw.product.cost.rule.form
+        </field>
 
 
-        </form>
+        <field name="model">
+            sw.product.cost.rule
+        </field>
 
 
-    </field>
+        <field name="arch"
+               type="xml">
 
 
-</record>
+            <form>
+
+
+                <sheet>
+
+
+                    <group>
+
+
+                        <group>
+
+
+                            <field name="name"/>
+
+
+                            <field name="active"/>
+
+
+                            <field name="sequence"/>
+
+
+                            <field name="company_id"/>
+
+
+                        </group>
+
+
+
+                        <group>
+
+
+                            <field name="rule_type"/>
+
+
+                            <field name="product_id"
+                                   invisible="rule_type != 'product'"/>
+
+
+                            <field name="categ_id"
+                                   invisible="rule_type != 'category'"/>
+
+
+                            <field name="brand_id"
+                                   invisible="rule_type != 'brand'"/>
+
+
+                        </group>
+
+
+                    </group>
+
+
+
+                    <separator string="Cost Calculation Steps"/>
+
+
+                    <field name="line_ids">
+
+
+                        <list editable="bottom">
+
+
+                            <field name="sequence"/>
+
+
+                            <field name="name"/>
+
+
+                            <field name="operation"/>
+
+
+                            <field name="value_type"/>
+
+
+                            <field name="value"/>
+
+
+                            <field name="active"/>
+
+
+                        </list>
+
+
+                    </field>
+
+
+
+                </sheet>
+
+
+            </form>
+
+
+        </field>
+
+
+    </record>
+
+
+
+    <!-- ===================================================== -->
+    <!-- ACTION -->
+    <!-- ===================================================== -->
+
+    <record id="action_sw_product_cost_rule"
+            model="ir.actions.act_window">
+
+
+        <field name="name">
+            Cost Rules
+        </field>
+
+
+        <field name="res_model">
+            sw.product.cost.rule
+        </field>
+
+
+        <field name="view_mode">
+            list,form
+        </field>
+
+
+    </record>
 
 
 </odoo>

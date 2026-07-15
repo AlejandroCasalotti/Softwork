@@ -3,58 +3,80 @@
 <odoo>
 
 
-<record id="sw_product_cost_product_template_form_view"
-        model="ir.ui.view">
+    <!-- ===================================================== -->
+    <!-- PRODUCT TEMPLATE FORM EXTENSION -->
+    <!-- ===================================================== -->
+
+    <record id="sw_product_cost_product_template_form_view"
+            model="ir.ui.view">
 
 
-    <field name="name">
-        product.template.form.sw.product.cost
-    </field>
+        <field name="name">
+            product.template.form.sw.product.cost
+        </field>
 
 
-    <field name="model">
-        product.template
-    </field>
+        <field name="model">
+            product.template
+        </field>
 
 
-    <field name="inherit_id"
-           ref="product.product_template_only_form_view"/>
+        <field name="inherit_id"
+               ref="product.product_template_only_form_view"/>
 
 
-    <field name="arch"
-           type="xml">
+        <field name="arch"
+               type="xml">
 
 
-        <xpath expr="//notebook"
-               position="inside">
+            <!-- Insert cost information in General Information -->
+
+            <xpath expr="//sheet/notebook"
+                   position="inside">
 
 
-            <page string="Cost Management">
+                <page string="Cost Management"
+                      name="sw_cost_management">
 
 
-                <group>
+                    <group>
 
 
-                    <field name="sw_cost_rule_id"/>
-
-                    <field name="sw_final_cost"/>
-
-                    <field name="sw_suggested_price"/>
+                        <group string="Cost Calculation">
 
 
-                </group>
+                            <field name="sw_cost_rule_id"
+                                   readonly="1"/>
 
 
-            </page>
+                            <field name="sw_base_cost"
+                                   readonly="1"/>
 
 
-        </xpath>
+                            <field name="sw_final_cost"
+                                   readonly="1"/>
 
 
-    </field>
+                            <field name="sw_suggested_price"
+                                   readonly="1"/>
 
 
-</record>
+                        </group>
+
+
+                    </group>
+
+
+                </page>
+
+
+            </xpath>
+
+
+        </field>
+
+
+    </record>
 
 
 </odoo>

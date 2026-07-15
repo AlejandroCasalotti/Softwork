@@ -1,19 +1,32 @@
 # -*- coding: utf-8 -*-
 
-from odoo import fields, models
+from odoo import api, fields, models
 
 
 class SWProductCostRule(models.Model):
     """
     Product cost calculation rule.
 
-    A rule contains multiple calculation lines.
-    Lines are executed sequentially.
+    A rule contains multiple calculation lines that are
+    executed sequentially (cascade).
+
+    Example:
+
+    Cost 100
+    - Discount 10%
+    + Freight 5%
+    + Margin 30%
+
+    Each line modifies the previous result.
     """
 
     _name = "sw.product.cost.rule"
     _description = "Product Cost Rule"
     _order = "sequence, id"
+
+    # ---------------------------------------------------------
+    # Basic information
+    # ---------------------------------------------------------
 
     name = fields.Char(
         string="Rule Name",
@@ -21,90 +34,104 @@ class SWProductCostRule(models.Model):
     )
 
     active = fields.Boolean(
+        string="Active",
         default=True,
     )
 
     sequence = fields.Integer(
-        default=10,
         string="Priority",
+        default=10,
+        help="Lower values are applied first.",
     )
 
     company_id = fields.Many2one(
         "res.company",
         string="Company",
         default=lambda self: self.env.company,
-        required=True,
+        index=True,
     )
 
+
+    # ---------------------------------------------------------
+    # Applicability
+    # ---------------------------------------------------------
+
     rule_type = fields.Selection(
-        [
+        selection=[
             ("global", "Global"),
             ("category", "Product Category"),
-            ("brand", "Brand"),
-            ("product", "Product"),
+            ("brand", "Product Brand"),
+            ("product", "Specific Product"),
         ],
+        string="Apply To",
         required=True,
         default="global",
     )
+
 
     product_id = fields.Many2one(
         "product.template",
         string="Product",
     )
 
+
     categ_id = fields.Many2one(
         "product.category",
         string="Category",
     )
+
 
     brand_id = fields.Many2one(
         "sw.product.brand",
         string="Brand",
     )
 
+
+    # ---------------------------------------------------------
+    # Cascade lines
+    # ---------------------------------------------------------
+
     line_ids = fields.One2many(
         "sw.product.cost.rule.line",
         "rule_id",
-        string="Calculation Lines",
+        string="Calculation Steps",
+        copy=True,
     )
 
 
-    def get_applicable_rule(self, product):
+    # ---------------------------------------------------------
+    # Validation
+    # ---------------------------------------------------------
 
-        domain = [
-            ("active", "=", True),
-            "|",
-            ("company_id", "=", product.company_id.id),
-            ("company_id", "=", False),
-        ]
+    @api.constrains(
+        "rule_type",
+        "product_id",
+        "categ_id",
+        "brand_id",
+    )
+    def _check_rule_target(self):
 
-        rules = self.search(
-            domain,
-            order="sequence asc"
-        )
+        for rule in self:
 
-        for rule in rules:
+            if rule.rule_type == "product" and not rule.product_id:
+                raise ValueError(
+                    "Product rule requires a product."
+                )
 
-            if rule.rule_type == "global":
-                return rule
+            if rule.rule_type == "category" and not rule.categ_id:
+                raise ValueError(
+                    "Category rule requires a category."
+                )
 
-            if rule.rule_type == "product":
-                if rule.product_id == product:
-                    return rule
+            if rule.rule_type == "brand" and not rule.brand_id:
+                raise ValueError(
+                    "Brand rule requires a brand."
+                )
 
-            if rule.rule_type == "category":
-                if rule.categ_id == product.categ_id:
-                    return rule
 
-            if rule.rule_type == "brand":
-
-                if hasattr(product, "brand_id"):
-
-                    if rule.brand_id == product.brand_id:
-                        return rule
-
-        return False
-
+    # ---------------------------------------------------------
+    # Calculation engine
+    # ---------------------------------------------------------
 
     def calculate_cost(self, base_cost):
 
@@ -112,8 +139,64 @@ class SWProductCostRule(models.Model):
 
         result = base_cost
 
-        for line in self.line_ids.sorted("sequence"):
+        lines = self.line_ids.sorted(
+            key=lambda x: x.sequence
+        )
 
-            result = line.apply_operation(result)
+        for line in lines:
+
+            result = line.apply(
+                result
+            )
 
         return result
+
+
+    # ---------------------------------------------------------
+    # Helper
+    # ---------------------------------------------------------
+
+    def get_rule_for_product(self, product):
+
+        Rule = self.env["sw.product.cost.rule"]
+
+        rules = Rule.search(
+            [
+                ("active", "=", True),
+                "|",
+                    ("company_id", "=", product.company_id.id),
+                    ("company_id", "=", False),
+            ],
+            order="sequence asc",
+        )
+
+
+        for rule in rules:
+
+            if rule.rule_type == "global":
+                return rule
+
+
+            if (
+                rule.rule_type == "product"
+                and rule.product_id == product
+            ):
+                return rule
+
+
+            if (
+                rule.rule_type == "category"
+                and rule.categ_id == product.categ_id
+            ):
+                return rule
+
+
+            if (
+                rule.rule_type == "brand"
+                and hasattr(product, "brand_id")
+                and rule.brand_id == product.brand_id
+            ):
+                return rule
+
+
+        return False
