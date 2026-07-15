@@ -1,20 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <odoo>
 
-    <!-- ====================================================== -->
-    <!-- Menu -->
-    <!-- ====================================================== -->
+    <!-- Cost Management Menu -->
 
-    <menuitem
-        id="menu_sw_product_brand_root"
-        name="Brands"
-        sequence="100"/>
+    <menuitem id="menu_sw_product_cost_root"
+              name="Cost Management"
+              parent="product.menu_product_root"
+              sequence="80"/>
 
-    <menuitem
-        id="menu_sw_product_brand"
-        name="Brands"
-        parent="menu_sw_product_brand_root"
-        action="action_sw_product_brand"
-        sequence="10"/>
+
+    <menuitem id="menu_sw_product_cost_rules"
+              name="Cost Rules"
+              parent="menu_sw_product_cost_root"
+              action="action_sw_product_cost_rules"
+              sequence="10"/>
 
 </odoo>
