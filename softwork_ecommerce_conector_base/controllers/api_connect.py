@@ -26,11 +26,15 @@ class SceApiConnectController(http.Controller):
             except Exception:
                 return None
             domain += [("id", "=", account_id)]
-        elif external_ref:
+            return env.search(domain, limit=1)
+        if external_ref:
             domain += [("external_account_ref", "=", external_ref)]
-        else:
-            return None
-        return env.search(domain, limit=1)
+            return env.search(domain, limit=1)
+        return None
+
+    def _get_or_create_quick_ml_account(self):
+        company = request.env.company
+        return request.env["sce.account"].with_user(request.env.user).sudo().get_or_create_quick_ml_account(company=company)
 
     def _step_payload(self, account):
         if account.state == "connected":
@@ -62,17 +66,27 @@ class SceApiConnectController(http.Controller):
         payload = request.jsonrequest or {}
         account = self._resolve_account(payload)
         if not account:
-            return self._json_error("Account not found", 404)
+            account = self._get_or_create_quick_ml_account()
+
         if account.connector_id.provider_type != "mercadolibre":
             return self._json_error("Only mercadolibre provider is supported in this endpoint", 400)
-        if not account.client_id or not account.redirect_uri:
-            return self._json_error("Missing OAuth configuration: client_id/redirect_uri", 400)
+
+        # Sincronizar credenciales de onboarding si existen
+        account._sync_onboarding_to_oauth_fields()
+
+        oauth_ready = bool(account.client_id and account.redirect_uri)
+        oauth_url = False
+        if oauth_ready:
+            action = account.action_open_oauth_url()
+            oauth_url = action.get("url")
 
         return self._json_ok(
             {
                 "account_id": account.id,
                 "state": account.state,
-                "oauth_url": account.oauth_url,
+                "oauth_ready": oauth_ready,
+                "oauth_url": oauth_url,
+                "missing_fields": [] if oauth_ready else ["ml_client_id", "ml_client_secret", "ml_redirect_uri"],
                 **self._step_payload(account),
             }
         )

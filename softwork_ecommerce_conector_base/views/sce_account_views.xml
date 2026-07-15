@@ -4,16 +4,12 @@
         <field name="name">sce.account.tree</field>
         <field name="model">sce.account</field>
         <field name="arch" type="xml">
-            <list string="Accounts">
+            <list string="Integraciones">
                 <field name="name"/>
                 <field name="connector_id"/>
-                <field name="state"/>
-                <field name="jobs_done_count"/>
-                <field name="jobs_failed_count"/>
-                <field name="avg_duration_ms"/>
-                <field name="external_account_ref"/>
                 <field name="last_connection_check"/>
-                <field name="company_id"/>
+                <field name="state" widget="badge" decoration-success="state == 'connected'" decoration-warning="state == 'draft'" decoration-danger="state == 'error'"/>
+                <field name="mode" widget="badge" decoration-success="mode == 'production'" decoration-warning="mode == 'sandbox'"/>
                 <field name="active"/>
             </list>
         </field>
@@ -23,53 +19,72 @@
         <field name="name">sce.account.form</field>
         <field name="model">sce.account</field>
         <field name="arch" type="xml">
-            <form string="Account">
+            <form string="Integración">
+                <header>
+                    <button name="action_start_onboarding_connection" type="object" string="Conectar MercadoLibre" class="btn-primary" invisible="state == 'connected'"/>
+                    <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
+                </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Producción" bg_color="text-bg-success" invisible="mode != 'production'"/>
+                    <widget name="web_ribbon" title="Sandbox" bg_color="text-bg-warning" invisible="mode != 'sandbox'"/>
+
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected'">
+                        Completá los datos de Odoo y de tu app de MercadoLibre para conectar en un clic.
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected'">
+                        Cuenta conectada correctamente con MercadoLibre.
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="not last_error">
+                        <field name="last_error" readonly="1" nolabel="1"/>
+                    </div>
+
+                    <label for="name" class="oe_edit_only"/>
+                    <h1><field name="name" placeholder="Ej: Cuenta MercadoLibre Principal"/></h1>
+
                     <group>
                         <group>
-                            <field name="name"/>
                             <field name="connector_id"/>
                             <field name="company_id"/>
+                            <field name="mode"/>
                             <field name="active"/>
                         </group>
                         <group>
-                            <field name="state"/>
+                            <field name="external_user_id" readonly="1"/>
                             <field name="external_account_ref"/>
                             <field name="last_connection_check" readonly="1"/>
-                            <field name="last_error" readonly="1"/>
-                        </group>
-                    </group>
-                    <group string="Operational Metrics">
-                        <group>
-                            <field name="jobs_done_count" readonly="1"/>
-                            <field name="jobs_failed_count" readonly="1"/>
-                        </group>
-                        <group>
-                            <field name="avg_duration_ms" readonly="1"/>
-                        </group>
-                    </group>
-                    <group string="Conexión MercadoLibre">
-                        <group>
-                            <field name="state" readonly="1"/>
-                            <field name="external_user_id" readonly="1"/>
-                            <field name="last_connection_check" readonly="1"/>
-                            <field name="last_error" readonly="1"/>
-                        </group>
-                        <group>
                             <field name="token_expires_at" readonly="1"/>
                         </group>
                     </group>
-                    <group>
-                        <button name="action_open_oauth_url" type="object" string="Conectar con MercadoLibre" class="btn-primary"/>
-                        <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
+
+                    <group string="Conexión con Odoo (API)">
+                        <group>
+                            <field name="odoo_base_url" placeholder="https://tu-odoo.com"/>
+                            <field name="odoo_db_name" placeholder="nombre_bd"/>
+                        </group>
+                        <group>
+                            <field name="odoo_user"/>
+                            <field name="odoo_password" password="True"/>
+                        </group>
                     </group>
-                    <group string="OAuth / Tokens (advanced)" invisible="1">
+
+                    <group string="App MercadoLibre">
+                        <group>
+                            <field name="ml_client_id"/>
+                            <field name="ml_client_secret" password="True"/>
+                        </group>
+                        <group>
+                            <field name="ml_redirect_uri" placeholder="https://tu-odoo.com/sce/oauth/mercadolibre/callback"/>
+                            <field name="provider_timeout_seconds"/>
+                        </group>
+                    </group>
+
+                    <group string="OAuth / Tokens (avanzado)" invisible="1">
                         <group>
                             <field name="client_id"/>
                             <field name="client_secret" password="True"/>
                             <field name="redirect_uri"/>
                             <field name="oauth_url" readonly="1"/>
-                            <field name="provider_timeout_seconds"/>
                             <field name="auth_code"/>
                             <field name="access_token" password="True"/>
                             <field name="refresh_token" password="True"/>
@@ -84,19 +99,6 @@
                             <field name="credentials_json" widget="text"/>
                         </group>
                     </group>
-                    <notebook>
-                        <page string="Jobs">
-                            <field name="job_ids" nolabel="1">
-                                <list>
-                                    <field name="name"/>
-                                    <field name="job_type"/>
-                                    <field name="state"/>
-                                    <field name="started_at"/>
-                                    <field name="finished_at"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
                 </sheet>
                 <chatter/>
             </form>

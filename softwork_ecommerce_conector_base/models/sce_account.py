@@ -67,6 +67,20 @@ class SceAccount(models.Model):
         help="Timeout máximo recomendado para operaciones del provider.",
     )
 
+    # Onboarding UX (cliente final)
+    mode = fields.Selection(
+        selection=[("sandbox", "Sandbox"), ("production", "Producción")],
+        default="production",
+        tracking=True,
+    )
+    odoo_base_url = fields.Char(string="URL de Odoo")
+    odoo_db_name = fields.Char(string="Base de datos Odoo")
+    odoo_user = fields.Char(string="Usuario Odoo")
+    odoo_password = fields.Char(string="API Key / Password Odoo")
+    ml_client_id = fields.Char(string="MercadoLibre Client ID")
+    ml_client_secret = fields.Char(string="MercadoLibre Client Secret")
+    ml_redirect_uri = fields.Char(string="MercadoLibre Redirect URI")
+
     def _generate_pkce_pair(self):
         verifier_raw = secrets.token_urlsafe(64)
         verifier = verifier_raw[:128]
@@ -151,8 +165,51 @@ class SceAccount(models.Model):
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "redirect_uri": redirect_uri,
+                "ml_client_id": client_id,
+                "ml_client_secret": client_secret,
+                "ml_redirect_uri": redirect_uri,
             }
         )
+
+    def _sync_onboarding_to_oauth_fields(self):
+        for rec in self:
+            vals = {}
+            if rec.ml_client_id:
+                vals["client_id"] = rec.ml_client_id
+            if rec.ml_client_secret:
+                vals["client_secret"] = rec.ml_client_secret
+            if rec.ml_redirect_uri:
+                vals["redirect_uri"] = rec.ml_redirect_uri
+            if vals:
+                rec.write(vals)
+
+    def action_start_onboarding_connection(self):
+        self.ensure_one()
+        if self.connector_id.provider_type != "mercadolibre":
+            raise UserError("Este onboarding rápido está disponible solo para cuentas MercadoLibre.")
+        missing = []
+        if not self.name:
+            missing.append("Nombre de cuenta")
+        if not self.odoo_base_url:
+            missing.append("URL de Odoo")
+        if not self.odoo_db_name:
+            missing.append("Base de datos Odoo")
+        if not self.odoo_user:
+            missing.append("Usuario Odoo")
+        if not self.odoo_password:
+            missing.append("API Key / Password Odoo")
+        if not self.ml_client_id:
+            missing.append("MercadoLibre Client ID")
+        if not self.ml_client_secret:
+            missing.append("MercadoLibre Client Secret")
+        if not self.ml_redirect_uri:
+            missing.append("MercadoLibre Redirect URI")
+
+        if missing:
+            raise UserError("Completá estos campos antes de conectar:\n- " + "\n- ".join(missing))
+
+        self._sync_onboarding_to_oauth_fields()
+        return self.action_open_oauth_url()
 
     def action_open_oauth_url(self):
         self.ensure_one()
