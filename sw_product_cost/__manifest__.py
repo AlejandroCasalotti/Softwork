@@ -30,6 +30,7 @@ with Softwork Commerce Engine (SCE).
         "product",
         "purchase",
         "sale_management",
+        "sw_product_brand",
         "mail",
     ],
 
