@@ -4,8 +4,7 @@
 
     <menuitem id="menu_sw_product_cost_root"
               name="Cost Management"
-              parent="sw_product_brand.menu_sw_product_root"
-              sequence="20"/>
+              sequence="70"/>
 
 
     <menuitem id="menu_sw_product_cost_rules"
