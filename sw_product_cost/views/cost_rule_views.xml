@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+
+    <!-- ===================================================== -->
+    <!-- Cost Rule Tree View -->
+    <!-- ===================================================== -->
+
+    <record id="sw_product_cost_rule_tree_view" model="ir.ui.view">
+        <field name="name">
+            sw.product.cost.rule.tree
+        </field>
+
+        <field name="model">
+            sw.product.cost.rule
+        </field>
+
+        <field name="arch" type="xml">
+
+            <tree string="Cost Rules">
+
+                <field name="sequence"/>
+
+                <field name="name"/>
+
+                <field name="rule_type"/>
+
+                <field name="margin_type"/>
+
+                <field name="margin_value"/>
+
+                <field name="company_id"/>
+
+                <field name="active"/>
+
+            </tree>
+
+        </field>
+    </record>
+
+
+    <!-- ===================================================== -->
+    <!-- Cost Rule Form View -->
+    <!-- ===================================================== -->
+
+    <record id="sw_product_cost_rule_form_view" model="ir.ui.view">
+
+        <field name="name">
+            sw.product.cost.rule.form
+        </field>
+
+        <field name="model">
+            sw.product.cost.rule
+        </field>
+
+        <field name="arch" type="xml">
+
+            <form string="Cost Rule">
+
+                <sheet>
+
+                    <group>
+
+                        <group>
+
+                            <field name="name"/>
+
+                            <field name="active"/>
+
+                            <field name="sequence"/>
+
+                            <field name="company_id"/>
+
+                        </group>
+
+
+                        <group>
+
+                            <field name="rule_type"/>
+
+                            <field name="margin_type"/>
+
+                            <field name="margin_value"/>
+
+                        </group>
+
+                    </group>
+
+
+                    <separator string="Rule Target"/>
+
+
+                    <group>
+
+                        <field name="product_id"
+                               invisible="rule_type != 'product'"/>
+
+
+                        <field name="categ_id"
+                               invisible="rule_type != 'category'"/>
+
+
+                        <field name="brand_id"
+                               invisible="rule_type != 'brand'"/>
+
+                    </group>
+
+
+                    <separator string="Information"/>
+
+
+                    <group>
+
+                        <label
+                            string="The rule with the lowest priority number is applied first."
+                        />
+
+                    </group>
+
+                </sheet>
+
+            </form>
+
+        </field>
+
+    </record>
+
+
+    <!-- ===================================================== -->
+    <!-- Action -->
+    <!-- ===================================================== -->
+
+    <record id="action_sw_product_cost_rule" model="ir.actions.act_window">
+
+        <field name="name">
+            Cost Rules
+        </field>
+
+        <field name="res_model">
+            sw.product.cost.rule
+        </field>
+
+        <field name="view_mode">
+            tree,form
+        </field>
+
+    </record>
+
+
+</odoo>

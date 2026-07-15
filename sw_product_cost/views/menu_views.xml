@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<odoo>
+
+    <!-- ===================================================== -->
+    <!-- Cost Management Menu -->
+    <!-- ===================================================== -->
+
+
+    <menuitem
+        id="menu_sw_product_cost_root"
+        name="Cost Management"
+        parent="product.menu_catalog"
+        sequence="80"
+    />
+
+
+    <menuitem
+        id="menu_sw_product_cost_rules"
+        name="Cost Rules"
+        parent="menu_sw_product_cost_root"
+        action="action_sw_product_cost_rule"
+        sequence="10"
+    />
+
+
+</odoo>
