@@ -1,4 +1,4 @@
 # -*- coding: utf-8 -*-
 
-from ....sw_product_brand.models import product_brand
-from ....sw_product_brand.models import product_template
+from . import product_brand
+from . import product_template
