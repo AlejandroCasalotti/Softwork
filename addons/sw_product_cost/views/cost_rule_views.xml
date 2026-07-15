@@ -17,7 +17,7 @@
 
         <field name="arch" type="xml">
 
-            <tree string="Cost Rules">
+            <list string="Cost Rules">
 
                 <field name="sequence"/>
 
@@ -33,7 +33,7 @@
 
                 <field name="active"/>
 
-            </tree>
+            </list>
 
         </field>
     </record>
@@ -141,7 +141,7 @@
         </field>
 
         <field name="view_mode">
-            tree,form
+            list,form
         </field>
 
     </record>
