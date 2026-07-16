@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import http
 from odoo.http import request
+
+_logger = logging.getLogger(__name__)
 
 
 class SceOAuthController(http.Controller):
@@ -35,6 +39,13 @@ class SceOAuthController(http.Controller):
         state = kwargs.get("state")
         code = kwargs.get("code") or kwargs.get("authorization_code")
         error = kwargs.get("error")
+        _logger.info(
+            "ML OAuth callback received: state=%s has_code=%s code_len=%s keys=%s",
+            state,
+            bool(code),
+            len((code or "").strip()),
+            sorted(list(kwargs.keys())),
+        )
 
         if not state:
             return request.redirect("/web#action=base.action_res_users")
@@ -60,6 +71,15 @@ class SceOAuthController(http.Controller):
         if code:
             try:
                 clean_code = (code or "").strip()
+                account.write({"auth_code": False})
+                if not account.oauth_code_verifier:
+                    account.write(
+                        {
+                            "state": "draft",
+                            "last_error": "Falta PKCE code_verifier vigente. Reautorizá la conexión.",
+                        }
+                    )
+                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
                 account.write({"auth_code": clean_code})
                 account.action_exchange_code()
             except Exception as err:

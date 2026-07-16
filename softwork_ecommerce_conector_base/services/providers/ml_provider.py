@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import time
 
 from odoo import fields
@@ -11,6 +12,8 @@ except Exception:  # pragma: no cover
     requests = None
 
 from ..provider_interface import IProvider
+
+_logger = logging.getLogger(__name__)
 
 
 class MercadoLibreProvider(IProvider):
@@ -99,6 +102,14 @@ class MercadoLibreProvider(IProvider):
             "redirect_uri": self.account.redirect_uri,
             "code_verifier": self.account.oauth_code_verifier,
         }
+        _logger.info(
+            "ML OAuth exchange request: grant_type=%s client_id=%s redirect_uri=%s has_code_verifier=%s code_len=%s",
+            payload.get("grant_type"),
+            (payload.get("client_id") or "")[:6] + "***" if payload.get("client_id") else "",
+            payload.get("redirect_uri"),
+            bool(payload.get("code_verifier")),
+            len(payload.get("code") or ""),
+        )
         data = self._request(
             "POST",
             self.BASE_AUTH_URL,
