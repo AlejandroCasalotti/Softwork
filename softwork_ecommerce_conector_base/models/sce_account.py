@@ -424,10 +424,46 @@ class SceAccount(models.Model):
                     company=rec.company_id,
                 )
             except Exception as err:
+                err_msg = str(err)
+                used_refresh_fallback = False
+
+                if "invalid_grant" in err_msg and rec.refresh_token:
+                    try:
+                        rec.action_refresh_token()
+                        used_refresh_fallback = True
+                    except Exception:
+                        used_refresh_fallback = False
+
+                if used_refresh_fallback:
+                    rec.write(
+                        {
+                            "state": "connected",
+                            "last_error": False,
+                            "auth_code": False,
+                            "oauth_code_verifier": False,
+                        }
+                    )
+                    event_model.emit_event(
+                        name=f"Token exchange fallback refresh success: {rec.display_name}",
+                        event_type="TokenExchangeFallbackRefreshSuccess",
+                        payload={"account_id": rec.id, "provider": rec.connector_id.provider_type},
+                        company=rec.company_id,
+                    )
+                    log_service.log(
+                        name="Token exchange fallback refresh success",
+                        message=f"OAuth code inválido en {rec.display_name}; se recuperó con refresh token.",
+                        level="WARNING",
+                        account=rec,
+                        connector=rec.connector_id,
+                        provider=rec.connector_id.provider_type,
+                        operation="token_exchange_fallback_refresh",
+                    )
+                    continue
+
                 rec.state = "error"
-                rec.last_error = str(err)
+                rec.last_error = err_msg
                 rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
-                rec.last_token_refresh_error = str(err)
+                rec.last_token_refresh_error = err_msg
                 if rec.token_refresh_fail_count >= 3:
                     rec._open_token_circuit(minutes=10)
                 rec.oauth_code_verifier = False
@@ -435,12 +471,12 @@ class SceAccount(models.Model):
                 event_model.emit_event(
                     name=f"Token exchange failed: {rec.display_name}",
                     event_type="TokenExchangeFailed",
-                    payload={"account_id": rec.id, "error": str(err)},
+                    payload={"account_id": rec.id, "error": err_msg},
                     company=rec.company_id,
                 )
                 log_service.log(
                     name="Token exchange failed",
-                    message=f"Token exchange failed for {rec.display_name}: {err}",
+                    message=f"Token exchange failed for {rec.display_name}: {err_msg}",
                     level="ERROR",
                     account=rec,
                     connector=rec.connector_id,
