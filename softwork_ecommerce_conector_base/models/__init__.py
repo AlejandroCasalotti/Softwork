@@ -7,3 +7,4 @@ from . import sce_event
 from . import sce_log
 from . import sce_subscription
 from . import sce_integration_status_wizard
+from . import sce_integration_status_snapshot

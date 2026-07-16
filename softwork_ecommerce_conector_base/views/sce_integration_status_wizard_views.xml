@@ -13,7 +13,19 @@
                     <group>
                         <field name="account_id" readonly="1"/>
                     </group>
-                    <field name="test_line_ids" nolabel="1" readonly="1">
+
+                    <group string="Resumen">
+                        <group>
+                            <field name="health_score" widget="progressbar" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="ok_count" readonly="1"/>
+                            <field name="warning_count" readonly="1"/>
+                            <field name="error_count" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <field name="test_line_ids" nolabel="1">
                         <list create="0" delete="0" edit="0">
                             <field name="test_name"/>
                             <field name="status" widget="badge"
@@ -22,10 +34,14 @@
                                    decoration-danger="status == 'error'"/>
                             <field name="message"/>
                             <field name="error_details"/>
+                            <field name="action_type" optional="show"/>
+                            <button name="action_execute_quick_fix" type="object" string="Acción rápida" icon="fa-bolt" invisible="action_type == 'none'"/>
                         </list>
                     </field>
                 </sheet>
                 <footer>
+                    <button name="action_export_csv" type="object" string="Exportar CSV" class="btn-secondary" icon="fa-download"/>
+                    <button name="action_rerun_diagnostic" type="object" string="Re-ejecutar diagnóstico" class="btn-secondary" icon="fa-refresh"/>
                     <button string="Cerrar" class="btn-primary" special="cancel"/>
                 </footer>
             </form>

@@ -243,13 +243,14 @@ class SceAccount(models.Model):
         user = self.env.user
         company = self.company_id or self.env.company
 
-        def add_test(name, status, message, details=None):
+        def add_test(name, status, message, details=None, action_type="none"):
             tests.append(
                 {
                     "test_name": name,
                     "status": status,
                     "message": message,
                     "error_details": details or False,
+                    "action_type": action_type,
                 }
             )
 
@@ -258,9 +259,9 @@ class SceAccount(models.Model):
             if db_name:
                 add_test("Connection Test", "success", "Conexión exitosa con la cuenta de Odoo", f"DB: {db_name}")
             else:
-                add_test("Connection Test", "error", "No se pudo detectar la base de datos de Odoo")
+                add_test("Connection Test", "error", "No se pudo detectar la base de datos de Odoo", action_type="open_settings")
         except Exception as err:
-            add_test("Connection Test", "error", "Error de conexión con Odoo", str(err))
+            add_test("Connection Test", "error", "Error de conexión con Odoo", str(err), action_type="open_settings")
 
         version = self.env["ir.config_parameter"].sudo().get_param("web.base.version") or "N/D"
         add_test("Odoo Version", "success", f"Versión actual de su base de Odoo: {version}", f"Versión completa: {version}")
@@ -287,7 +288,7 @@ class SceAccount(models.Model):
         if warehouse:
             add_test("Warehouse", "success", f"El almacén '{warehouse.name}' está configurado para la integración")
         else:
-            add_test("Warehouse", "warning", "No se encontró un almacén configurado")
+            add_test("Warehouse", "warning", "No se encontró un almacén configurado", action_type="open_warehouse")
 
         add_test("Salesperson User", "success", f"El usuario Comercial '{user.name}' está configurado para la integración")
 
@@ -298,20 +299,20 @@ class SceAccount(models.Model):
         if stock_location:
             add_test("Stock Location", "success", f"La ubicación de stock '{stock_location.display_name}' está configurada para la integración")
         else:
-            add_test("Stock Location", "warning", "No se encontró ubicación de stock interna")
+            add_test("Stock Location", "warning", "No se encontró ubicación de stock interna", action_type="open_locations")
 
         pricelist = self.env["product.pricelist"].sudo().search([("company_id", "in", [company.id, False])], limit=1)
         if pricelist:
             add_test("Pricelist", "success", f"La lista de precios '{pricelist.name}' está configurada para su integración")
         else:
-            add_test("Pricelist", "warning", "No se encontró lista de precios configurada")
+            add_test("Pricelist", "warning", "No se encontró lista de precios configurada", action_type="open_pricelist")
 
         add_test("Excluded Products", "success", "No exclusion domain set. All products will be considered for sync.")
 
         if self.access_token:
             add_test("MercadoLibre Connection", "success", "Conexión exitosa a su cuenta de MercadoLibre")
         else:
-            add_test("MercadoLibre Connection", "error", "No hay access token de MercadoLibre configurado")
+            add_test("MercadoLibre Connection", "error", "No hay access token de MercadoLibre configurado", action_type="reconnect")
 
         l10n_ar = module_env.search([("name", "=", "l10n_ar"), ("state", "=", "installed")], limit=1)
         if l10n_ar:
@@ -327,17 +328,54 @@ class SceAccount(models.Model):
                 total = data.get("paging", {}).get("total", 0) if isinstance(data, dict) else 0
                 add_test("MercadoLibre Items", "success", f"Se encontraron {total} publicaciones en su cuenta de MercadoLibre")
             except Exception as err:
-                add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err))
+                add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err), action_type="reconnect")
         else:
-            add_test("MercadoLibre Items", "warning", "No se pudo validar publicaciones porque no hay access token")
+            add_test("MercadoLibre Items", "warning", "No se pudo validar publicaciones porque no hay access token", action_type="reconnect")
 
         return tests
 
+    def _compute_health_summary(self, tests):
+        ok = len([t for t in tests if t.get("status") == "success"])
+        warning = len([t for t in tests if t.get("status") == "warning"])
+        error = len([t for t in tests if t.get("status") == "error"])
+        total = ok + warning + error
+        score = 100
+        if total:
+            score = max(0, min(100, int(((ok * 1.0) + (warning * 0.5)) / total * 100)))
+        return {
+            "ok_count": ok,
+            "warning_count": warning,
+            "error_count": error,
+            "health_score": score,
+        }
+
+    def _create_status_snapshot(self, tests):
+        self.ensure_one()
+        summary = self._compute_health_summary(tests)
+        snapshot = self.env["sce.integration.status.snapshot"].create({
+            "name": f"Diagnóstico {self.display_name}",
+            "account_id": self.id,
+            "health_score": summary["health_score"],
+            "ok_count": summary["ok_count"],
+            "warning_count": summary["warning_count"],
+            "error_count": summary["error_count"],
+            "line_ids": [(0, 0, {
+                "test_name": t.get("test_name"),
+                "status": t.get("status"),
+                "message": t.get("message"),
+                "error_details": t.get("error_details"),
+                "action_type": t.get("action_type", "none"),
+            }) for t in tests],
+        })
+        return snapshot, summary
+
     def action_check_integration_status(self):
         self.ensure_one()
+        tests = self._run_integration_status_tests()
+        self._create_status_snapshot(tests)
         wizard = self.env["sce.integration.status.wizard"].create({
             "account_id": self.id,
-            "test_line_ids": [(0, 0, vals) for vals in self._run_integration_status_tests()],
+            "test_line_ids": [(0, 0, vals) for vals in tests],
         })
         return {
             "type": "ir.actions.act_window",
@@ -347,6 +385,32 @@ class SceAccount(models.Model):
             "res_id": wizard.id,
             "target": "new",
         }
+
+    @api.model
+    def cron_daily_integration_status_snapshot(self):
+        activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
+        accounts = self.search([("active", "=", True)])
+        for acc in accounts:
+            try:
+                tests = acc._run_integration_status_tests()
+                snapshot, summary = acc._create_status_snapshot(tests)
+                if summary["health_score"] < 70 or summary["error_count"] > 0:
+                    if activity_type:
+                        self.env["mail.activity"].create({
+                            "res_model_id": self.env["ir.model"]._get_id("sce.account"),
+                            "res_id": acc.id,
+                            "activity_type_id": activity_type.id,
+                            "summary": "Alerta de salud de integración",
+                            "note": (
+                                f"Health score: {summary['health_score']}\n"
+                                f"Errores: {summary['error_count']}\n"
+                                f"Warnings: {summary['warning_count']}\n"
+                                f"Snapshot ID: {snapshot.id}"
+                            ),
+                            "user_id": acc.create_uid.id or self.env.user.id,
+                        })
+            except Exception as err:
+                acc.last_error = str(err)
 
     def action_open_oauth_url(self):
         self.ensure_one()

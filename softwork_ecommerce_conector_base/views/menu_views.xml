@@ -21,6 +21,7 @@
 
     <menuitem id="menu_sce_connector" name="Connectors" parent="menu_sce_configuration" action="action_sce_connector" sequence="10"/>
     <menuitem id="menu_sce_account" name="Accounts" parent="menu_sce_configuration" action="action_sce_account" sequence="20"/>
+    <menuitem id="menu_sce_integration_status_snapshot" name="Historial Diagnósticos" parent="menu_sce_operations" action="action_sce_integration_status_snapshot" sequence="25"/>
 
     <menuitem id="menu_sce_job" name="Jobs" parent="menu_sce_operations" action="action_sce_job" sequence="10"/>
     <menuitem id="menu_sce_log" name="Logs" parent="menu_sce_operations" action="action_sce_log" sequence="20"/>
