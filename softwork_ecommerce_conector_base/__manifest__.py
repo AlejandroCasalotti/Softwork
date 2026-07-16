@@ -36,6 +36,7 @@ Incluye:
         "views/sce_job_views.xml",
         "views/sce_log_views.xml",
         "views/sce_subscription_views.xml",
+        "views/sce_integration_status_wizard_views.xml",
         "views/menu_views.xml",
     ],
     "demo": [],

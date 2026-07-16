@@ -23,6 +23,7 @@
                 <header>
                     <button name="action_start_onboarding_connection" type="object" string="Conectar MercadoLibre" class="btn-primary" invisible="state == 'connected'"/>
                     <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
+                    <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
                 </header>
                 <sheet>

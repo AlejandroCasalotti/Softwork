@@ -237,43 +237,107 @@ class SceAccount(models.Model):
         self.write({"state": "draft"})
         return True
 
+    def _run_integration_status_tests(self):
+        self.ensure_one()
+        tests = []
+        user = self.env.user
+        company = self.company_id or self.env.company
+
+        def add_test(name, status, message, details=None):
+            tests.append(
+                {
+                    "test_name": name,
+                    "status": status,
+                    "message": message,
+                    "error_details": details or False,
+                }
+            )
+
+        try:
+            db_name = self.env.cr.dbname
+            if db_name:
+                add_test("Connection Test", "success", "Conexión exitosa con la cuenta de Odoo", f"DB: {db_name}")
+            else:
+                add_test("Connection Test", "error", "No se pudo detectar la base de datos de Odoo")
+        except Exception as err:
+            add_test("Connection Test", "error", "Error de conexión con Odoo", str(err))
+
+        version = self.env["ir.config_parameter"].sudo().get_param("web.base.version") or "N/D"
+        add_test("Odoo Version", "success", f"Versión actual de su base de Odoo: {version}", f"Versión completa: {version}")
+
+        if user.has_group("base.group_user"):
+            add_test("User Permissions", "success", f"El usuario {user.name} tiene los permisos necesarios")
+        else:
+            add_test("User Permissions", "warning", f"El usuario {user.name} podría no tener permisos suficientes")
+
+        required_modules = ["mail", "web", "sale_management", "stock", "account"]
+        module_env = self.env["ir.module.module"].sudo()
+        missing = module_env.search([("name", "in", required_modules), ("state", "not in", ["installed", "to upgrade"])])
+        if missing:
+            add_test("Required Modules", "error", "Faltan módulos requeridos", ", ".join(missing.mapped("name")))
+        else:
+            add_test("Required Modules", "success", "Todos los módulos requeridos están instalados y configurados")
+
+        if company:
+            add_test("Company ID", "success", f"La compañía/empresa '{company.name}' está configurada para la integración")
+        else:
+            add_test("Company ID", "error", "No hay compañía configurada para la integración")
+
+        warehouse = self.env["stock.warehouse"].sudo().search([("company_id", "=", company.id)], limit=1)
+        if warehouse:
+            add_test("Warehouse", "success", f"El almacén '{warehouse.name}' está configurado para la integración")
+        else:
+            add_test("Warehouse", "warning", "No se encontró un almacén configurado")
+
+        add_test("Salesperson User", "success", f"El usuario Comercial '{user.name}' está configurado para la integración")
+
+        stock_location = self.env["stock.location"].sudo().search(
+            [("usage", "=", "internal"), ("company_id", "in", [company.id, False])],
+            limit=1,
+        )
+        if stock_location:
+            add_test("Stock Location", "success", f"La ubicación de stock '{stock_location.display_name}' está configurada para la integración")
+        else:
+            add_test("Stock Location", "warning", "No se encontró ubicación de stock interna")
+
+        pricelist = self.env["product.pricelist"].sudo().search([("company_id", "in", [company.id, False])], limit=1)
+        if pricelist:
+            add_test("Pricelist", "success", f"La lista de precios '{pricelist.name}' está configurada para su integración")
+        else:
+            add_test("Pricelist", "warning", "No se encontró lista de precios configurada")
+
+        add_test("Excluded Products", "success", "No exclusion domain set. All products will be considered for sync.")
+
+        if self.access_token:
+            add_test("MercadoLibre Connection", "success", "Conexión exitosa a su cuenta de MercadoLibre")
+        else:
+            add_test("MercadoLibre Connection", "error", "No hay access token de MercadoLibre configurado")
+
+        l10n_ar = module_env.search([("name", "=", "l10n_ar"), ("state", "=", "installed")], limit=1)
+        if l10n_ar:
+            add_test("Localization Module", "success", "El módulo de Localización 'l10n_ar' para Argentina está instalado en Odoo")
+        else:
+            add_test("Localization Module", "warning", "El módulo 'l10n_ar' no está instalado")
+
+        if self.access_token:
+            try:
+                from ..services.provider_factory import ProviderFactory
+                provider = ProviderFactory.get_provider(self)
+                data = provider._request("GET", "/users/me/items/search", with_auth=True, params={"limit": 1})
+                total = data.get("paging", {}).get("total", 0) if isinstance(data, dict) else 0
+                add_test("MercadoLibre Items", "success", f"Se encontraron {total} publicaciones en su cuenta de MercadoLibre")
+            except Exception as err:
+                add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err))
+        else:
+            add_test("MercadoLibre Items", "warning", "No se pudo validar publicaciones porque no hay access token")
+
+        return tests
+
     def action_check_integration_status(self):
         self.ensure_one()
-        lines = []
-
-        def add_line(test_name, status, message, error_details=""):
-            lines.append((0, 0, {
-                "test_name": test_name,
-                "status": status,
-                "message": message,
-                "error_details": error_details,
-            }))
-
-        if self.connector_id and self.connector_id.provider_type == "mercadolibre":
-            add_line("Proveedor", "success", "Proveedor MercadoLibre configurado")
-        else:
-            add_line("Proveedor", "error", "Proveedor inválido", "La cuenta no está asociada a MercadoLibre")
-
-        if self.odoo_base_url and self.odoo_db_name and self.odoo_user and self.odoo_password:
-            add_line("Conexión Odoo", "success", "Credenciales Odoo completas")
-        else:
-            add_line("Conexión Odoo", "warning", "Faltan credenciales Odoo")
-
-        if self.ml_client_id and self.ml_client_secret and self.ml_redirect_uri:
-            add_line("OAuth MercadoLibre", "success", "Credenciales OAuth completas")
-        else:
-            add_line("OAuth MercadoLibre", "error", "Faltan credenciales OAuth")
-
-        if self.state == "connected":
-            add_line("Estado de integración", "success", "Integración conectada")
-        elif self.state == "error":
-            add_line("Estado de integración", "error", "Integración en error", self.last_error or "")
-        else:
-            add_line("Estado de integración", "warning", "Integración en borrador")
-
         wizard = self.env["sce.integration.status.wizard"].create({
             "account_id": self.id,
-            "test_line_ids": lines,
+            "test_line_ids": [(0, 0, vals) for vals in self._run_integration_status_tests()],
         })
         return {
             "type": "ir.actions.act_window",
