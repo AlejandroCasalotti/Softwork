@@ -69,7 +69,11 @@ class SceOAuthController(http.Controller):
                             "state": "draft",
                             "auth_code": False,
                             "oauth_code_verifier": False,
-                            "last_error": "El código OAuth expiró o ya fue usado. Reautorizá la conexión.",
+                            "access_token": False,
+                            "refresh_token": False,
+                            "token_type": False,
+                            "token_expires_at": False,
+                            "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
                         }
                     )
                     return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
@@ -119,8 +123,8 @@ class SceOAuthController(http.Controller):
             html = """
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
             <h2>🔁 Reautorización requerida</h2>
-            <p>El código OAuth de MercadoLibre expiró o ya fue utilizado.</p>
-            <p>Para generar el token automáticamente, necesitás autorizar nuevamente la conexión.</p>
+            <p>El código OAuth o el refresh token de MercadoLibre son inválidos (expirados/revocados).</p>
+            <p>Se limpiaron los tokens previos para evitar bucles. Para continuar, autorizá nuevamente la conexión.</p>
             <p><a href="/sce/oauth/mercadolibre/start">Reintentar conexión ahora</a></p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
