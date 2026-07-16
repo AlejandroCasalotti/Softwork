@@ -2,6 +2,7 @@
 import json
 import logging
 import time
+from datetime import timedelta
 
 from odoo import fields
 from odoo.exceptions import UserError
@@ -119,7 +120,7 @@ class MercadoLibreProvider(IProvider):
         )
         elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
-        token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
+        token_expires_at = fields.Datetime.now() + timedelta(seconds=expires_in) if expires_in else False
 
         external_user_id = False
         access = data.get("access_token")
@@ -168,7 +169,7 @@ class MercadoLibreProvider(IProvider):
         )
         elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
-        token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
+        token_expires_at = fields.Datetime.now() + timedelta(seconds=expires_in) if expires_in else False
 
         return self._ok(
             action="refresh_token",
