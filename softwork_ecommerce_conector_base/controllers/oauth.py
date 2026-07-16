@@ -71,7 +71,6 @@ class SceOAuthController(http.Controller):
         if code:
             try:
                 clean_code = (code or "").strip()
-                account.write({"auth_code": False})
                 if not account.oauth_code_verifier:
                     account.write(
                         {

@@ -96,11 +96,11 @@ class MercadoLibreProvider(IProvider):
             raise UserError("Falta code_verifier (PKCE). Presiona 'Conectar MercadoLibre' nuevamente.")
         payload = {
             "grant_type": "authorization_code",
-            "client_id": self.account.client_id,
+            "client_id": (self.account.client_id or "").strip(),
             "client_secret": self.account.client_secret,
-            "code": self.account.auth_code,
-            "redirect_uri": self.account.redirect_uri,
-            "code_verifier": self.account.oauth_code_verifier,
+            "code": (self.account.auth_code or "").strip(),
+            "redirect_uri": (self.account.redirect_uri or "").strip(),
+            "code_verifier": (self.account.oauth_code_verifier or "").strip(),
         }
         _logger.info(
             "ML OAuth exchange request: grant_type=%s client_id=%s redirect_uri=%s has_code_verifier=%s code_len=%s",

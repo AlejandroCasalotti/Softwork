@@ -99,16 +99,12 @@ class SceAccount(models.Model):
     def _compute_oauth_url(self):
         for rec in self:
             if rec.connector_id.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
-                verifier, challenge = rec._generate_pkce_pair()
-                rec.oauth_code_verifier = verifier
                 params = urlencode(
                     {
                         "response_type": "code",
                         "client_id": rec.client_id,
                         "redirect_uri": rec.redirect_uri,
                         "state": str(rec.id),
-                        "code_challenge": challenge,
-                        "code_challenge_method": "S256",
                     }
                 )
                 rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
@@ -299,7 +295,7 @@ class SceAccount(models.Model):
                 "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
             )
         verifier, challenge = self._generate_pkce_pair()
-        self.oauth_code_verifier = verifier
+        self.write({"oauth_code_verifier": verifier})
         params = urlencode(
             {
                 "response_type": "code",
