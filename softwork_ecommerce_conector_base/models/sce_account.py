@@ -429,9 +429,29 @@ class SceAccount(models.Model):
 
                 if "invalid_grant" in err_msg and rec.refresh_token:
                     try:
-                        rec.action_refresh_token()
-                        used_refresh_fallback = True
-                    except Exception:
+                        from ..services.provider_factory import ProviderFactory
+                        provider = ProviderFactory.get_provider(rec)
+                        refresh_result = provider.refresh_token()
+                        if refresh_result.get("access_token"):
+                            rec.write(
+                                {
+                                    "access_token": refresh_result.get("access_token"),
+                                    "refresh_token": refresh_result.get("refresh_token") or rec.refresh_token,
+                                    "token_type": refresh_result.get("token_type") or rec.token_type,
+                                    "token_expires_at": refresh_result.get("token_expires_at"),
+                                    "state": "connected",
+                                    "last_error": False,
+                                    "token_refresh_fail_count": 0,
+                                    "last_token_refresh_error": False,
+                                    "token_circuit_open_until": False,
+                                    "auth_code": False,
+                                    "oauth_code_verifier": False,
+                                }
+                            )
+                            rec._sync_credentials_blob()
+                            used_refresh_fallback = True
+                    except Exception as refresh_err:
+                        err_msg = f"{err_msg} | refresh_fallback_error: {refresh_err}"
                         used_refresh_fallback = False
 
                 if used_refresh_fallback:
