@@ -33,7 +33,7 @@ class SceOAuthController(http.Controller):
     )
     def sce_ml_oauth_callback(self, **kwargs):
         state = kwargs.get("state")
-        code = kwargs.get("code")
+        code = kwargs.get("code") or kwargs.get("authorization_code")
         error = kwargs.get("error")
 
         if not state:
@@ -59,7 +59,8 @@ class SceOAuthController(http.Controller):
 
         if code:
             try:
-                account.write({"auth_code": code})
+                clean_code = (code or "").strip()
+                account.write({"auth_code": clean_code})
                 account.action_exchange_code()
             except Exception as err:
                 err_msg = str(err)

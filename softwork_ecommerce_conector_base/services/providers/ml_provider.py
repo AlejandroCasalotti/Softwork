@@ -34,9 +34,12 @@ class MercadoLibreProvider(IProvider):
         if not requests:
             raise UserError("La librería Python 'requests' no está disponible en el entorno Odoo.")
 
-    def _request(self, method, endpoint, payload=None, params=None, with_auth=True):
+    def _request(self, method, endpoint, payload=None, params=None, with_auth=True, form_encoded=False):
         self._ensure_requests()
         headers = {"Content-Type": "application/json"}
+        if form_encoded:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+
         if with_auth:
             token = self.account.access_token
             if not token:
@@ -49,14 +52,18 @@ class MercadoLibreProvider(IProvider):
             timeout_seconds = 30
         started_at = time.monotonic()
         try:
-            response = requests.request(
-                method=method,
-                url=url,
-                json=payload,
-                params=params,
-                headers=headers,
-                timeout=timeout_seconds,
-            )
+            request_kwargs = {
+                "method": method,
+                "url": url,
+                "params": params,
+                "headers": headers,
+                "timeout": timeout_seconds,
+            }
+            if form_encoded:
+                request_kwargs["data"] = payload
+            else:
+                request_kwargs["json"] = payload
+            response = requests.request(**request_kwargs)
         except requests.Timeout:
             raise UserError(
                 f"Tiempo de espera agotado ({timeout_seconds}s) al conectar con MercadoLibre. "
@@ -92,7 +99,13 @@ class MercadoLibreProvider(IProvider):
             "redirect_uri": self.account.redirect_uri,
             "code_verifier": self.account.oauth_code_verifier,
         }
-        data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False)
+        data = self._request(
+            "POST",
+            self.BASE_AUTH_URL,
+            payload=payload,
+            with_auth=False,
+            form_encoded=True,
+        )
         elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
         token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
@@ -135,7 +148,13 @@ class MercadoLibreProvider(IProvider):
             "client_secret": self.account.client_secret,
             "refresh_token": self.account.refresh_token,
         }
-        data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False)
+        data = self._request(
+            "POST",
+            self.BASE_AUTH_URL,
+            payload=payload,
+            with_auth=False,
+            form_encoded=True,
+        )
         elapsed_ms = (data.get("_meta") or {}).get("elapsed_ms") if isinstance(data, dict) else None
         expires_in = int(data.get("expires_in", 0) or 0)
         token_expires_at = fields.Datetime.now() + fields.DateUtils.to_timedelta(seconds=expires_in) if expires_in else False
