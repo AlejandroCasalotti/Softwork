@@ -40,12 +40,16 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="account_id"/>
+                            <field name="account_id" domain="[('connector_id.provider_type', '=', 'odoo')]"/>
                             <field name="company_id" readonly="1"/>
                             <field name="migration_mode"/>
                             <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
                             <field name="batch_size"/>
                             <field name="continue_on_error"/>
+                            <label for="account_id"/>
+                            <div class="o_row">
+                                <button name="%(action_sce_account)d" type="action" string="Configurar cuenta Odoo Origen/Destino" class="btn-link"/>
+                            </div>
                         </group>
                         <group>
                             <field name="source_version" readonly="1"/>
@@ -106,9 +110,15 @@
         <field name="arch" type="xml">
             <form string="Asistente de migración Odoo a Odoo">
                 <group>
-                    <field name="account_id"/>
+                    <field name="account_id" domain="[('connector_id.provider_type', '=', 'odoo')]"/>
                     <field name="migration_mode"/>
                     <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
+                </group>
+                <group>
+                    <label for="account_id"/>
+                    <div class="o_row">
+                        <button name="%(action_sce_account)d" type="action" string="Ir a Accounts para cargar Origen y Destino" class="btn-link"/>
+                    </div>
                 </group>
                 <group string="Módulos">
                     <field name="sync_partners"/>
