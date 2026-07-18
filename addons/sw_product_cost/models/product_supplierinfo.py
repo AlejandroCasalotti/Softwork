@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from odoo import api, fields, models
-from odoo.osv import expression
 
 
 class ProductSupplierInfo(models.Model):
@@ -43,13 +42,12 @@ class ProductSupplierInfo(models.Model):
         """
 
 
-        domain = expression.AND([
-            expression.OR([
-                [("product_tmpl_id", "=", product.id)],
-                [("product_id", "in", product.product_variant_ids.ids)],
-            ]),
-            [("min_qty", "<=", quantity)],
-        ])
+        domain = [
+            ("min_qty", "<=", quantity),
+            "|",
+            ("product_tmpl_id", "=", product.id),
+            ("product_id", "in", product.product_variant_ids.ids),
+        ]
 
 
         suppliers = self.search(
