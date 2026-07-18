@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from odoo import api, fields, models
+from odoo.osv import expression
 
 
 class ProductSupplierInfo(models.Model):
     """
     Extension of product.supplierinfo.
-
     Provides supplier cost information
     for advanced cost calculation.
     """
@@ -36,33 +36,20 @@ class ProductSupplierInfo(models.Model):
     def get_reference_cost(self, product, quantity=1.0):
         """
         Get the supplier cost to use as base cost.
-
         Priority:
-
         1. Supplier marked as reference.
         2. First valid supplier.
         3. Product standard price fallback.
         """
 
 
-        domain = [
-            "|",
-            (
-                "product_tmpl_id",
-                "=",
-                product.id,
-            ),
-            (
-                "product_id",
-                "in",
-                product.product_variant_ids.ids,
-            ),
-            (
-                "min_qty",
-                "<=",
-                quantity,
-            ),
-        ]
+        domain = expression.AND([
+            expression.OR([
+                [("product_tmpl_id", "=", product.id)],
+                [("product_id", "in", product.product_variant_ids.ids)],
+            ]),
+            [("min_qty", "<=", quantity)],
+        ])
 
 
         suppliers = self.search(

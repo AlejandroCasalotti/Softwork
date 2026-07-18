@@ -6,29 +6,20 @@ from odoo import fields, models
 class SWProductCostRuleLine(models.Model):
     """
     Product Cost Rule Line.
-
     Each line represents one step of the
     cost calculation cascade.
-
     Example:
-
     Cost: 100
-
     Line 1:
     Discount 10%
-
     Result:
     90
-
     Line 2:
     Freight +5%
-
     Result:
     94.50
-
     Line 3:
     Margin +30%
-
     Result:
     135
     """

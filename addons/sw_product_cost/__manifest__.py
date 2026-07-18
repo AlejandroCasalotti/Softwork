@@ -5,9 +5,7 @@
     "summary": "Advanced product cost rules and margin management",
     "description": """
 Softwork Product Cost Management
-
 Module for advanced product cost management.
-
 Features:
 - Product cost rules
 - Cost calculation framework
@@ -16,7 +14,6 @@ Features:
 - Product cost history preparation
 - Multi-company compatibility
 - Odoo.sh compatible
-
 Designed as a foundation for future integration
 with Softwork Commerce Engine (SCE).
 """,

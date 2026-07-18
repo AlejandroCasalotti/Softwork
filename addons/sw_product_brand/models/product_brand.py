@@ -2,7 +2,6 @@
 
 """
 Softwork Product Brand
-
 Brand model.
 """
 

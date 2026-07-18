@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
+
 from odoo import api, fields, models
+
+
 
 
 class ProductTemplate(models.Model):
@@ -9,12 +12,16 @@ class ProductTemplate(models.Model):
     cost calculation management.
     """
 
+
     _inherit = "product.template"
+
+
 
 
     # ---------------------------------------------------------
     # Applied rule
     # ---------------------------------------------------------
+
 
     sw_cost_rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
@@ -24,9 +31,12 @@ class ProductTemplate(models.Model):
     )
 
 
+
+
     # ---------------------------------------------------------
     # Base cost
     # ---------------------------------------------------------
+
 
     sw_base_cost = fields.Float(
         string="Base Cost",
@@ -36,9 +46,12 @@ class ProductTemplate(models.Model):
     )
 
 
+
+
     # ---------------------------------------------------------
     # Final calculated cost
     # ---------------------------------------------------------
+
 
     sw_final_cost = fields.Float(
         string="Calculated Cost",
@@ -48,9 +61,12 @@ class ProductTemplate(models.Model):
     )
 
 
+
+
     # ---------------------------------------------------------
     # Suggested sale price
     # ---------------------------------------------------------
+
 
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
@@ -59,52 +75,73 @@ class ProductTemplate(models.Model):
     )
 
 
+
+
     # ---------------------------------------------------------
     # Compute engine
     # ---------------------------------------------------------
+
 
     @api.depends(
         "standard_price",
         "categ_id",
         "company_id",
+        "brand_id",
     )
     def _compute_sw_cost_values(self):
+
 
         Rule = self.env[
             "sw.product.cost.rule"
         ]
 
 
+
+
         for product in self:
+
+
 
 
             # -------------------------------------------------
             # Base cost
             # -------------------------------------------------
 
+
             base_cost = product.standard_price
 
 
+
+
             product.sw_base_cost = base_cost
+
+
 
 
             # -------------------------------------------------
             # Find rule
             # -------------------------------------------------
 
+
             rule = Rule.get_rule_for_product(
                 product
             )
 
 
+
+
             product.sw_cost_rule_id = rule
+
+
 
 
             # -------------------------------------------------
             # Apply cascade
             # -------------------------------------------------
 
+
             if rule:
+
 
                 calculated_cost = (
                     rule.calculate_cost(
@@ -112,9 +149,14 @@ class ProductTemplate(models.Model):
                     )
                 )
 
+
             else:
 
+
                 calculated_cost = base_cost
+
+
+
 
 
 
@@ -122,9 +164,13 @@ class ProductTemplate(models.Model):
 
 
 
+
+
+
             # -------------------------------------------------
             # Suggested sale price
             # -------------------------------------------------
+
 
             product.sw_suggested_price = (
                 calculated_cost

@@ -5,9 +5,7 @@
     "summary": "Manage product brands and manufacturers.",
     "description": """
 Softwork Product Brand
-
 Adds brand management to products.
-
 Main Features
 -------------
 * Product brands

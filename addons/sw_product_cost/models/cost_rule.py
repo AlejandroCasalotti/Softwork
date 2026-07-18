@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
 
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class SWProductCostRule(models.Model):
     """
     Product cost calculation rule.
-
     A rule contains multiple calculation lines that are
     executed sequentially (cascade).
-
     Example:
-
     Cost 100
     - Discount 10%
     + Freight 5%
     + Margin 30%
-
     Each line modifies the previous result.
     """
 
@@ -114,17 +111,17 @@ class SWProductCostRule(models.Model):
         for rule in self:
 
             if rule.rule_type == "product" and not rule.product_id:
-                raise ValueError(
+                raise ValidationError(
                     "Product rule requires a product."
                 )
 
             if rule.rule_type == "category" and not rule.categ_id:
-                raise ValueError(
+                raise ValidationError(
                     "Category rule requires a category."
                 )
 
             if rule.rule_type == "brand" and not rule.brand_id:
-                raise ValueError(
+                raise ValidationError(
                     "Brand rule requires a brand."
                 )
 

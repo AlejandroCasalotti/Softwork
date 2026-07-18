@@ -2,7 +2,6 @@
 
 """
 Softwork Product Brand
-
 Product Template extension.
 """
 
