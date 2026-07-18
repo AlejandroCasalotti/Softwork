@@ -17,7 +17,7 @@ class SWProductCostRule(models.Model):
     Each line modifies the previous result.
     """
 
-    _name = "sw.product.cost"
+    _name = "cost.rule"
     _description = "Product Cost Rule"
     _order = "sequence, id"
 
