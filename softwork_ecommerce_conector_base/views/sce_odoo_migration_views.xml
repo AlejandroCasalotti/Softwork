@@ -12,6 +12,11 @@
                 <field name="migrated_partners"/>
                 <field name="migrated_products"/>
                 <field name="migrated_taxes"/>
+                <field name="migrated_sales"/>
+                <field name="migrated_purchases"/>
+                <field name="migrated_invoices"/>
+                <field name="migrated_warehouses"/>
+                <field name="migrated_locations"/>
                 <field name="started_at"/>
                 <field name="finished_at"/>
             </list>
@@ -39,12 +44,15 @@
                             <field name="company_id" readonly="1"/>
                             <field name="migration_mode"/>
                             <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
+                            <field name="batch_size"/>
+                            <field name="continue_on_error"/>
                         </group>
                         <group>
                             <field name="source_version" readonly="1"/>
                             <field name="target_version" readonly="1"/>
                             <field name="started_at" readonly="1"/>
                             <field name="finished_at" readonly="1"/>
+                            <field name="error_count" readonly="1"/>
                         </group>
                     </group>
 
@@ -53,11 +61,21 @@
                             <field name="sync_partners"/>
                             <field name="sync_products"/>
                             <field name="sync_taxes"/>
+                            <field name="sync_sales"/>
+                            <field name="sync_purchases"/>
+                            <field name="sync_invoices"/>
+                            <field name="sync_stock_warehouses"/>
+                            <field name="sync_stock_locations"/>
                         </group>
                         <group>
                             <field name="migrated_partners" readonly="1"/>
                             <field name="migrated_products" readonly="1"/>
                             <field name="migrated_taxes" readonly="1"/>
+                            <field name="migrated_sales" readonly="1"/>
+                            <field name="migrated_purchases" readonly="1"/>
+                            <field name="migrated_invoices" readonly="1"/>
+                            <field name="migrated_warehouses" readonly="1"/>
+                            <field name="migrated_locations" readonly="1"/>
                         </group>
                     </group>
 
@@ -96,6 +114,11 @@
                     <field name="sync_partners"/>
                     <field name="sync_products"/>
                     <field name="sync_taxes"/>
+                    <field name="sync_sales"/>
+                    <field name="sync_purchases"/>
+                    <field name="sync_invoices"/>
+                    <field name="sync_stock_warehouses"/>
+                    <field name="sync_stock_locations"/>
                 </group>
                 <footer>
                     <button name="action_start" type="object" string="Iniciar migración" class="btn-primary"/>
