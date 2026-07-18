@@ -201,31 +201,64 @@ class SceAccount(models.Model):
 
     def action_start_onboarding_connection(self):
         self.ensure_one()
-        if self.connector_id.provider_type != "mercadolibre":
-            raise UserError("Este onboarding rápido está disponible solo para cuentas MercadoLibre.")
-        missing = []
-        if not self.name:
-            missing.append("Nombre de cuenta")
-        if not self.odoo_base_url:
-            missing.append("URL de Odoo")
-        if not self.odoo_db_name:
-            missing.append("Base de datos Odoo")
-        if not self.odoo_user:
-            missing.append("Usuario Odoo")
-        if not self.odoo_password:
-            missing.append("API Key / Password Odoo")
-        if not self.ml_client_id:
-            missing.append("MercadoLibre Client ID")
-        if not self.ml_client_secret:
-            missing.append("MercadoLibre Client Secret")
-        if not self.ml_redirect_uri:
-            missing.append("MercadoLibre Redirect URI")
+        provider = self.connector_id.provider_type
 
-        if missing:
-            raise UserError("Completá estos campos antes de conectar:\n- " + "\n- ".join(missing))
+        if provider == "mercadolibre":
+            missing = []
+            if not self.name:
+                missing.append("Nombre de cuenta")
+            if not self.odoo_base_url:
+                missing.append("URL de Odoo")
+            if not self.odoo_db_name:
+                missing.append("Base de datos Odoo")
+            if not self.odoo_user:
+                missing.append("Usuario Odoo")
+            if not self.odoo_password:
+                missing.append("API Key / Password Odoo")
+            if not self.ml_client_id:
+                missing.append("MercadoLibre Client ID")
+            if not self.ml_client_secret:
+                missing.append("MercadoLibre Client Secret")
+            if not self.ml_redirect_uri:
+                missing.append("MercadoLibre Redirect URI")
 
-        self._sync_onboarding_to_oauth_fields()
-        return self.action_open_oauth_url()
+            if missing:
+                raise UserError("Completá estos campos antes de conectar:\n- " + "\n- ".join(missing))
+
+            self._sync_onboarding_to_oauth_fields()
+            return self.action_open_oauth_url()
+
+        if provider == "odoo":
+            missing = []
+            for label, value in [
+                ("Odoo Origen - URL", self.odoo_source_url),
+                ("Odoo Origen - Base de datos", self.odoo_source_db),
+                ("Odoo Origen - Usuario", self.odoo_source_user),
+                ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
+                ("Odoo Destino - URL", self.odoo_target_url),
+                ("Odoo Destino - Base de datos", self.odoo_target_db),
+                ("Odoo Destino - Usuario", self.odoo_target_user),
+                ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
+            ]:
+                if not value:
+                    missing.append(label)
+
+            if missing:
+                raise UserError("Completá estos campos antes de conectar Odoo→Odoo:\n- " + "\n- ".join(missing))
+
+            self.write({"state": "connected", "last_error": False})
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": "Conexión validada",
+                    "message": "Cuenta Odoo Origen/Destino configurada correctamente.",
+                    "type": "success",
+                    "sticky": False,
+                },
+            }
+
+        raise UserError("Este tipo de proveedor no tiene flujo de conexión definido.")
 
     def action_test_odoo_connection(self):
         self.ensure_one()

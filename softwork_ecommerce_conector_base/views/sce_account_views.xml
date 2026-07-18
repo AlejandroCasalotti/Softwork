@@ -20,7 +20,7 @@
         <field name="arch" type="xml">
             <form string="Integración">
                 <header>
-                    <button name="action_start_onboarding_connection" type="object" string="Conectar MercadoLibre" class="btn-primary" invisible="state == 'connected'"/>
+                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="state == 'connected'"/>
                     <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
                     <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary" icon="fa-random"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
@@ -90,16 +90,19 @@
                         </group>
                     </group>
 
-                    <group string="Conexión Odoo Origen / Destino" invisible="connector_id.provider_type != 'odoo'">
-                        <group string="Origen">
-                            <field name="odoo_source_url"/>
-                            <field name="odoo_source_db"/>
+                    <group string="Conexión con Odoo Origen (API)" invisible="connector_id.provider_type != 'odoo'">
+                        <group>
+                            <field name="odoo_source_url" placeholder="https://odoo-origen.com"/>
+                            <field name="odoo_source_db" placeholder="bd_origen"/>
                             <field name="odoo_source_user"/>
                             <field name="odoo_source_api_key" password="True"/>
                         </group>
-                        <group string="Destino">
-                            <field name="odoo_target_url"/>
-                            <field name="odoo_target_db"/>
+                    </group>
+
+                    <group string="Conexión con Odoo Destino (API)" invisible="connector_id.provider_type != 'odoo'">
+                        <group>
+                            <field name="odoo_target_url" placeholder="https://odoo-destino.com"/>
+                            <field name="odoo_target_db" placeholder="bd_destino"/>
                             <field name="odoo_target_user"/>
                             <field name="odoo_target_api_key" password="True"/>
                         </group>

@@ -647,6 +647,22 @@ class SceOdooMigrationRun(models.Model):
 
     def action_run_migration(self):
         for rec in self:
+            missing = []
+            for label, value in [
+                ("Odoo Origen - URL", rec.account_id.odoo_source_url),
+                ("Odoo Origen - Base de datos", rec.account_id.odoo_source_db),
+                ("Odoo Origen - Usuario", rec.account_id.odoo_source_user),
+                ("Odoo Origen - API Key / Password", rec.account_id.odoo_source_api_key),
+                ("Odoo Destino - URL", rec.account_id.odoo_target_url),
+                ("Odoo Destino - Base de datos", rec.account_id.odoo_target_db),
+                ("Odoo Destino - Usuario", rec.account_id.odoo_target_user),
+                ("Odoo Destino - API Key / Password", rec.account_id.odoo_target_api_key),
+            ]:
+                if not value:
+                    missing.append(label)
+            if missing:
+                raise UserError("Faltan datos de conexión Odoo Origen/Destino:\n- " + "\n- ".join(missing))
+
             rec.write({"state": "running", "started_at": fields.Datetime.now(), "last_error": False})
             cp = rec._load_checkpoint()
             try:
@@ -769,6 +785,22 @@ class SceOdooMigrationWizard(models.TransientModel):
 
     def action_start(self):
         self.ensure_one()
+        missing = []
+        for label, value in [
+            ("Odoo Origen - URL", self.account_id.odoo_source_url),
+            ("Odoo Origen - Base de datos", self.account_id.odoo_source_db),
+            ("Odoo Origen - Usuario", self.account_id.odoo_source_user),
+            ("Odoo Origen - API Key / Password", self.account_id.odoo_source_api_key),
+            ("Odoo Destino - URL", self.account_id.odoo_target_url),
+            ("Odoo Destino - Base de datos", self.account_id.odoo_target_db),
+            ("Odoo Destino - Usuario", self.account_id.odoo_target_user),
+            ("Odoo Destino - API Key / Password", self.account_id.odoo_target_api_key),
+        ]:
+            if not value:
+                missing.append(label)
+        if missing:
+            raise UserError("Faltan datos en la cuenta para iniciar la migración Odoo→Odoo:\n- " + "\n- ".join(missing))
+
         run = self.env["sce.odoo.migration.run"].create(
             {
                 "name": f"Migración {self.account_id.display_name}",
