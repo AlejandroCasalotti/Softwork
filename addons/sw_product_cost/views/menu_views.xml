@@ -10,7 +10,7 @@
     <menuitem id="menu_sw_product_cost_rules"
               name="Cost Rules"
               parent="menu_sw_product_cost_root"
-              action="action_sw_product_cost_rules"
+              action="action_sw_product_cost_rule"
               sequence="10"/>
 
 </odoo>
