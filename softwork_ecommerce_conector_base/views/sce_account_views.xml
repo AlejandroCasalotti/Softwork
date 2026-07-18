@@ -10,7 +10,6 @@
                 <field name="last_connection_check"/>
                 <field name="state" widget="badge" decoration-success="state == 'connected'" decoration-warning="state == 'draft'" decoration-danger="state == 'error'"/>
                 <field name="mode" widget="badge" decoration-success="mode == 'production'" decoration-warning="mode == 'sandbox'"/>
-                <field name="active"/>
             </list>
         </field>
     </record>
@@ -46,19 +45,19 @@
                     <group>
                         <group>
                             <field name="connector_id"/>
-                            <field name="company_id"/>
+                            <field name="company_id" invisible="1"/>
                             <field name="mode"/>
-                            <field name="active"/>
+                            <field name="active" invisible="1"/>
                         </group>
                         <group>
                             <field name="external_user_id" readonly="1"/>
-                            <field name="external_account_ref"/>
+                            <field name="external_account_ref" invisible="1"/>
                             <field name="last_connection_check" readonly="1"/>
                             <field name="token_expires_at" readonly="1"/>
                         </group>
                     </group>
 
-                    <group string="Conexión con Odoo (API)">
+                    <group string="Conexión con Odoo (API)" invisible="connector_id.provider_type == 'odoo'">
                         <group>
                             <field name="odoo_base_url" placeholder="https://tu-odoo.com"/>
                             <field name="odoo_db_name" placeholder="nombre_bd"/>
@@ -69,7 +68,7 @@
                         </group>
                     </group>
 
-                    <group string="App MercadoLibre">
+                    <group string="App MercadoLibre" invisible="connector_id.provider_type != 'mercadolibre'">
                         <group>
                             <field name="ml_client_id"/>
                             <field name="ml_client_secret" password="True"/>
@@ -77,6 +76,43 @@
                         <group>
                             <field name="ml_redirect_uri" placeholder="https://tu-odoo.com/sce/oauth/mercadolibre/callback"/>
                             <field name="provider_timeout_seconds"/>
+                        </group>
+                    </group>
+
+                    <group string="Credenciales Marketplace" invisible="connector_id.provider_type in ('mercadolibre','odoo')">
+                        <group>
+                            <field name="client_id"/>
+                            <field name="client_secret" password="True"/>
+                        </group>
+                        <group>
+                            <field name="redirect_uri"/>
+                            <field name="provider_timeout_seconds"/>
+                        </group>
+                    </group>
+
+                    <group string="Conexión Odoo Origen / Destino" invisible="connector_id.provider_type != 'odoo'">
+                        <group string="Origen">
+                            <field name="odoo_source_url"/>
+                            <field name="odoo_source_db"/>
+                            <field name="odoo_source_user"/>
+                            <field name="odoo_source_api_key" password="True"/>
+                        </group>
+                        <group string="Destino">
+                            <field name="odoo_target_url"/>
+                            <field name="odoo_target_db"/>
+                            <field name="odoo_target_user"/>
+                            <field name="odoo_target_api_key" password="True"/>
+                        </group>
+                    </group>
+
+                    <group string="Migración Odoo a Odoo" invisible="connector_id.provider_type != 'odoo'">
+                        <group>
+                            <field name="migration_mode"/>
+                            <field name="migration_since" invisible="migration_mode != 'incremental'"/>
+                        </group>
+                        <group>
+                            <button name="action_test_odoo_connection" type="object" string="Probar conexión Odoo↔Odoo" class="btn-secondary"/>
+                            <button name="action_start_migration_wizard" type="object" string="Asistente de migración" class="btn-primary"/>
                         </group>
                     </group>
 

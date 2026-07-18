@@ -11,3 +11,5 @@ access_sce_integration_status_wizard_user,access.sce.integration.status.wizard.u
 access_sce_integration_status_wizard_line_user,access.sce.integration.status.wizard.line.user,model_sce_integration_status_wizard_line,base.group_user,1,0,1,1
 access_sce_integration_status_snapshot_user,access.sce.integration.status.snapshot.user,model_sce_integration_status_snapshot,base.group_user,1,1,1,1
 access_sce_integration_status_snapshot_line_user,access.sce.integration.status.snapshot.line.user,model_sce_integration_status_snapshot_line,base.group_user,1,1,1,1
+access_sce_odoo_migration_run_user,access.sce.odoo.migration.run.user,model_sce_odoo_migration_run,base.group_user,1,1,1,1
+access_sce_odoo_migration_wizard_user,access.sce.odoo.migration.wizard.user,model_sce_odoo_migration_wizard,base.group_user,1,1,1,1

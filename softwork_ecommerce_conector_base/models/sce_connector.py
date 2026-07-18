@@ -9,7 +9,15 @@ class SceConnector(models.Model):
     _order = "name"
 
     name = fields.Char(required=True, tracking=True)
-    code = fields.Char(required=True, index=True, tracking=True)
+    code = fields.Char(required=False, index=True, tracking=True)
+    user_id = fields.Many2one(
+        "res.users",
+        string="Usuario",
+        required=True,
+        readonly=True,
+        default=lambda self: self.env.user,
+        tracking=True,
+    )
     provider_type = fields.Selection(
         selection=[
             ("mercadolibre", "MercadoLibre"),
@@ -18,6 +26,7 @@ class SceConnector(models.Model):
             ("tiendanube", "Tiendanube"),
             ("woocommerce", "WooCommerce"),
             ("custom", "Custom"),
+            ("odoo", "Odoo"),
         ],
         required=True,
         default="custom",
@@ -26,11 +35,10 @@ class SceConnector(models.Model):
     active = fields.Boolean(default=True, tracking=True)
     state = fields.Selection(
         selection=[
-            ("draft", "Draft"),
-            ("active", "Active"),
-            ("inactive", "Inactive"),
+            ("active", "Activo"),
+            ("inactive", "Inactivo"),
         ],
-        default="draft",
+        default="active",
         required=True,
         tracking=True,
     )

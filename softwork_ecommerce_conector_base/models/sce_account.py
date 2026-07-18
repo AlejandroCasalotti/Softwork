@@ -77,6 +77,22 @@ class SceAccount(models.Model):
     odoo_db_name = fields.Char(string="Base de datos Odoo")
     odoo_user = fields.Char(string="Usuario Odoo")
     odoo_password = fields.Char(string="API Key / Password Odoo")
+
+    # Odoo -> Odoo migration base (fase 1)
+    odoo_source_url = fields.Char(string="Odoo Origen - URL")
+    odoo_source_db = fields.Char(string="Odoo Origen - Base de datos")
+    odoo_source_user = fields.Char(string="Odoo Origen - Usuario")
+    odoo_source_api_key = fields.Char(string="Odoo Origen - API Key / Password")
+    odoo_target_url = fields.Char(string="Odoo Destino - URL")
+    odoo_target_db = fields.Char(string="Odoo Destino - Base de datos")
+    odoo_target_user = fields.Char(string="Odoo Destino - Usuario")
+    odoo_target_api_key = fields.Char(string="Odoo Destino - API Key / Password")
+    migration_mode = fields.Selection(
+        selection=[("full", "Completa"), ("incremental", "Incremental")],
+        string="Modo de migración",
+        default="full",
+    )
+    migration_since = fields.Datetime(string="Migrar cambios desde")
     ml_client_id = fields.Char(string="MercadoLibre Client ID")
     ml_client_secret = fields.Char(string="MercadoLibre Client Secret")
     ml_redirect_uri = fields.Char(string="MercadoLibre Redirect URI")
@@ -210,6 +226,53 @@ class SceAccount(models.Model):
 
         self._sync_onboarding_to_oauth_fields()
         return self.action_open_oauth_url()
+
+    def action_test_odoo_connection(self):
+        self.ensure_one()
+        if self.connector_id.provider_type != "odoo":
+            raise UserError("Esta prueba es solo para conectores tipo Odoo.")
+        missing = []
+        for label, value in [
+            ("Odoo Origen - URL", self.odoo_source_url),
+            ("Odoo Origen - Base de datos", self.odoo_source_db),
+            ("Odoo Origen - Usuario", self.odoo_source_user),
+            ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
+            ("Odoo Destino - URL", self.odoo_target_url),
+            ("Odoo Destino - Base de datos", self.odoo_target_db),
+            ("Odoo Destino - Usuario", self.odoo_target_user),
+            ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
+        ]:
+            if not value:
+                missing.append(label)
+        if missing:
+            raise UserError("Faltan datos para probar conexión Odoo->Odoo:\n- " + "\n- ".join(missing))
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Conexión validada",
+                "message": "Configuración Odoo origen/destino cargada. En fase 2 se conectará por XML-RPC/JSON-RPC.",
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    def action_start_migration_wizard(self):
+        self.ensure_one()
+        if self.connector_id.provider_type != "odoo":
+            raise UserError("Este asistente aplica solo a conectores tipo Odoo.")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Asistente de migración Odoo a Odoo",
+            "res_model": "sce.odoo.migration.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_account_id": self.id,
+                "default_migration_mode": self.migration_mode or "full",
+                "default_since_datetime": self.migration_since,
+            },
+        }
 
     def action_test_and_confirm(self):
         for rec in self:

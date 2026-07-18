@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_odoo_migration_run_tree" model="ir.ui.view">
+        <field name="name">sce.odoo.migration.run.tree</field>
+        <field name="model">sce.odoo.migration.run</field>
+        <field name="arch" type="xml">
+            <list string="Migraciones Odoo a Odoo">
+                <field name="name"/>
+                <field name="account_id"/>
+                <field name="migration_mode"/>
+                <field name="state"/>
+                <field name="migrated_partners"/>
+                <field name="migrated_products"/>
+                <field name="migrated_taxes"/>
+                <field name="started_at"/>
+                <field name="finished_at"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sce_odoo_migration_run_form" model="ir.ui.view">
+        <field name="name">sce.odoo.migration.run.form</field>
+        <field name="model">sce.odoo.migration.run</field>
+        <field name="arch" type="xml">
+            <form string="Migración Odoo a Odoo">
+                <header>
+                    <button name="action_detect_versions" type="object" string="Detectar versiones" class="btn-secondary"/>
+                    <button name="action_run_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state == 'running'"/>
+                    <button name="action_pause_migration" type="object" string="Pausar" invisible="state != 'running'"/>
+                    <button name="action_resume_migration" type="object" string="Reanudar" invisible="state not in ('paused','failed','draft')"/>
+                    <button name="action_reset_checkpoint" type="object" string="Reset checkpoint" class="btn-secondary"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,running,paused,done,failed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="account_id"/>
+                            <field name="company_id" readonly="1"/>
+                            <field name="migration_mode"/>
+                            <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
+                        </group>
+                        <group>
+                            <field name="source_version" readonly="1"/>
+                            <field name="target_version" readonly="1"/>
+                            <field name="started_at" readonly="1"/>
+                            <field name="finished_at" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Módulos de migración">
+                        <group>
+                            <field name="sync_partners"/>
+                            <field name="sync_products"/>
+                            <field name="sync_taxes"/>
+                        </group>
+                        <group>
+                            <field name="migrated_partners" readonly="1"/>
+                            <field name="migrated_products" readonly="1"/>
+                            <field name="migrated_taxes" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Control / resultados">
+                        <group>
+                            <field name="checkpoint_json" widget="text"/>
+                        </group>
+                        <group>
+                            <field name="result_json" widget="text" readonly="1"/>
+                            <field name="last_error" widget="text" readonly="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sce_odoo_migration_run" model="ir.actions.act_window">
+        <field name="name">Migraciones Odoo a Odoo</field>
+        <field name="res_model">sce.odoo.migration.run</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_sce_odoo_migration_wizard_form" model="ir.ui.view">
+        <field name="name">sce.odoo.migration.wizard.form</field>
+        <field name="model">sce.odoo.migration.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Asistente de migración Odoo a Odoo">
+                <group>
+                    <field name="account_id"/>
+                    <field name="migration_mode"/>
+                    <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
+                </group>
+                <group string="Módulos">
+                    <field name="sync_partners"/>
+                    <field name="sync_products"/>
+                    <field name="sync_taxes"/>
+                </group>
+                <footer>
+                    <button name="action_start" type="object" string="Iniciar migración" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
