@@ -6,19 +6,6 @@
     <menuitem id="menu_sce_operations" name="Operations" parent="menu_sce_root" sequence="20"/>
     <menuitem id="menu_sce_billing" name="Billing" parent="menu_sce_root" sequence="30"/>
 
-    <record id="action_sce_ml_connect_quick" model="ir.actions.act_window">
-        <field name="name">Conectar MercadoLibre</field>
-        <field name="res_model">sce.account</field>
-        <field name="view_mode">list,form</field>
-        <field name="target">current</field>
-    </record>
-
-    <menuitem id="menu_sce_ml_connect_quick"
-              name="Conectar MercadoLibre (1 click)"
-              parent="menu_sce_configuration"
-              action="action_sce_ml_connect_quick"
-              sequence="5"/>
-
     <menuitem id="menu_sce_connector" name="Connectors" parent="menu_sce_configuration" action="action_sce_connector" sequence="10"/>
     <menuitem id="menu_sce_account" name="Accounts" parent="menu_sce_configuration" action="action_sce_account" sequence="20"/>
     <menuitem id="menu_sce_integration_status_snapshot" name="Historial Diagnósticos" parent="menu_sce_operations" action="action_sce_integration_status_snapshot" sequence="25"/>
