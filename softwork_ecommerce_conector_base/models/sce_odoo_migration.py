@@ -79,11 +79,39 @@ class SceOdooMigrationRun(models.Model):
             raise UserError("Falta API Key/Password de Odoo o es inválida.")
 
         clean_url = url.strip()
-        common = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/common")
-        uid = common.authenticate(db, user, password, {})
+        if not clean_url.startswith(("http://", "https://")):
+            clean_url = f"https://{clean_url}"
+
+        try:
+            common = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/common")
+            uid = common.authenticate(db, user, password, {})
+        except Exception as err:
+            raise UserError(
+                "No se pudo conectar al Odoo remoto.\n"
+                f"- URL: {clean_url}\n"
+                f"- DB: {db}\n"
+                f"- User: {user}\n"
+                f"- Detalle técnico: {err}"
+            )
+
         if not uid:
-            raise UserError("No se pudo autenticar en Odoo remoto.")
-        models_rpc = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/object")
+            raise UserError(
+                "No se pudo autenticar en Odoo remoto.\n"
+                f"- URL: {clean_url}\n"
+                f"- DB: {db}\n"
+                f"- User: {user}\n"
+                "Revisá usuario y API Key/Password, y que el usuario tenga acceso a esa base."
+            )
+
+        try:
+            models_rpc = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/object")
+        except Exception as err:
+            raise UserError(
+                "Se autenticó en Odoo remoto pero falló el endpoint de objetos XML-RPC.\n"
+                f"- URL: {clean_url}\n"
+                f"- Detalle técnico: {err}"
+            )
+
         return uid, models_rpc
 
     def _rpc_call(self, models_rpc, db, uid, pwd, model, method, *args, **kwargs):
