@@ -17,8 +17,25 @@ class SceAccount(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "name"
 
+    PROVIDER_SELECTION = [
+        ("mercadolibre", "MercadoLibre"),
+        ("shopify", "Shopify"),
+        ("amazon", "Amazon"),
+        ("tiendanube", "Tiendanube"),
+        ("woocommerce", "WooCommerce"),
+        ("custom", "Custom"),
+        ("odoo", "Odoo"),
+    ]
+
     name = fields.Char(required=True, tracking=True)
     connector_id = fields.Many2one("sce.connector", required=True, ondelete="restrict", tracking=True)
+    provider_type = fields.Selection(
+        selection=PROVIDER_SELECTION,
+        string="Provider Type",
+        required=True,
+        default="custom",
+        tracking=True,
+    )
     company_id = fields.Many2one(
         "res.company",
         required=True,
@@ -101,6 +118,12 @@ class SceAccount(models.Model):
     sync_prices = fields.Boolean(string="Sincronizar Precios", default=True)
     last_sync = fields.Datetime(string="Última sincronización")
 
+    @api.onchange("connector_id")
+    def _onchange_connector_id_set_provider_type(self):
+        for rec in self:
+            if rec.connector_id and rec.connector_id.provider_type:
+                rec.provider_type = rec.connector_id.provider_type
+
     def _generate_pkce_pair(self):
         verifier_raw = secrets.token_urlsafe(64)
         verifier = verifier_raw[:128]
@@ -111,10 +134,10 @@ class SceAccount(models.Model):
         )
         return verifier, challenge
 
-    @api.depends("client_id", "redirect_uri", "connector_id.provider_type")
+    @api.depends("client_id", "redirect_uri", "provider_type")
     def _compute_oauth_url(self):
         for rec in self:
-            if rec.connector_id.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
+            if rec.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
                 params = urlencode(
                     {
                         "response_type": "code",
@@ -201,7 +224,7 @@ class SceAccount(models.Model):
 
     def action_start_onboarding_connection(self):
         self.ensure_one()
-        provider = self.connector_id.provider_type
+        provider = self.provider_type
 
         if provider == "mercadolibre":
             missing = []
@@ -510,7 +533,7 @@ class SceAccount(models.Model):
 
     def action_open_oauth_url(self):
         self.ensure_one()
-        if self.connector_id.provider_type != "mercadolibre":
+        if self.provider_type != "mercadolibre":
             raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
         if not self.client_id or not self.redirect_uri:
             raise UserError(

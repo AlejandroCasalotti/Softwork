@@ -29,16 +29,16 @@
                     <widget name="web_ribbon" title="Producción" bg_color="text-bg-success" invisible="mode != 'production'"/>
                     <widget name="web_ribbon" title="Sandbox" bg_color="text-bg-warning" invisible="mode != 'sandbox'"/>
 
-                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or connector_id.provider_type != 'mercadolibre'">
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'mercadolibre'">
                         Completá los datos de Odoo y de tu app de MercadoLibre para conectar en un clic.
                     </div>
-                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or connector_id.provider_type != 'odoo'">
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'odoo'">
                         Completá los datos de Odoo Origen y Odoo Destino para conectar Odoo↔Odoo.
                     </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or connector_id.provider_type != 'mercadolibre'">
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'mercadolibre'">
                         Cuenta conectada correctamente con MercadoLibre.
                     </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or connector_id.provider_type != 'odoo'">
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'odoo'">
                         Cuenta conectada correctamente para migración Odoo↔Odoo.
                     </div>
                     <div class="alert alert-danger" role="alert" invisible="not last_error">
@@ -63,7 +63,7 @@
                         </group>
                     </group>
 
-                    <group string="Conexión con Odoo (API)" invisible="connector_id.provider_type == 'odoo'">
+                    <group string="Conexión con Odoo (API)" invisible="provider_type == 'odoo'">
                         <group>
                             <field name="odoo_base_url" placeholder="https://tu-odoo.com"/>
                             <field name="odoo_db_name" placeholder="nombre_bd"/>
@@ -74,7 +74,7 @@
                         </group>
                     </group>
 
-                    <group string="App MercadoLibre" invisible="connector_id.provider_type != 'mercadolibre'">
+                    <group string="App MercadoLibre" invisible="provider_type != 'mercadolibre'">
                         <group>
                             <field name="ml_client_id"/>
                             <field name="ml_client_secret" password="True"/>
@@ -85,7 +85,7 @@
                         </group>
                     </group>
 
-                    <group string="Credenciales Marketplace" invisible="connector_id.provider_type in ('mercadolibre','odoo')">
+                    <group string="Credenciales Marketplace" invisible="provider_type in ('mercadolibre','odoo')">
                         <group>
                             <field name="client_id"/>
                             <field name="client_secret" password="True"/>
@@ -96,7 +96,7 @@
                         </group>
                     </group>
 
-                    <group string="Conexión con Odoo Origen (API)" invisible="connector_id.provider_type != 'odoo'">
+                    <group string="Conexión con Odoo Origen (API)" invisible="provider_type != 'odoo'">
                         <group>
                             <field name="odoo_source_url" placeholder="https://odoo-origen.com"/>
                             <field name="odoo_source_db" placeholder="bd_origen"/>
@@ -105,7 +105,7 @@
                         </group>
                     </group>
 
-                    <group string="Conexión con Odoo Destino (API)" invisible="connector_id.provider_type != 'odoo'">
+                    <group string="Conexión con Odoo Destino (API)" invisible="provider_type != 'odoo'">
                         <group>
                             <field name="odoo_target_url" placeholder="https://odoo-destino.com"/>
                             <field name="odoo_target_db" placeholder="bd_destino"/>
@@ -114,7 +114,7 @@
                         </group>
                     </group>
 
-                    <group string="Migración Odoo a Odoo" invisible="connector_id.provider_type != 'odoo'">
+                    <group string="Migración Odoo a Odoo" invisible="provider_type != 'odoo'">
                         <group>
                             <field name="migration_mode"/>
                             <field name="migration_since" invisible="migration_mode != 'incremental'"/>

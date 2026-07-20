@@ -40,7 +40,7 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="account_id" domain="[('connector_id.provider_type', '=', 'odoo')]"/>
+                            <field name="account_id" domain="[('provider_type', '=', 'odoo')]"/>
                             <field name="company_id" readonly="1"/>
                             <field name="migration_mode"/>
                             <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
@@ -110,7 +110,7 @@
         <field name="arch" type="xml">
             <form string="Asistente de migración Odoo a Odoo">
                 <group>
-                    <field name="account_id" domain="[('connector_id.provider_type', '=', 'odoo')]"/>
+                    <field name="account_id" domain="[('provider_type', '=', 'odoo')]"/>
                     <field name="migration_mode"/>
                     <field name="since_datetime" invisible="migration_mode != 'incremental'"/>
                 </group>
