@@ -115,10 +115,7 @@ class SceOdooMigrationRun(models.Model):
         return uid, models_rpc
 
     def _rpc_call(self, models_rpc, db, uid, pwd, model, method, *args, **kwargs):
-        if len(args) == 1 and isinstance(args[0], list):
-            rpc_args = args[0]
-        else:
-            rpc_args = list(args)
+        rpc_args = list(args)
         return models_rpc.execute_kw(db, uid, pwd, model, method, rpc_args, kwargs or {})
 
     def _get_versions(self):
