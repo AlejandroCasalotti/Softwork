@@ -29,11 +29,17 @@
                     <widget name="web_ribbon" title="Producción" bg_color="text-bg-success" invisible="mode != 'production'"/>
                     <widget name="web_ribbon" title="Sandbox" bg_color="text-bg-warning" invisible="mode != 'sandbox'"/>
 
-                    <div class="alert alert-info" role="alert" invisible="state == 'connected'">
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or connector_id.provider_type != 'mercadolibre'">
                         Completá los datos de Odoo y de tu app de MercadoLibre para conectar en un clic.
                     </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected'">
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or connector_id.provider_type != 'odoo'">
+                        Completá los datos de Odoo Origen y Odoo Destino para conectar Odoo↔Odoo.
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or connector_id.provider_type != 'mercadolibre'">
                         Cuenta conectada correctamente con MercadoLibre.
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or connector_id.provider_type != 'odoo'">
+                        Cuenta conectada correctamente para migración Odoo↔Odoo.
                     </div>
                     <div class="alert alert-danger" role="alert" invisible="not last_error">
                         <field name="last_error" readonly="1" nolabel="1"/>
