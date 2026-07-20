@@ -227,7 +227,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(pid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "res.partner", "read", [pid], {"fields": ["name", "email", "phone", "vat", "is_company"]}
+                "res.partner", "read", [pid], fields=["name", "email", "phone", "vat", "is_company"]
             )[0]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
@@ -310,7 +310,7 @@ class SceOdooMigrationRun(models.Model):
 
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "product.template", "read", [ptid], {"fields": read_fields}
+                "product.template", "read", [ptid], fields=read_fields
             )[0]
             search_domain = [[("default_code", "=", vals.get("default_code"))]] if vals.get("default_code") else [[("name", "=", vals.get("name"))]]
             existing = self._rpc_call(
@@ -391,7 +391,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(tid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "account.tax", "read", [tid], {"fields": ["name", "amount", "amount_type", "type_tax_use"]}
+                "account.tax", "read", [tid], fields=["name", "amount", "amount_type", "type_tax_use"]
             )[0]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
@@ -440,7 +440,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(oid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "sale.order", "read", [oid], {"fields": ["name", "client_order_ref", "state", "partner_id"]}
+                "sale.order", "read", [oid], fields=["name", "client_order_ref", "state", "partner_id"]
             )[0]
             partner_id = False
             if vals.get("partner_id"):
@@ -492,7 +492,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(oid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "purchase.order", "read", [oid], {"fields": ["name", "partner_ref", "state", "partner_id"]}
+                "purchase.order", "read", [oid], fields=["name", "partner_ref", "state", "partner_id"]
             )[0]
             partner_id = False
             if vals.get("partner_id"):
@@ -544,7 +544,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(mid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "account.move", "read", [mid], {"fields": ["name", "move_type", "invoice_date", "partner_id", "ref"]}
+                "account.move", "read", [mid], fields=["name", "move_type", "invoice_date", "partner_id", "ref"]
             )[0]
             partner_id = False
             if vals.get("partner_id"):
@@ -601,7 +601,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(wid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "stock.warehouse", "read", [wid], {"fields": ["name", "code", "company_id"]}
+                "stock.warehouse", "read", [wid], fields=["name", "code", "company_id"]
             )[0]
             existing_domain = [[("code", "=", vals.get("code"))]] if vals.get("code") else [[("name", "=", vals.get("name"))]]
             existing = self._rpc_call(
@@ -645,7 +645,7 @@ class SceOdooMigrationRun(models.Model):
         def _process(lid):
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
-                "stock.location", "read", [lid], {"fields": ["name", "complete_name", "usage", "location_id"]}
+                "stock.location", "read", [lid], fields=["name", "complete_name", "usage", "location_id"]
             )[0]
             existing_domain = [[("complete_name", "=", vals.get("complete_name"))]] if vals.get("complete_name") else [[("name", "=", vals.get("name"))]]
             existing = self._rpc_call(
