@@ -69,11 +69,21 @@ class SceOdooMigrationRun(models.Model):
     migrated_locations = fields.Integer(default=0, readonly=True)
 
     def _rpc_connect(self, url, db, user, password):
-        common = xmlrpc.client.ServerProxy(f"{url.rstrip('/')}/xmlrpc/2/common")
+        if not url or not isinstance(url, str):
+            raise UserError("Falta URL de Odoo o es inválida.")
+        if not db or not isinstance(db, str):
+            raise UserError("Falta Base de datos de Odoo o es inválida.")
+        if not user or not isinstance(user, str):
+            raise UserError("Falta Usuario de Odoo o es inválido.")
+        if not password or not isinstance(password, str):
+            raise UserError("Falta API Key/Password de Odoo o es inválida.")
+
+        clean_url = url.strip()
+        common = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/common")
         uid = common.authenticate(db, user, password, {})
         if not uid:
             raise UserError("No se pudo autenticar en Odoo remoto.")
-        models_rpc = xmlrpc.client.ServerProxy(f"{url.rstrip('/')}/xmlrpc/2/object")
+        models_rpc = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/object")
         return uid, models_rpc
 
     def _rpc_call(self, models_rpc, db, uid, pwd, model, method, *args, **kwargs):
