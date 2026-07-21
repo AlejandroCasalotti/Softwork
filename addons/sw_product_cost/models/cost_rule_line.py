@@ -192,17 +192,17 @@ class SWProductCostRuleLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        products = records.mapped("rule_id").mapped("_get_target_products").exists()
+        products = records.mapped("rule_id")._get_target_products().exists()
         if products:
             products._sw_recompute_prices()
         return records
 
     def write(self, vals):
-        old_products = self.mapped("rule_id").mapped("_get_target_products").exists()
+        old_products = self.mapped("rule_id")._get_target_products().exists()
         res = super().write(vals)
         watched = {"active", "sequence", "operation", "value_type", "value", "rule_id"}
         if watched.intersection(vals.keys()):
-            new_products = self.mapped("rule_id").mapped("_get_target_products").exists()
+            new_products = self.mapped("rule_id")._get_target_products().exists()
             products = (old_products | new_products).exists()
             if products:
                 products._sw_recompute_prices()
