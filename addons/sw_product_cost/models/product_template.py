@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-
 from odoo import api, fields, models
-
-
 
 
 class ProductTemplate(models.Model):
@@ -12,16 +9,11 @@ class ProductTemplate(models.Model):
     cost calculation management.
     """
 
-
     _inherit = "product.template"
-
-
-
 
     # ---------------------------------------------------------
     # Applied rule
     # ---------------------------------------------------------
-
 
     sw_cost_rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
@@ -30,13 +22,9 @@ class ProductTemplate(models.Model):
         store=True,
     )
 
-
-
-
     # ---------------------------------------------------------
     # Base cost
     # ---------------------------------------------------------
-
 
     sw_base_cost = fields.Float(
         string="Base Cost",
@@ -45,13 +33,9 @@ class ProductTemplate(models.Model):
         help="Initial cost before applying rules.",
     )
 
-
-
-
     # ---------------------------------------------------------
     # Final calculated cost
     # ---------------------------------------------------------
-
 
     sw_final_cost = fields.Float(
         string="Calculated Cost",
@@ -60,13 +44,9 @@ class ProductTemplate(models.Model):
         help="Final cost after cascade rules.",
     )
 
-
-
-
     # ---------------------------------------------------------
     # Suggested sale price
     # ---------------------------------------------------------
-
 
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
@@ -80,13 +60,9 @@ class ProductTemplate(models.Model):
         help="Margin percentage to calculate sales price from calculated cost.",
     )
 
-
-
-
     # ---------------------------------------------------------
     # Compute engine
     # ---------------------------------------------------------
-
 
     @api.depends(
         "categ_id",
@@ -100,77 +76,28 @@ class ProductTemplate(models.Model):
         "sw_sale_margin_percent",
     )
     def _compute_sw_cost_values(self):
-
-
-        Rule = self.env[
-            "sw.product.cost.rule"
-        ]
-
-
-
+        Rule = self.env["sw.product.cost.rule"]
 
         for product in self:
-
-
-
-
-            # -------------------------------------------------
             # Base cost from first supplier + currency conversion
-            # -------------------------------------------------
-
             base_cost, _supplier_data = product._sw_get_base_cost_data()
-
             product.sw_base_cost = base_cost
 
-
-
-
-            # -------------------------------------------------
             # Find rule
-            # -------------------------------------------------
-
-
-            rule = Rule.get_rule_for_product(
-                product
-            )
-
-
-
-
+            rule = Rule.get_rule_for_product(product)
             product.sw_cost_rule_id = rule
 
-
-
-
-            # -------------------------------------------------
-            # Apply cascade
-            # -------------------------------------------------
-
-
+            # Apply cascade without margin lines from rules
             if rule:
-                calculated_cost = rule.calculate_cost(base_cost)
+                calculated_cost = product._sw_calculate_cost_without_margin_rule(base_cost, rule)
             else:
                 calculated_cost = base_cost
 
-            # Business rule: margin is handled only by product field,
-            # never by cost-rule formula lines.
-            margin_rule_lines = rule.line_ids.filtered(lambda l: l.operation == "margin") if rule else self.env["sw.product.cost.rule.line"]
-            if margin_rule_lines:
-                calculated_cost = base_cost
-
-
-
-
-
-
             product.sw_final_cost = calculated_cost
 
-            # -------------------------------------------------
-            # Suggested sale price with sales margin
-            # -------------------------------------------------
+            # Suggested sale price with product margin only
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
-
             product.sw_suggested_price = suggested_price
 
     def _sw_get_base_cost_data(self):
@@ -192,11 +119,22 @@ class ProductTemplate(models.Model):
             base_cost = supplier_price or self.standard_price
         return base_cost, supplier_data
 
+    def _sw_calculate_cost_without_margin_rule(self, base_cost, rule):
+        self.ensure_one()
+        result = base_cost
+        for line in rule.line_ids.sorted(key=lambda l: l.sequence):
+            if not line.active:
+                continue
+            if line.operation == "margin":
+                continue
+            result = line.apply(result)
+        return result
+
     def _sw_apply_cost_rule(self, base_cost):
         self.ensure_one()
         rule = self.env["sw.product.cost.rule"].get_rule_for_product(self)
         if rule:
-            return rule, rule.calculate_cost(base_cost)
+            return rule, self._sw_calculate_cost_without_margin_rule(base_cost, rule)
         return False, base_cost
 
     def _sw_recompute_prices(self):
@@ -206,7 +144,16 @@ class ProductTemplate(models.Model):
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
 
-            vals = {
+            current_vals = {
+                "sw_base_cost": product.sw_base_cost or 0.0,
+                "sw_cost_rule_id": product.sw_cost_rule_id.id if product.sw_cost_rule_id else False,
+                "sw_final_cost": product.sw_final_cost or 0.0,
+                "sw_suggested_price": product.sw_suggested_price or 0.0,
+                "standard_price": product.standard_price or 0.0,
+                "list_price": product.list_price or 0.0,
+            }
+
+            new_vals = {
                 "sw_base_cost": base_cost,
                 "sw_cost_rule_id": rule.id if rule else False,
                 "sw_final_cost": calculated_cost,
@@ -214,7 +161,14 @@ class ProductTemplate(models.Model):
                 "standard_price": calculated_cost,
                 "list_price": suggested_price,
             }
-            super(ProductTemplate, product).write(vals)
+
+            vals_to_write = {}
+            for key, new_val in new_vals.items():
+                if current_vals.get(key) != new_val:
+                    vals_to_write[key] = new_val
+
+            if vals_to_write:
+                super(ProductTemplate, product).write(vals_to_write)
 
     @api.model_create_multi
     def create(self, vals_list):
