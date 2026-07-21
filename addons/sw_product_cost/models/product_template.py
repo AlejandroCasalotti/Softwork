@@ -90,7 +90,7 @@ class ProductTemplate(models.Model):
             suggested_price = calculated_cost * (1.0 + margin)
 
             product.sw_base_cost = base_cost
-            product.sw_cost_rule_id = rule
+            product.sw_cost_rule_id = rule if (not rule or rule.exists()) else False
             product.sw_final_cost = calculated_cost
             product.sw_suggested_price = suggested_price
 
@@ -142,7 +142,7 @@ class ProductTemplate(models.Model):
             # after create/onchange chains and ensure rule formulas are persisted.
             vals_to_write = {
                 "sw_base_cost": base_cost,
-                "sw_cost_rule_id": rule.id if rule else False,
+                "sw_cost_rule_id": rule.id if (rule and rule.exists()) else False,
                 "sw_final_cost": calculated_cost,
                 "sw_suggested_price": suggested_price,
                 "standard_price": calculated_cost,
