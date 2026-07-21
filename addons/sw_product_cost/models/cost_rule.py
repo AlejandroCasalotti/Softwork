@@ -165,7 +165,7 @@ class SWProductCostRule(models.Model):
 
         # Priority: product > category > brand > global
         product_rule = Rule.search(
-            base_domain + [("rule_type", "=", "product"), ("product_id", "=", product.id)],
+            base_domain + [("rule_type", "=", "product"), ("product_id", "=", product.product_tmpl_id.id)],
             order="sequence asc, id asc",
             limit=1,
         )
