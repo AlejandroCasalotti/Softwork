@@ -148,18 +148,14 @@ class ProductTemplate(models.Model):
 
 
             if rule:
-
-
-                calculated_cost = (
-                    rule.calculate_cost(
-                        base_cost
-                    )
-                )
-
-
+                calculated_cost = rule.calculate_cost(base_cost)
             else:
+                calculated_cost = base_cost
 
-
+            # Business rule: margin is handled only by product field,
+            # never by cost-rule formula lines.
+            margin_rule_lines = rule.line_ids.filtered(lambda l: l.operation == "margin") if rule else self.env["sw.product.cost.rule.line"]
+            if margin_rule_lines:
                 calculated_cost = base_cost
 
 
