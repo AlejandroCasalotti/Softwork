@@ -230,15 +230,16 @@ class SWProductCostRule(models.Model):
 
     def action_open_rule_stats_wizard(self):
         self.ensure_one()
+        wizard = self.env["sw.product.cost.rule.stats.wizard"].sudo().create({
+            "rule_id": self.id,
+        })
         return {
             "type": "ir.actions.act_window",
             "name": "Regla de costo - Productos aplicados",
             "res_model": "sw.product.cost.rule.stats.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {
-                "default_rule_id": self.id,
-            },
+            "res_id": wizard.id,
         }
 
     def unlink(self):
