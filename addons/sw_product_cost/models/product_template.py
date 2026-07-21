@@ -92,9 +92,14 @@ class ProductTemplate(models.Model):
     def _sw_apply_cost_rule(self, base_cost):
         self.ensure_one()
         rule = self.env["sw.product.cost.rule"].get_rule_for_product(self)
-        if rule:
+        if rule and rule.exists():
             return rule, self._sw_calculate_cost_without_margin_rule(base_cost, rule)
         return False, base_cost
+
+    def action_sw_recompute_cost_rule(self):
+        """Acción manual para forzar recálculo en producto."""
+        self._sw_recompute_prices()
+        return True
 
     def _sw_recompute_prices(self):
         for product in self:
@@ -123,23 +128,10 @@ class ProductTemplate(models.Model):
         if self.env.context.get("sw_skip_recompute"):
             return super().write(vals)
 
-        old_values = {p.id: p.standard_price for p in self}
         res = super().write(vals)
 
         watched = {"seller_ids", "categ_id", "brand_id", "company_id", "sw_sale_margin_percent", "standard_price"}
-        should_recompute = bool(watched.intersection(vals.keys()))
-
-        # Si cambia standard_price manualmente, recalcular aunque venga por otra ruta
-        if not should_recompute and "standard_price" in vals:
-            should_recompute = True
-
-        if should_recompute:
-            products_to_recompute = self
-            # Evita bucle cuando standard_price fue escrito por nuestro propio recompute
-            if "standard_price" in vals and len(vals.keys()) == 1:
-                # Solo recomputar si realmente fue un cambio manual relevante
-                manual_changed = self.filtered(lambda p: old_values.get(p.id) != p.standard_price)
-                products_to_recompute = manual_changed or self
-            products_to_recompute._sw_recompute_prices()
+        if watched.intersection(vals.keys()):
+            self._sw_recompute_prices()
 
         return res
