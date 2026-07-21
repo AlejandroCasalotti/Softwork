@@ -18,8 +18,8 @@ class ProductTemplate(models.Model):
     sw_cost_rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
         string="Applied Cost Rule",
-        compute="_compute_sw_cost_values",
-        store=True,
+        copy=False,
+        index=True,
     )
 
     # ---------------------------------------------------------
@@ -28,8 +28,7 @@ class ProductTemplate(models.Model):
 
     sw_base_cost = fields.Float(
         string="Base Cost",
-        compute="_compute_sw_cost_values",
-        store=True,
+        copy=False,
         help="Initial cost before applying rules.",
     )
 
@@ -39,8 +38,7 @@ class ProductTemplate(models.Model):
 
     sw_final_cost = fields.Float(
         string="Calculated Cost",
-        compute="_compute_sw_cost_values",
-        store=True,
+        copy=False,
         help="Final cost after cascade rules.",
     )
 
@@ -50,8 +48,7 @@ class ProductTemplate(models.Model):
 
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
-        compute="_compute_sw_cost_values",
-        store=True,
+        copy=False,
     )
 
     sw_sale_margin_percent = fields.Float(
@@ -63,36 +60,6 @@ class ProductTemplate(models.Model):
     # ---------------------------------------------------------
     # Compute engine
     # ---------------------------------------------------------
-
-    @api.depends(
-        "categ_id",
-        "company_id",
-        "brand_id",
-        "seller_ids",
-        "seller_ids.sequence",
-        "seller_ids.min_qty",
-        "seller_ids.price",
-        "seller_ids.currency_id",
-        "sw_sale_margin_percent",
-        "sw_cost_rule_id.line_ids",
-        "sw_cost_rule_id.line_ids.active",
-        "sw_cost_rule_id.line_ids.sequence",
-        "sw_cost_rule_id.line_ids.operation",
-        "sw_cost_rule_id.line_ids.value_type",
-        "sw_cost_rule_id.line_ids.value",
-    )
-    def _compute_sw_cost_values(self):
-        # compute should be pure assignment to avoid frontend/owl instability
-        for product in self:
-            base_cost, _supplier_data = product._sw_get_base_cost_data()
-            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
-            margin = (product.sw_sale_margin_percent or 0.0) / 100.0
-            suggested_price = calculated_cost * (1.0 + margin)
-
-            product.sw_base_cost = base_cost
-            product.sw_cost_rule_id = rule if (not rule or rule.exists()) else False
-            product.sw_final_cost = calculated_cost
-            product.sw_suggested_price = suggested_price
 
     def _sw_get_base_cost_data(self):
         self.ensure_one()
