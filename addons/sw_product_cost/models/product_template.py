@@ -76,28 +76,16 @@ class ProductTemplate(models.Model):
         "sw_sale_margin_percent",
     )
     def _compute_sw_cost_values(self):
-        Rule = self.env["sw.product.cost.rule"]
-
+        # compute should be pure assignment to avoid frontend/owl instability
         for product in self:
-            # Base cost from first supplier + currency conversion
             base_cost, _supplier_data = product._sw_get_base_cost_data()
-            product.sw_base_cost = base_cost
-
-            # Find rule
-            rule = Rule.get_rule_for_product(product)
-            product.sw_cost_rule_id = rule
-
-            # Apply cascade without margin lines from rules
-            if rule:
-                calculated_cost = product._sw_calculate_cost_without_margin_rule(base_cost, rule)
-            else:
-                calculated_cost = base_cost
-
-            product.sw_final_cost = calculated_cost
-
-            # Suggested sale price with product margin only
+            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
+
+            product.sw_base_cost = base_cost
+            product.sw_cost_rule_id = rule
+            product.sw_final_cost = calculated_cost
             product.sw_suggested_price = suggested_price
 
     def _sw_get_base_cost_data(self):
@@ -170,6 +158,12 @@ class ProductTemplate(models.Model):
             "brand_id",
             "company_id",
             "sw_sale_margin_percent",
+            "sw_cost_rule_id",
+            "sw_base_cost",
+            "sw_final_cost",
+            "sw_suggested_price",
+            "standard_price",
+            "list_price",
         }
         if watched.intersection(vals.keys()):
             self._sw_recompute_prices()
