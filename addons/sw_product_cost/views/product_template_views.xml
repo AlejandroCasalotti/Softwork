@@ -56,6 +56,11 @@
                             <field name="sw_suggested_price"
                                    readonly="1"/>
 
+                            <button name="action_sw_recompute_cost_rule"
+                                    type="object"
+                                    string="Recalcular Regla de Costo"
+                                    class="oe_highlight"/>
+
 
                         </group>
 

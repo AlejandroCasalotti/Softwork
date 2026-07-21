@@ -69,6 +69,7 @@ class ProductTemplate(models.Model):
         company_currency = self.company_id.currency_id
         conversion_date = supplier_data.get("date") or fields.Date.context_today(self)
 
+        base_cost = 0.0
         if supplier_currency and company_currency:
             base_cost = supplier_currency._convert(
                 supplier_price,
@@ -76,8 +77,10 @@ class ProductTemplate(models.Model):
                 self.company_id,
                 conversion_date,
             )
-        else:
-            base_cost = supplier_price or self.standard_price
+
+        if not base_cost:
+            base_cost = self.standard_price or 0.0
+
         return base_cost, supplier_data
 
     def _sw_calculate_cost_without_margin_rule(self, base_cost, rule):
@@ -103,6 +106,9 @@ class ProductTemplate(models.Model):
 
     def _sw_recompute_prices(self):
         for product in self:
+            if not product.exists():
+                continue
+
             base_cost, _supplier_data = product._sw_get_base_cost_data()
             rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
@@ -116,7 +122,9 @@ class ProductTemplate(models.Model):
                 "standard_price": calculated_cost,
                 "list_price": suggested_price,
             }
-            super(ProductTemplate, product.with_context(sw_skip_recompute=True)).write(vals_to_write)
+
+            # write directo sobre el record para evitar desalineación de super/modelo heredado
+            product.with_context(sw_skip_recompute=True).write(vals_to_write)
 
     @api.model_create_multi
     def create(self, vals_list):
