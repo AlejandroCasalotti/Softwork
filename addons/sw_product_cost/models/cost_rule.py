@@ -154,49 +154,48 @@ class SWProductCostRule(models.Model):
     # ---------------------------------------------------------
 
     def get_rule_for_product(self, product):
-
         Rule = self.env["sw.product.cost.rule"]
 
-        rules = Rule.search(
-            [
-                ("active", "=", True),
-                "|",
-                    ("company_id", "=", product.company_id.id),
-                    ("company_id", "=", False),
-            ],
-            order="sequence asc",
+        base_domain = [
+            ("active", "=", True),
+            "|",
+            ("company_id", "=", product.company_id.id),
+            ("company_id", "=", False),
+        ]
+
+        # Priority: product > category > brand > global
+        product_rule = Rule.search(
+            base_domain + [("rule_type", "=", "product"), ("product_id", "=", product.id)],
+            order="sequence asc, id asc",
+            limit=1,
         )
+        if product_rule:
+            return product_rule
 
+        category_rule = Rule.search(
+            base_domain + [("rule_type", "=", "category"), ("categ_id", "=", product.categ_id.id)],
+            order="sequence asc, id asc",
+            limit=1,
+        )
+        if category_rule:
+            return category_rule
 
-        for rule in rules:
+        brand_rule = self.env["sw.product.cost.rule"]
+        if "brand_id" in product._fields and product.brand_id:
+            brand_rule = Rule.search(
+                base_domain + [("rule_type", "=", "brand"), ("brand_id", "=", product.brand_id.id)],
+                order="sequence asc, id asc",
+                limit=1,
+            )
+        if brand_rule:
+            return brand_rule
 
-            if rule.rule_type == "global":
-                return rule
-
-
-            if (
-                rule.rule_type == "product"
-                and rule.product_id == product
-            ):
-                return rule
-
-
-            if (
-                rule.rule_type == "category"
-                and rule.categ_id == product.categ_id
-            ):
-                return rule
-
-
-            if (
-                rule.rule_type == "brand"
-                and hasattr(product, "brand_id")
-                and rule.brand_id == product.brand_id
-            ):
-                return rule
-
-
-        return False
+        global_rule = Rule.search(
+            base_domain + [("rule_type", "=", "global")],
+            order="sequence asc, id asc",
+            limit=1,
+        )
+        return global_rule or False
 
     def _get_target_products(self):
         self.ensure_one()

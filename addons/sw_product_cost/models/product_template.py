@@ -158,12 +158,6 @@ class ProductTemplate(models.Model):
             "brand_id",
             "company_id",
             "sw_sale_margin_percent",
-            "sw_cost_rule_id",
-            "sw_base_cost",
-            "sw_final_cost",
-            "sw_suggested_price",
-            "standard_price",
-            "list_price",
         }
         if watched.intersection(vals.keys()):
             self._sw_recompute_prices()

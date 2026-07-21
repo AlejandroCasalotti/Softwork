@@ -70,26 +70,8 @@ class SWProductCostRuleLine(models.Model):
 
     operation = fields.Selection(
         selection=[
-            (
-                "discount",
-                "Discount",
-            ),
-            (
-                "surcharge",
-                "Surcharge",
-            ),
-            (
-                "margin",
-                "Sales Margin",
-            ),
-            (
-                "add",
-                "Add Fixed Amount",
-            ),
-            (
-                "subtract",
-                "Subtract Fixed Amount",
-            ),
+            ("discount", "Discount"),
+            ("surcharge", "Surcharge"),
         ],
         string="Operation",
         required=True,
@@ -142,49 +124,18 @@ class SWProductCostRuleLine(models.Model):
 
 
         # Percentage operations
-
         if self.value_type == "percentage":
-
             factor = value / 100
-
-
             if self.operation == "discount":
-
-                return amount - (
-                    amount * factor
-                )
-
-
-            if self.operation in (
-                "surcharge",
-                "margin",
-            ):
-
-                return amount + (
-                    amount * factor
-                )
-
+                return amount - (amount * factor)
+            if self.operation == "surcharge":
+                return amount + (amount * factor)
 
         # Fixed operations
-
         if self.value_type == "fixed":
-
-
-            if self.operation in (
-                "add",
-                "surcharge",
-                "margin",
-            ):
-
+            if self.operation == "surcharge":
                 return amount + value
-
-
-
-            if self.operation in (
-                "subtract",
-                "discount",
-            ):
-
+            if self.operation == "discount":
                 return amount - value
 
         return amount
