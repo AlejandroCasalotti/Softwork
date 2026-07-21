@@ -15,14 +15,10 @@
             model="ir.ui.view">
 
 
-        <field name="name">
-            sw.product.cost.rule.list
-        </field>
+        <field name="name">sw.product.cost.rule.list</field>
 
 
-        <field name="model">
-            sw.product.cost.rule
-        </field>
+        <field name="model">sw.product.cost.rule</field>
 
 
         <field name="arch"
@@ -71,16 +67,12 @@
 
 
 
-        <field name="name">
-            sw.product.cost.rule.form
-        </field>
+        <field name="name">sw.product.cost.rule.form</field>
 
 
 
 
-        <field name="model">
-            sw.product.cost.rule
-        </field>
+        <field name="model">sw.product.cost.rule</field>
 
 
 
