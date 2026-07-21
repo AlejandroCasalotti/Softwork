@@ -131,6 +131,7 @@ class ProductTemplate(models.Model):
             "brand_id",
             "company_id",
             "sw_sale_margin_percent",
+            "standard_price",
         }
         if watched.intersection(vals.keys()):
             self._sw_recompute_prices()
