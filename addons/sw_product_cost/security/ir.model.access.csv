@@ -1,4 +1,4 @@
 id,name,model_id:id,group_id,perm_read,perm_write,perm_create,perm_unlink
 access_sw_product_cost_rule,sw.product.cost.rule,model_sw_product_cost_rule,,1,1,1,1
 access_sw_product_cost_rule_line,sw.product.cost.rule.line,model_sw_product_cost_rule_line,,1,1,1,1
-access_sw_product_cost_rule_stats_wizard,access_sw_product_cost_rule_stats_wizard,model_sw_product_cost_rule_stats_wizard,base.group_user,1,0,0,0
+access_sw_product_cost_rule_stats_wizard,access_sw_product_cost_rule_stats_wizard,model_sw_product_cost_rule_stats_wizard,,1,0,0,0
