@@ -197,3 +197,46 @@ class SWProductCostRule(models.Model):
 
 
         return False
+
+    def _get_target_products(self):
+        self.ensure_one()
+        Product = self.env["product.template"]
+        if self.rule_type == "product" and self.product_id:
+            return self.product_id
+        if self.rule_type == "category" and self.categ_id:
+            return Product.search([("categ_id", "=", self.categ_id.id)])
+        if self.rule_type == "brand" and self.brand_id and "brand_id" in Product._fields:
+            return Product.search([("brand_id", "=", self.brand_id.id)])
+        if self.rule_type == "global":
+            domain = ["|", ("company_id", "=", self.company_id.id), ("company_id", "=", False)]
+            return Product.search(domain)
+        return Product.browse()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        products = self.env["product.template"].browse()
+        for rec in records:
+            products |= rec._get_target_products()
+        if products:
+            products._sw_recompute_prices()
+        return records
+
+    def write(self, vals):
+        old_targets = self.env["product.template"].browse()
+        for rec in self:
+            old_targets |= rec._get_target_products()
+
+        res = super().write(vals)
+
+        new_targets = self.env["product.template"].browse()
+        for rec in self:
+            new_targets |= rec._get_target_products()
+
+        watched = {"active", "sequence", "company_id", "rule_type", "product_id", "categ_id", "brand_id"}
+        if watched.intersection(vals.keys()):
+            products = (old_targets | new_targets).exists()
+            if products:
+                products._sw_recompute_prices()
+
+        return res

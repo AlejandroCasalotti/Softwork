@@ -74,6 +74,12 @@ class ProductTemplate(models.Model):
         store=True,
     )
 
+    sw_sale_margin_percent = fields.Float(
+        string="Sales Margin (%)",
+        default=0.0,
+        help="Margin percentage to calculate sales price from calculated cost.",
+    )
+
 
 
 
@@ -83,10 +89,15 @@ class ProductTemplate(models.Model):
 
 
     @api.depends(
-        "standard_price",
         "categ_id",
         "company_id",
         "brand_id",
+        "seller_ids",
+        "seller_ids.sequence",
+        "seller_ids.min_qty",
+        "seller_ids.price",
+        "seller_ids.currency_id",
+        "sw_sale_margin_percent",
     )
     def _compute_sw_cost_values(self):
 
@@ -104,14 +115,10 @@ class ProductTemplate(models.Model):
 
 
             # -------------------------------------------------
-            # Base cost
+            # Base cost from first supplier + currency conversion
             # -------------------------------------------------
 
-
-            base_cost = product.standard_price
-
-
-
+            base_cost, _supplier_data = product._sw_get_base_cost_data()
 
             product.sw_base_cost = base_cost
 
@@ -162,16 +169,72 @@ class ProductTemplate(models.Model):
 
             product.sw_final_cost = calculated_cost
 
-
-
-
-
-
             # -------------------------------------------------
-            # Suggested sale price
+            # Suggested sale price with sales margin
             # -------------------------------------------------
+            margin = (product.sw_sale_margin_percent or 0.0) / 100.0
+            suggested_price = calculated_cost * (1.0 + margin)
 
+            product.sw_suggested_price = suggested_price
 
-            product.sw_suggested_price = (
-                calculated_cost
+    def _sw_get_base_cost_data(self):
+        self.ensure_one()
+        supplier_data = self.env["product.supplierinfo"].get_reference_cost_data(self, quantity=1.0)
+        supplier_price = supplier_data.get("price", 0.0)
+        supplier_currency = supplier_data.get("currency") or self.company_id.currency_id
+        company_currency = self.company_id.currency_id
+        conversion_date = supplier_data.get("date") or fields.Date.context_today(self)
+
+        if supplier_currency and company_currency:
+            base_cost = supplier_currency._convert(
+                supplier_price,
+                company_currency,
+                self.company_id,
+                conversion_date,
             )
+        else:
+            base_cost = supplier_price or self.standard_price
+        return base_cost, supplier_data
+
+    def _sw_apply_cost_rule(self, base_cost):
+        self.ensure_one()
+        rule = self.env["sw.product.cost.rule"].get_rule_for_product(self)
+        if rule:
+            return rule, rule.calculate_cost(base_cost)
+        return False, base_cost
+
+    def _sw_recompute_prices(self):
+        for product in self:
+            base_cost, _supplier_data = product._sw_get_base_cost_data()
+            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
+            margin = (product.sw_sale_margin_percent or 0.0) / 100.0
+            suggested_price = calculated_cost * (1.0 + margin)
+
+            vals = {
+                "sw_base_cost": base_cost,
+                "sw_cost_rule_id": rule.id if rule else False,
+                "sw_final_cost": calculated_cost,
+                "sw_suggested_price": suggested_price,
+                "standard_price": calculated_cost,
+                "list_price": suggested_price,
+            }
+            super(ProductTemplate, product).write(vals)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        products = super().create(vals_list)
+        products._sw_recompute_prices()
+        return products
+
+    def write(self, vals):
+        res = super().write(vals)
+        watched = {
+            "seller_ids",
+            "categ_id",
+            "brand_id",
+            "company_id",
+            "sw_sale_margin_percent",
+        }
+        if watched.intersection(vals.keys()):
+            self._sw_recompute_prices()
+        return res
