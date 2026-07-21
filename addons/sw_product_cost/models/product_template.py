@@ -86,8 +86,6 @@ class ProductTemplate(models.Model):
         for line in rule.line_ids.sorted(key=lambda l: (l.sequence, l.id)):
             if not line.active:
                 continue
-            if line.operation == "margin":
-                continue
             result = line.apply(result)
         return result
 
@@ -105,8 +103,6 @@ class ProductTemplate(models.Model):
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
 
-            # always write computed values in recompute path to avoid stale values
-            # after create/onchange chains and ensure rule formulas are persisted.
             vals_to_write = {
                 "sw_base_cost": base_cost,
                 "sw_cost_rule_id": rule.id if (rule and rule.exists()) else False,
@@ -115,7 +111,7 @@ class ProductTemplate(models.Model):
                 "standard_price": calculated_cost,
                 "list_price": suggested_price,
             }
-            super(ProductTemplate, product).write(vals_to_write)
+            super(ProductTemplate, product.with_context(sw_skip_recompute=True)).write(vals_to_write)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -124,15 +120,26 @@ class ProductTemplate(models.Model):
         return products
 
     def write(self, vals):
+        if self.env.context.get("sw_skip_recompute"):
+            return super().write(vals)
+
+        old_values = {p.id: p.standard_price for p in self}
         res = super().write(vals)
-        watched = {
-            "seller_ids",
-            "categ_id",
-            "brand_id",
-            "company_id",
-            "sw_sale_margin_percent",
-            "standard_price",
-        }
-        if watched.intersection(vals.keys()):
-            self._sw_recompute_prices()
+
+        watched = {"seller_ids", "categ_id", "brand_id", "company_id", "sw_sale_margin_percent", "standard_price"}
+        should_recompute = bool(watched.intersection(vals.keys()))
+
+        # Si cambia standard_price manualmente, recalcular aunque venga por otra ruta
+        if not should_recompute and "standard_price" in vals:
+            should_recompute = True
+
+        if should_recompute:
+            products_to_recompute = self
+            # Evita bucle cuando standard_price fue escrito por nuestro propio recompute
+            if "standard_price" in vals and len(vals.keys()) == 1:
+                # Solo recomputar si realmente fue un cambio manual relevante
+                manual_changed = self.filtered(lambda p: old_values.get(p.id) != p.standard_price)
+                products_to_recompute = manual_changed or self
+            products_to_recompute._sw_recompute_prices()
+
         return res
