@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 import xmlrpc.client
 from datetime import datetime
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class SceOdooMigrationRun(models.Model):
@@ -115,8 +118,31 @@ class SceOdooMigrationRun(models.Model):
         return uid, models_rpc
 
     def _rpc_call(self, models_rpc, db, uid, pwd, model, method, *args, **kwargs):
+        rpc_kwargs = kwargs or {}
         rpc_args = list(args)
-        return models_rpc.execute_kw(db, uid, pwd, model, method, rpc_args, kwargs or {})
+
+        _logger.info(
+            "RPC_CALL OUT model=%s method=%s args=%s kwargs=%s",
+            model,
+            method,
+            repr(rpc_args),
+            repr(rpc_kwargs),
+        )
+
+        try:
+            result = models_rpc.execute_kw(db, uid, pwd, model, method, rpc_args, rpc_kwargs)
+            _logger.info("RPC_CALL OK model=%s method=%s", model, method)
+            return result
+        except Exception as err:
+            _logger.exception(
+                "RPC_CALL ERROR model=%s method=%s args=%s kwargs=%s err=%s",
+                model,
+                method,
+                repr(rpc_args),
+                repr(rpc_kwargs),
+                err,
+            )
+            raise
 
     def _get_versions(self):
         self.ensure_one()
