@@ -122,7 +122,7 @@ class ProductTemplate(models.Model):
     def _sw_calculate_cost_without_margin_rule(self, base_cost, rule):
         self.ensure_one()
         result = base_cost
-        for line in rule.line_ids.sorted(key=lambda l: l.sequence):
+        for line in rule.line_ids.sorted(key=lambda l: (l.sequence, l.id)):
             if not line.active:
                 continue
             if line.operation == "margin":
@@ -144,16 +144,9 @@ class ProductTemplate(models.Model):
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
 
-            current_vals = {
-                "sw_base_cost": product.sw_base_cost or 0.0,
-                "sw_cost_rule_id": product.sw_cost_rule_id.id if product.sw_cost_rule_id else False,
-                "sw_final_cost": product.sw_final_cost or 0.0,
-                "sw_suggested_price": product.sw_suggested_price or 0.0,
-                "standard_price": product.standard_price or 0.0,
-                "list_price": product.list_price or 0.0,
-            }
-
-            new_vals = {
+            # always write computed values in recompute path to avoid stale values
+            # after create/onchange chains and ensure rule formulas are persisted.
+            vals_to_write = {
                 "sw_base_cost": base_cost,
                 "sw_cost_rule_id": rule.id if rule else False,
                 "sw_final_cost": calculated_cost,
@@ -161,14 +154,7 @@ class ProductTemplate(models.Model):
                 "standard_price": calculated_cost,
                 "list_price": suggested_price,
             }
-
-            vals_to_write = {}
-            for key, new_val in new_vals.items():
-                if current_vals.get(key) != new_val:
-                    vals_to_write[key] = new_val
-
-            if vals_to_write:
-                super(ProductTemplate, product).write(vals_to_write)
+            super(ProductTemplate, product).write(vals_to_write)
 
     @api.model_create_multi
     def create(self, vals_list):
