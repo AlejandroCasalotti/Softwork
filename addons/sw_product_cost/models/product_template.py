@@ -74,6 +74,12 @@ class ProductTemplate(models.Model):
         "seller_ids.price",
         "seller_ids.currency_id",
         "sw_sale_margin_percent",
+        "sw_cost_rule_id.line_ids",
+        "sw_cost_rule_id.line_ids.active",
+        "sw_cost_rule_id.line_ids.sequence",
+        "sw_cost_rule_id.line_ids.operation",
+        "sw_cost_rule_id.line_ids.value_type",
+        "sw_cost_rule_id.line_ids.value",
     )
     def _compute_sw_cost_values(self):
         # compute should be pure assignment to avoid frontend/owl instability
