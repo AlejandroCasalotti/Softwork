@@ -211,31 +211,24 @@ class SWProductCostRule(models.Model):
             return Product.search(domain)
         return Product.browse()
 
+    def _recompute_impacted_products(self):
+        Product = self.env["product.template"]
+        products = Product.search([])
+        if products:
+            products._sw_recompute_prices()
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        products = self.env["product.template"].browse()
-        for rec in records:
-            products |= rec._get_target_products()
-        if products:
-            products._sw_recompute_prices()
+        records._recompute_impacted_products()
         return records
 
     def write(self, vals):
-        old_targets = self.env["product.template"].browse()
-        for rec in self:
-            old_targets |= rec._get_target_products()
-
         res = super().write(vals)
+        self._recompute_impacted_products()
+        return res
 
-        new_targets = self.env["product.template"].browse()
-        for rec in self:
-            new_targets |= rec._get_target_products()
-
-        watched = {"active", "sequence", "company_id", "rule_type", "product_id", "categ_id", "brand_id"}
-        if watched.intersection(vals.keys()):
-            products = (old_targets | new_targets).exists()
-            if products:
-                products._sw_recompute_prices()
-
+    def unlink(self):
+        res = super().unlink()
+        self._recompute_impacted_products()
         return res
