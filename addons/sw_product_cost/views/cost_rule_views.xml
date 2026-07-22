@@ -126,7 +126,7 @@
 
 
 
-                            <field name="company_id" options="{'no_create': True}"/>
+                            <field name="company_id"/>
 
 
 
@@ -150,6 +150,7 @@
 
                             <field name="brand_id"
                                    invisible="rule_type != 'brand'"/>
+
 
                         </group>
 
@@ -269,7 +270,6 @@
 
 
     </record>
-
 
 
 

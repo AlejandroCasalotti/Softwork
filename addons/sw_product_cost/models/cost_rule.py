@@ -62,6 +62,7 @@ class SWProductCostRule(models.Model):
         ],
         string="Apply To",
         required=True,
+        default="global",
     )
 
 

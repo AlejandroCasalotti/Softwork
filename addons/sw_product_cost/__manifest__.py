@@ -37,7 +37,6 @@ with Softwork Commerce Engine (SCE).
         "views/cost_rule_stats_wizard_views.xml",
         "views/product_template_views.xml",
         "views/menu_views.xml",
-        "data/cost_rule_data.xml",
     ],
 
     "assets": {
