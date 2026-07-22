@@ -147,8 +147,7 @@ class ProductTemplate(models.Model):
 
         for product in products:
             base_cost, _supplier_data = product._sw_get_base_cost_data()
-            rule = self.env["sw.product.cost.rule"].get_rule_for_product(product)
-            calculated_cost = product._sw_calculate_cost_without_margin_rule(base_cost, rule) if rule else base_cost
+            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
 
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
