@@ -203,24 +203,28 @@ class SWProductCostRule(models.Model):
         return global_rule or False
 
     def _get_target_products(self):
-        self.ensure_one()
         Product = self.env["product.template"]
+        products = Product.browse()
 
-        company_domain = ["|", ("company_id", "=", self.company_id.id), ("company_id", "=", False)]
+        for rule in self:
+            company_domain = ["|", ("company_id", "=", rule.company_id.id), ("company_id", "=", False)]
 
-        if self.rule_type == "product" and self.product_id:
-            return self.product_id.search([("id", "=", self.product_id.id)] + company_domain)
+            if rule.rule_type == "product" and rule.product_id:
+                products |= Product.search([("id", "=", rule.product_id.id)] + company_domain)
+                continue
 
-        if self.rule_type == "category" and self.categ_id:
-            return Product.search([("categ_id", "=", self.categ_id.id)] + company_domain)
+            if rule.rule_type == "category" and rule.categ_id:
+                products |= Product.search([("categ_id", "=", rule.categ_id.id)] + company_domain)
+                continue
 
-        if self.rule_type == "brand" and self.brand_id and "brand_id" in Product._fields:
-            return Product.search([("brand_id", "=", self.brand_id.id)] + company_domain)
+            if rule.rule_type == "brand" and rule.brand_id and "brand_id" in Product._fields:
+                products |= Product.search([("brand_id", "=", rule.brand_id.id)] + company_domain)
+                continue
 
-        if self.rule_type == "global":
-            return Product.search(company_domain)
+            if rule.rule_type == "global":
+                products |= Product.search(company_domain)
 
-        return Product.browse()
+        return products
 
     @api.depends("rule_type", "product_id", "categ_id", "brand_id", "active", "company_id")
     def _compute_applied_product_count(self):
