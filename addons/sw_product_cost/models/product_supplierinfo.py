@@ -98,7 +98,7 @@ class ProductSupplierInfo(models.Model):
         records = super().create(vals_list)
         products = (records.mapped("product_tmpl_id") | records.mapped("product_id.product_tmpl_id")).exists()
         if products:
-            products._sw_recompute_prices()
+            products.sudo()._sw_recompute_prices()
         return records
 
     def write(self, vals):
@@ -107,12 +107,12 @@ class ProductSupplierInfo(models.Model):
         if watched.intersection(vals.keys()):
             products = (self.mapped("product_tmpl_id") | self.mapped("product_id.product_tmpl_id")).exists()
             if products:
-                products._sw_recompute_prices()
+                products.sudo()._sw_recompute_prices()
         return res
 
     def unlink(self):
         products = (self.mapped("product_tmpl_id") | self.mapped("product_id.product_tmpl_id")).exists()
         res = super().unlink()
         if products:
-            products._sw_recompute_prices()
+            products.sudo()._sw_recompute_prices()
         return res

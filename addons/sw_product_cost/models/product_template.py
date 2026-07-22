@@ -192,7 +192,13 @@ class ProductTemplate(models.Model):
             "sw_sale_margin_percent",
             "standard_price",
         }
-        if watched.intersection(vals.keys()):
-            self._sw_recompute_prices()
+        must_recompute = bool(watched.intersection(vals.keys()))
+
+        # Forzar recompute cuando llegan comandos O2M de seller_ids desde UI
+        if "seller_ids" in vals and isinstance(vals.get("seller_ids"), list):
+            must_recompute = True
+
+        if must_recompute:
+            self.sudo()._sw_recompute_prices()
 
         return res
