@@ -232,17 +232,8 @@ class SWProductCostRule(models.Model):
             rule.applied_product_count = len(rule._get_target_products()) if rule.active else 0
 
     def _recompute_impacted_products(self):
-        products = self.env["product.template"]
-        for rule in self:
-            products |= rule._get_target_products()
-            if rule.rule_type != "global":
-                products |= self.env["sw.product.cost.rule"].search([
-                    ("active", "=", True),
-                    ("rule_type", "=", "global"),
-                    "|",
-                    ("company_id", "=", rule.company_id.id),
-                    ("company_id", "=", False),
-                ])._get_target_products()
+        Product = self.env["product.template"]
+        products = Product.search([])
         products = products.exists()
         if products:
             products._sw_recompute_prices()
