@@ -87,9 +87,10 @@
                 <header>
                     <button name="action_open_rule_stats_wizard"
                             type="object"
-                            string="Productos aplicados"
-                            icon="fa-bar-chart"
-                            class="btn-primary"/>
+                            class="oe_stat_button"
+                            icon="fa-cubes">
+                        <field name="applied_product_count" widget="statinfo" string="Productos aplicados"/>
+                    </button>
                 </header>
 
 
@@ -125,7 +126,7 @@
 
 
 
-                            <field name="company_id"/>
+                            <field name="company_id" options="{'no_create': True}"/>
 
 
 
@@ -149,8 +150,6 @@
 
                             <field name="brand_id"
                                    invisible="rule_type != 'brand'"/>
-
-                            <field name="applied_product_count" readonly="1"/>
 
                         </group>
 
