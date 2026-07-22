@@ -95,6 +95,11 @@ class SWProductCostRule(models.Model):
         copy=True,
     )
 
+    applied_product_count = fields.Integer(
+        string="Applied Products",
+        compute="_compute_applied_product_count",
+    )
+
 
     # ---------------------------------------------------------
     # Validation
@@ -211,9 +216,17 @@ class SWProductCostRule(models.Model):
             return Product.search(domain)
         return Product.browse()
 
-    def _recompute_impacted_products(self):
+    @api.depends("rule_type", "product_id", "categ_id", "brand_id", "active")
+    def _compute_applied_product_count(self):
         Product = self.env["product.template"]
-        products = Product.search([])
+        for rule in self:
+            rule.applied_product_count = len(rule._get_target_products()) if rule.active else 0
+
+    def _recompute_impacted_products(self):
+        products = self.env["product.template"]
+        for rule in self:
+            products |= rule._get_target_products()
+        products = products.exists()
         if products:
             products._sw_recompute_prices()
 

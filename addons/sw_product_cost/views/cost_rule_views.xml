@@ -87,7 +87,8 @@
                 <header>
                     <button name="action_open_rule_stats_wizard"
                             type="object"
-                            string="Ver productos aplicados"
+                            string="Productos aplicados"
+                            icon="fa-bar-chart"
                             class="btn-primary"/>
                 </header>
 
@@ -138,31 +139,18 @@
 
                         <group>
 
-
-
-
                             <field name="rule_type"/>
-
-
-
 
                             <field name="product_id"
                                    invisible="rule_type != 'product'"/>
 
-
-
-
                             <field name="categ_id"
                                    invisible="rule_type != 'category'"/>
-
-
-
 
                             <field name="brand_id"
                                    invisible="rule_type != 'brand'"/>
 
-
-
+                            <field name="applied_product_count" readonly="1"/>
 
                         </group>
 

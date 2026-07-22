@@ -109,3 +109,10 @@ class ProductSupplierInfo(models.Model):
             if products:
                 products._sw_recompute_prices()
         return res
+
+    def unlink(self):
+        products = (self.mapped("product_tmpl_id") | self.mapped("product_id.product_tmpl_id")).exists()
+        res = super().unlink()
+        if products:
+            products._sw_recompute_prices()
+        return res
