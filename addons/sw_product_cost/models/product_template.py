@@ -96,9 +96,48 @@ class ProductTemplate(models.Model):
 
     def _sw_apply_cost_rule(self, base_cost):
         self.ensure_one()
-        rule = self.env["sw.product.cost.rule"].get_rule_for_product(self)
-        if rule and rule.exists():
-            return rule, self._sw_calculate_cost_without_margin_rule(base_cost, rule)
+        Rule = self.env["sw.product.cost.rule"]
+
+        base_domain = [
+            ("active", "=", True),
+            "|",
+            ("company_id", "=", self.company_id.id),
+            ("company_id", "=", False),
+        ]
+
+        product_rule = Rule.search(
+            base_domain + [("rule_type", "=", "product"), ("product_id", "=", self.id)],
+            order="sequence asc, id asc",
+            limit=1,
+        )
+        if product_rule:
+            return product_rule, self._sw_calculate_cost_without_margin_rule(base_cost, product_rule)
+
+        category_rule = Rule.search(
+            base_domain + [("rule_type", "=", "category"), ("categ_id", "=", self.categ_id.id)],
+            order="sequence asc, id asc",
+            limit=1,
+        )
+        if category_rule:
+            return category_rule, self._sw_calculate_cost_without_margin_rule(base_cost, category_rule)
+
+        if "brand_id" in self._fields and self.brand_id:
+            brand_rule = Rule.search(
+                base_domain + [("rule_type", "=", "brand"), ("brand_id", "=", self.brand_id.id)],
+                order="sequence asc, id asc",
+                limit=1,
+            )
+            if brand_rule:
+                return brand_rule, self._sw_calculate_cost_without_margin_rule(base_cost, brand_rule)
+
+        global_rule = Rule.search(
+            base_domain + [("rule_type", "=", "global")],
+            order="sequence asc, id asc",
+            limit=1,
+        )
+        if global_rule:
+            return global_rule, self._sw_calculate_cost_without_margin_rule(base_cost, global_rule)
+
         return False, base_cost
 
     def _sw_recompute_prices(self):
