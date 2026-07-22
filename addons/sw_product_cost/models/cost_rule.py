@@ -205,20 +205,25 @@ class SWProductCostRule(models.Model):
     def _get_target_products(self):
         self.ensure_one()
         Product = self.env["product.template"]
+
+        company_domain = ["|", ("company_id", "=", self.company_id.id), ("company_id", "=", False)]
+
         if self.rule_type == "product" and self.product_id:
-            return self.product_id
+            return self.product_id.search([("id", "=", self.product_id.id)] + company_domain)
+
         if self.rule_type == "category" and self.categ_id:
-            return Product.search([("categ_id", "=", self.categ_id.id)])
+            return Product.search([("categ_id", "=", self.categ_id.id)] + company_domain)
+
         if self.rule_type == "brand" and self.brand_id and "brand_id" in Product._fields:
-            return Product.search([("brand_id", "=", self.brand_id.id)])
+            return Product.search([("brand_id", "=", self.brand_id.id)] + company_domain)
+
         if self.rule_type == "global":
-            domain = ["|", ("company_id", "=", self.company_id.id), ("company_id", "=", False)]
-            return Product.search(domain)
+            return Product.search(company_domain)
+
         return Product.browse()
 
-    @api.depends("rule_type", "product_id", "categ_id", "brand_id", "active")
+    @api.depends("rule_type", "product_id", "categ_id", "brand_id", "active", "company_id")
     def _compute_applied_product_count(self):
-        Product = self.env["product.template"]
         for rule in self:
             rule.applied_product_count = len(rule._get_target_products()) if rule.active else 0
 
@@ -226,6 +231,14 @@ class SWProductCostRule(models.Model):
         products = self.env["product.template"]
         for rule in self:
             products |= rule._get_target_products()
+            if rule.rule_type != "global":
+                products |= self.env["sw.product.cost.rule"].search([
+                    ("active", "=", True),
+                    ("rule_type", "=", "global"),
+                    "|",
+                    ("company_id", "=", rule.company_id.id),
+                    ("company_id", "=", False),
+                ])._get_target_products()
         products = products.exists()
         if products:
             products._sw_recompute_prices()

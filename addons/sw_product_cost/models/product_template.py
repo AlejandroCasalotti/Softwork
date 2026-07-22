@@ -141,25 +141,30 @@ class ProductTemplate(models.Model):
         return False, base_cost
 
     def _sw_recompute_prices(self):
-        for product in self.exists():
+        products = self.exists()
+        if not products:
+            return
+
+        for product in products:
             base_cost, _supplier_data = product._sw_get_base_cost_data()
-            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
+            rule = self.env["sw.product.cost.rule"].get_rule_for_product(product)
+            calculated_cost = product._sw_calculate_cost_without_margin_rule(base_cost, rule) if rule else base_cost
 
             margin = (product.sw_sale_margin_percent or 0.0) / 100.0
             suggested_price = calculated_cost * (1.0 + margin)
 
             vals_to_write = {
                 "sw_base_cost": base_cost,
-                "sw_cost_rule_id": rule.id if (rule and rule.exists()) else False,
+                "sw_cost_rule_id": rule.id if rule else False,
                 "sw_final_cost": calculated_cost,
                 "sw_suggested_price": suggested_price,
                 "list_price": suggested_price,
             }
-
             product.with_context(sw_skip_recompute=True).write(vals_to_write)
 
-            if product.product_variant_id:
-                product.product_variant_id.with_context(sw_skip_recompute=True).write({
+            variants = product.product_variant_ids
+            if variants:
+                variants.with_context(sw_skip_recompute=True).write({
                     "standard_price": calculated_cost,
                 })
 
