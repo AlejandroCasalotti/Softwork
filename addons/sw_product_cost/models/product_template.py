@@ -10,21 +10,33 @@ class ProductTemplate(models.Model):
     sw_cost_rule_id = fields.Many2one(
         comodel_name="sw.product.cost.rule",
         string="Applied Cost Rule",
+        compute="_compute_sw_cost_fields",
+        store=True,
+        readonly=True,
         copy=False,
         index=True,
     )
     sw_base_cost = fields.Float(
         string="Base Cost",
+        compute="_compute_sw_cost_fields",
+        store=True,
+        readonly=True,
         copy=False,
         help="Initial cost before applying rules.",
     )
     sw_final_cost = fields.Float(
         string="Calculated Cost",
+        compute="_compute_sw_cost_fields",
+        store=True,
+        readonly=True,
         copy=False,
         help="Final cost after cascade rules.",
     )
     sw_suggested_price = fields.Float(
         string="Suggested Sale Price",
+        compute="_compute_sw_cost_fields",
+        store=True,
+        readonly=True,
         copy=False,
     )
     sw_sale_margin_percent = fields.Float(
@@ -139,6 +151,28 @@ class ProductTemplate(models.Model):
             return global_rule, self._sw_calculate_cost_without_margin_rule(base_cost, global_rule)
 
         return False, base_cost
+
+    @api.depends(
+        "seller_ids.price",
+        "seller_ids.sequence",
+        "seller_ids.min_qty",
+        "seller_ids.currency_id",
+        "categ_id",
+        "company_id",
+        "sw_sale_margin_percent",
+        "brand_id",
+    )
+    def _compute_sw_cost_fields(self):
+        for product in self:
+            base_cost, _supplier_data = product._sw_get_base_cost_data()
+            rule, calculated_cost = product._sw_apply_cost_rule(base_cost)
+            margin = (product.sw_sale_margin_percent or 0.0) / 100.0
+            suggested_price = calculated_cost * (1.0 + margin)
+
+            product.sw_base_cost = base_cost
+            product.sw_cost_rule_id = rule.id if rule else False
+            product.sw_final_cost = calculated_cost
+            product.sw_suggested_price = suggested_price
 
     def _sw_recompute_prices(self):
         products = self.exists()
