@@ -153,10 +153,15 @@ class ProductTemplate(models.Model):
                 "sw_cost_rule_id": rule.id if (rule and rule.exists()) else False,
                 "sw_final_cost": calculated_cost,
                 "sw_suggested_price": suggested_price,
-                "standard_price": calculated_cost,
                 "list_price": suggested_price,
             }
+
             product.with_context(sw_skip_recompute=True).write(vals_to_write)
+
+            if product.product_variant_id:
+                product.product_variant_id.with_context(sw_skip_recompute=True).write({
+                    "standard_price": calculated_cost,
+                })
 
     def action_sw_recompute_cost_rule(self):
         self._sw_recompute_prices()
