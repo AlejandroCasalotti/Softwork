@@ -121,6 +121,13 @@ class SceOdooMigrationRun(models.Model):
         rpc_kwargs = kwargs or {}
         rpc_args = list(args)
 
+        # Guard rail: avoid malformed XML-RPC payloads that send dict as domain
+        # Expected shape for search/search_read:
+        #   args[0] => domain (list/tuple), kwargs => options dict
+        if method in ("search", "search_read", "search_count"):
+            if rpc_args and isinstance(rpc_args[0], dict):
+                rpc_args[0] = []
+
         _logger.info(
             "RPC_CALL OUT model=%s method=%s args=%s kwargs=%s",
             model,
@@ -192,7 +199,7 @@ class SceOdooMigrationRun(models.Model):
             model,
             "search",
             domain,
-            {"limit": 1},
+            limit=1,
         )
         if rec_ids:
             return rec_ids[0]
@@ -256,10 +263,11 @@ class SceOdooMigrationRun(models.Model):
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
                 "res.partner", "read", [pid], fields=["name", "email", "phone", "vat", "is_company"]
             )[0]
+            search_domain = [("vat", "=", vals.get("vat"))] if vals.get("vat") else [("name", "=", vals.get("name"))]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "res.partner", "search", [("vat", "=", vals.get("vat"))] if vals.get("vat") else [("name", "=", vals.get("name"))],
-                {"limit": 1}
+                "res.partner", "search", search_domain,
+                limit=1
             )
             write_vals = {
                 "name": vals.get("name"),
@@ -271,12 +279,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "res.partner", "write", [existing, write_vals]
+                    "res.partner", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "res.partner", "create", [write_vals]
+                    "res.partner", "create", write_vals
                 )
 
         for batch in self._iter_batches(partner_ids):
@@ -291,7 +299,16 @@ class SceOdooMigrationRun(models.Model):
         return errors
 
     def _fields_get(self, rpc, db, uid, pwd, model):
-        return self._rpc_call(rpc, db, uid, pwd, model, "fields_get", [], {"attributes": ["type", "readonly", "required"]})
+        return self._rpc_call(
+            rpc,
+            db,
+            uid,
+            pwd,
+            model,
+            "fields_get",
+            [],
+            attributes=["type", "readonly", "required"],
+        )
 
     def _has_field(self, fields_map, field_name):
         return field_name in (fields_map or {})
@@ -342,7 +359,7 @@ class SceOdooMigrationRun(models.Model):
             search_domain = [("default_code", "=", vals.get("default_code"))] if vals.get("default_code") else [("name", "=", vals.get("name"))]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "product.template", "search", search_domain, {"limit": 1}
+                "product.template", "search", search_domain, limit=1
             )
             write_vals = {}
             if self._has_field(dst_fields, "name"):
@@ -423,7 +440,7 @@ class SceOdooMigrationRun(models.Model):
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
                 "account.tax", "search", [("name", "=", vals.get("name")), ("type_tax_use", "=", vals.get("type_tax_use"))],
-                {"limit": 1}
+                limit=1
             )
             write_vals = {
                 "name": vals.get("name"),
@@ -478,7 +495,7 @@ class SceOdooMigrationRun(models.Model):
                 )
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "sale.order", "search", [("name", "=", vals.get("name"))], {"limit": 1}
+                "sale.order", "search", [("name", "=", vals.get("name"))], limit=1
             )
             write_vals = {"name": vals.get("name"), "client_order_ref": vals.get("client_order_ref")}
             if partner_id:
@@ -530,7 +547,7 @@ class SceOdooMigrationRun(models.Model):
                 )
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "purchase.order", "search", [("name", "=", vals.get("name"))], {"limit": 1}
+                "purchase.order", "search", [("name", "=", vals.get("name"))], limit=1
             )
             write_vals = {"name": vals.get("name"), "partner_ref": vals.get("partner_ref")}
             if partner_id:
@@ -582,7 +599,7 @@ class SceOdooMigrationRun(models.Model):
                 )
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "account.move", "search", [("name", "=", vals.get("name")), ("move_type", "=", vals.get("move_type"))], {"limit": 1}
+                "account.move", "search", [("name", "=", vals.get("name")), ("move_type", "=", vals.get("move_type"))], limit=1
             )
             write_vals = {
                 "name": vals.get("name"),
@@ -633,7 +650,7 @@ class SceOdooMigrationRun(models.Model):
             existing_domain = [("code", "=", vals.get("code"))] if vals.get("code") else [("name", "=", vals.get("name"))]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "stock.warehouse", "search", existing_domain, {"limit": 1}
+                "stock.warehouse", "search", existing_domain, limit=1
             )
             write_vals = {"name": vals.get("name"), "code": vals.get("code")}
             if existing:
@@ -677,7 +694,7 @@ class SceOdooMigrationRun(models.Model):
             existing_domain = [("complete_name", "=", vals.get("complete_name"))] if vals.get("complete_name") else [("name", "=", vals.get("name"))]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                "stock.location", "search", existing_domain, {"limit": 1}
+                "stock.location", "search", existing_domain, limit=1
             )
             write_vals = {"name": vals.get("name"), "usage": vals.get("usage") or "internal"}
             if vals.get("location_id"):
