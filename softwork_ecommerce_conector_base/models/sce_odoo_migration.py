@@ -122,11 +122,22 @@ class SceOdooMigrationRun(models.Model):
         rpc_args = list(args)
 
         # Guard rail: avoid malformed XML-RPC payloads that send dict as domain
-        # Expected shape for search/search_read:
+        # Expected shape for search/search_read/search_count:
         #   args[0] => domain (list/tuple), kwargs => options dict
         if method in ("search", "search_read", "search_count"):
             if rpc_args and isinstance(rpc_args[0], dict):
                 rpc_args[0] = []
+            elif rpc_args and isinstance(rpc_args[0], (list, tuple)):
+                sanitized = []
+                for token in rpc_args[0]:
+                    if isinstance(token, (list, tuple)) and len(token) == 3:
+                        fld, op, val = token
+                        if isinstance(val, dict):
+                            val = val.get("id") or val.get("name") or val.get("display_name") or False
+                        sanitized.append((fld, op, val))
+                    else:
+                        sanitized.append(token)
+                rpc_args[0] = sanitized
 
         _logger.info(
             "RPC_CALL OUT model=%s method=%s args=%s kwargs=%s",
@@ -319,11 +330,15 @@ class SceOdooMigrationRun(models.Model):
         src_id = src_value[0] if isinstance(src_value, (list, tuple)) else src_value
         src_name = src_value[1] if isinstance(src_value, (list, tuple)) and len(src_value) > 1 else False
         if not src_name:
-            src_rec = self._rpc_call(src_rpc, src_db, src_uid, src_pwd, model, "read", [src_id], {"fields": ["name"]})
+            src_rec = self._rpc_call(
+                src_rpc, src_db, src_uid, src_pwd, model, "read", [src_id], fields=["name"]
+            )
             src_name = src_rec and src_rec[0].get("name")
         if not src_name:
             return False
-        dst_ids = self._rpc_call(dst_rpc, dst_db, dst_uid, dst_pwd, model, "search", [("name", "=", src_name)], {"limit": 1})
+        dst_ids = self._rpc_call(
+            dst_rpc, dst_db, dst_uid, dst_pwd, model, "search", [("name", "=", src_name)], limit=1
+        )
         return dst_ids[0] if dst_ids else False
 
     def _sync_product_template(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
@@ -464,12 +479,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.tax", "write", [existing, write_vals]
+                    "account.tax", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.tax", "create", [write_vals]
+                    "account.tax", "create", write_vals
                 )
 
         for batch in self._iter_batches(tax_ids):
@@ -516,12 +531,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "sale.order", "write", [existing, write_vals]
+                    "sale.order", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "sale.order", "create", [write_vals]
+                    "sale.order", "create", write_vals
                 )
 
         for batch in self._iter_batches(order_ids):
@@ -568,12 +583,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "purchase.order", "write", [existing, write_vals]
+                    "purchase.order", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "purchase.order", "create", [write_vals]
+                    "purchase.order", "create", write_vals
                 )
 
         for batch in self._iter_batches(order_ids):
@@ -625,12 +640,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.move", "write", [existing, write_vals]
+                    "account.move", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.move", "create", [write_vals]
+                    "account.move", "create", write_vals
                 )
 
         for batch in self._iter_batches(move_ids):
@@ -669,12 +684,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.warehouse", "write", [existing, write_vals]
+                    "stock.warehouse", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.warehouse", "create", [write_vals]
+                    "stock.warehouse", "create", write_vals
                 )
 
         for batch in self._iter_batches(wh_ids):
@@ -721,12 +736,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.location", "write", [existing, write_vals]
+                    "stock.location", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.location", "create", [write_vals]
+                    "stock.location", "create", write_vals
                 )
 
         for batch in self._iter_batches(loc_ids):
