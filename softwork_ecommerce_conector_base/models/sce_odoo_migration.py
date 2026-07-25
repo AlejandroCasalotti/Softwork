@@ -4,7 +4,7 @@ import logging
 import xmlrpc.client
 from datetime import datetime
 
-from odoo import api, fields, models
+from odoo import fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -47,9 +47,14 @@ class SceOdooMigrationRun(models.Model):
     sync_partners = fields.Boolean(default=True)
     sync_products = fields.Boolean(default=True)
     sync_taxes = fields.Boolean(default=True)
+    sync_product_categories = fields.Boolean(default=True)
+    sync_product_web_categories = fields.Boolean(default=True)
+    sync_product_suppliers = fields.Boolean(default=True)
     sync_sales = fields.Boolean(default=False)
     sync_purchases = fields.Boolean(default=False)
     sync_invoices = fields.Boolean(default=False)
+    sync_payments = fields.Boolean(default=False)
+    sync_documents = fields.Boolean(default=False)
     sync_stock_warehouses = fields.Boolean(default=False)
     sync_stock_locations = fields.Boolean(default=False)
 
@@ -65,9 +70,14 @@ class SceOdooMigrationRun(models.Model):
     migrated_partners = fields.Integer(default=0, readonly=True)
     migrated_products = fields.Integer(default=0, readonly=True)
     migrated_taxes = fields.Integer(default=0, readonly=True)
+    migrated_product_categories = fields.Integer(default=0, readonly=True)
+    migrated_product_web_categories = fields.Integer(default=0, readonly=True)
+    migrated_product_suppliers = fields.Integer(default=0, readonly=True)
     migrated_sales = fields.Integer(default=0, readonly=True)
     migrated_purchases = fields.Integer(default=0, readonly=True)
     migrated_invoices = fields.Integer(default=0, readonly=True)
+    migrated_payments = fields.Integer(default=0, readonly=True)
+    migrated_documents = fields.Integer(default=0, readonly=True)
     migrated_warehouses = fields.Integer(default=0, readonly=True)
     migrated_locations = fields.Integer(default=0, readonly=True)
 
@@ -324,6 +334,52 @@ class SceOdooMigrationRun(models.Model):
     def _has_field(self, fields_map, field_name):
         return field_name in (fields_map or {})
 
+    def _safe_value(self, value):
+        if isinstance(value, dict):
+            return value.get("id") or value.get("name") or value.get("display_name") or False
+        if isinstance(value, (list, tuple)) and value:
+            return value[0]
+        return value
+
+    def _safe_text(self, value):
+        if isinstance(value, dict):
+            return value.get("name") or value.get("display_name") or str(value.get("id") or "")
+        if isinstance(value, (list, tuple)):
+            return str(value[1]) if len(value) > 1 else str(value[0] if value else "")
+        return value
+
+    def _prepare_write_vals(self, src_vals, dst_fields):
+        write_vals = {}
+        for fname, fdef in (dst_fields or {}).items():
+            if fname in ("id", "create_uid", "create_date", "write_uid", "write_date", "__last_update", "display_name"):
+                continue
+            if fdef.get("readonly"):
+                continue
+            if fname not in src_vals:
+                continue
+
+            ftype = fdef.get("type")
+            val = src_vals.get(fname)
+
+            if ftype == "many2one":
+                write_vals[fname] = self._safe_value(val)
+            elif ftype in ("many2many", "one2many"):
+                if isinstance(val, list):
+                    ids = [v for v in val if isinstance(v, int)]
+                    write_vals[fname] = [(6, 0, ids)]
+            else:
+                write_vals[fname] = val
+        return write_vals
+
+    def _safe_product_search_domain(self, vals):
+        default_code = self._safe_text(vals.get("default_code"))
+        name = self._safe_text(vals.get("name"))
+        if default_code:
+            return [("default_code", "=", default_code)]
+        if name:
+            return [("name", "=", name)]
+        return []
+
     def _map_many2one_by_name(self, src_rpc, src_db, src_uid, src_pwd, dst_rpc, dst_db, dst_uid, dst_pwd, src_value, model):
         if not src_value:
             return False
@@ -359,41 +415,25 @@ class SceOdooMigrationRun(models.Model):
             dst_fields = self._fields_get(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key, "product.template"
             )
-            read_fields = ["name", "default_code", "list_price", "standard_price", "type"]
-            if self._has_field(src_fields, "categ_id"):
-                read_fields.append("categ_id")
-            if self._has_field(src_fields, "uom_id"):
-                read_fields.append("uom_id")
-            if self._has_field(src_fields, "uom_po_id"):
-                read_fields.append("uom_po_id")
-
+            # Leer todos los campos disponibles en origen para copiar lo máximo compatible.
+            read_fields = list((src_fields or {}).keys())
             vals = self._rpc_call(
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
                 "product.template", "read", [ptid], fields=read_fields
             )[0]
 
-            raw_default_code = vals.get("default_code")
-            if isinstance(raw_default_code, dict):
-                default_code = raw_default_code.get("name") or raw_default_code.get("display_name") or False
-            else:
-                default_code = raw_default_code
-
-            raw_name = vals.get("name")
-            if isinstance(raw_name, dict):
-                name = raw_name.get("name") or raw_name.get("display_name") or False
-            else:
-                name = raw_name
-
-            search_domain = [("default_code", "=", default_code)] if default_code else [("name", "=", name)]
+            search_domain = self._safe_product_search_domain(vals)
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
                 "product.template", "search", search_domain, limit=1
-            )
-            write_vals = {}
+            ) if search_domain else []
+
+            # Copia genérica defensiva + override de campos clave.
+            write_vals = self._prepare_write_vals(vals, dst_fields)
             if self._has_field(dst_fields, "name"):
-                write_vals["name"] = name
+                write_vals["name"] = self._safe_text(vals.get("name"))
             if self._has_field(dst_fields, "default_code"):
-                write_vals["default_code"] = default_code
+                write_vals["default_code"] = self._safe_text(vals.get("default_code"))
             if self._has_field(dst_fields, "list_price"):
                 write_vals["list_price"] = vals.get("list_price") or 0.0
             if self._has_field(dst_fields, "standard_price"):
@@ -447,6 +487,317 @@ class SceOdooMigrationRun(models.Model):
                     migrated += 1
 
         self.migrated_products += migrated
+        return errors
+
+    def _sync_product_category(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
+        self.ensure_one()
+        domain = self._build_since_domain()
+        cat_ids = self._rpc_call(
+            src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+            "product.category", "search", domain
+        )
+        last_id = cp.get("product.category_last_id", 0)
+        errors = []
+        migrated = 0
+
+        def _process(cid):
+            vals = self._rpc_call(
+                src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                "product.category", "read", [cid], fields=["name", "parent_id"]
+            )[0]
+            existing = self._rpc_call(
+                dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                "product.category", "search", [("name", "=", vals.get("name"))], limit=1
+            )
+            write_vals = {"name": vals.get("name")}
+            if vals.get("parent_id"):
+                parent_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("parent_id"), "product.category"
+                )
+                if parent_id:
+                    write_vals["parent_id"] = parent_id
+            if existing:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.category", "write", existing, write_vals
+                )
+            else:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.category", "create", write_vals
+                )
+
+        for batch in self._iter_batches(cat_ids):
+            for cid in batch:
+                if cid <= last_id:
+                    continue
+                ok = self._safe_process_record(_process, cid, cp, "product.category_last_id", errors, "product.category")
+                if ok:
+                    migrated += 1
+
+        self.migrated_product_categories += migrated
+        return errors
+
+    def _sync_product_public_category(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
+        self.ensure_one()
+        domain = self._build_since_domain()
+        cat_ids = self._rpc_call(
+            src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+            "product.public.category", "search", domain
+        )
+        last_id = cp.get("product.public.category_last_id", 0)
+        errors = []
+        migrated = 0
+
+        def _process(cid):
+            vals = self._rpc_call(
+                src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                "product.public.category", "read", [cid], fields=["name", "parent_id"]
+            )[0]
+            existing = self._rpc_call(
+                dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                "product.public.category", "search", [("name", "=", vals.get("name"))], limit=1
+            )
+            write_vals = {"name": vals.get("name")}
+            if vals.get("parent_id"):
+                parent_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("parent_id"), "product.public.category"
+                )
+                if parent_id:
+                    write_vals["parent_id"] = parent_id
+            if existing:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.public.category", "write", existing, write_vals
+                )
+            else:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.public.category", "create", write_vals
+                )
+
+        for batch in self._iter_batches(cat_ids):
+            for cid in batch:
+                if cid <= last_id:
+                    continue
+                ok = self._safe_process_record(
+                    _process, cid, cp, "product.public.category_last_id", errors, "product.public.category"
+                )
+                if ok:
+                    migrated += 1
+
+        self.migrated_product_web_categories += migrated
+        return errors
+
+    def _sync_product_supplierinfo(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
+        self.ensure_one()
+        domain = self._build_since_domain()
+        supp_ids = self._rpc_call(
+            src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+            "product.supplierinfo", "search", domain
+        )
+        last_id = cp.get("product.supplierinfo_last_id", 0)
+        errors = []
+        migrated = 0
+
+        def _process(sid):
+            vals = self._rpc_call(
+                src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                "product.supplierinfo", "read", [sid],
+                fields=["name", "product_tmpl_id", "product_id", "min_qty", "price", "delay", "product_code", "product_name"]
+            )[0]
+
+            partner_id = False
+            if vals.get("name"):
+                partner_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("name"), "res.partner"
+                )
+
+            product_tmpl_id = False
+            if vals.get("product_tmpl_id"):
+                product_tmpl_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("product_tmpl_id"), "product.template"
+                )
+
+            if not partner_id or not product_tmpl_id:
+                return
+
+            existing = self._rpc_call(
+                dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                "product.supplierinfo", "search",
+                [("name", "=", partner_id), ("product_tmpl_id", "=", product_tmpl_id)],
+                limit=1
+            )
+            write_vals = {
+                "name": partner_id,
+                "product_tmpl_id": product_tmpl_id,
+                "min_qty": vals.get("min_qty") or 0.0,
+                "price": vals.get("price") or 0.0,
+                "delay": vals.get("delay") or 0,
+                "product_code": vals.get("product_code"),
+                "product_name": vals.get("product_name"),
+            }
+            if existing:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.supplierinfo", "write", existing, write_vals
+                )
+            else:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "product.supplierinfo", "create", write_vals
+                )
+
+        for batch in self._iter_batches(supp_ids):
+            for sid in batch:
+                if sid <= last_id:
+                    continue
+                ok = self._safe_process_record(
+                    _process, sid, cp, "product.supplierinfo_last_id", errors, "product.supplierinfo"
+                )
+                if ok:
+                    migrated += 1
+
+        self.migrated_product_suppliers += migrated
+        return errors
+
+    def _sync_account_payment(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
+        self.ensure_one()
+        domain = self._build_since_domain()
+        pay_ids = self._rpc_call(
+            src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+            "account.payment", "search", domain
+        )
+        last_id = cp.get("account.payment_last_id", 0)
+        errors = []
+        migrated = 0
+
+        def _process(pid):
+            vals = self._rpc_call(
+                src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                "account.payment", "read", [pid],
+                fields=["payment_type", "partner_type", "amount", "date", "ref", "partner_id", "journal_id", "currency_id"]
+            )[0]
+
+            partner_id = False
+            if vals.get("partner_id"):
+                partner_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("partner_id"), "res.partner"
+                )
+
+            journal_id = False
+            if vals.get("journal_id"):
+                journal_id = self._map_many2one_by_name(
+                    src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    vals.get("journal_id"), "account.journal"
+                )
+
+            existing = self._rpc_call(
+                dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                "account.payment", "search", [("ref", "=", vals.get("ref"))], limit=1
+            ) if vals.get("ref") else []
+
+            write_vals = {
+                "payment_type": vals.get("payment_type") or "inbound",
+                "partner_type": vals.get("partner_type") or "customer",
+                "amount": vals.get("amount") or 0.0,
+                "date": vals.get("date"),
+                "ref": vals.get("ref"),
+            }
+            if partner_id:
+                write_vals["partner_id"] = partner_id
+            if journal_id:
+                write_vals["journal_id"] = journal_id
+
+            if existing:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "account.payment", "write", existing, write_vals
+                )
+            else:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "account.payment", "create", write_vals
+                )
+
+        for batch in self._iter_batches(pay_ids):
+            for pid in batch:
+                if pid <= last_id:
+                    continue
+                ok = self._safe_process_record(_process, pid, cp, "account.payment_last_id", errors, "account.payment")
+                if ok:
+                    migrated += 1
+
+        self.migrated_payments += migrated
+        return errors
+
+    def _sync_ir_attachment(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
+        self.ensure_one()
+        domain = self._build_since_domain()
+        att_ids = self._rpc_call(
+            src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+            "ir.attachment", "search", domain
+        )
+        last_id = cp.get("ir.attachment_last_id", 0)
+        errors = []
+        migrated = 0
+        allowed_models = {"res.partner", "product.template", "account.move", "account.payment"}
+
+        def _process(aid):
+            vals = self._rpc_call(
+                src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
+                "ir.attachment", "read", [aid],
+                fields=["name", "res_model", "res_id", "mimetype", "type", "datas", "url"]
+            )[0]
+            if vals.get("res_model") not in allowed_models:
+                return
+
+            existing = self._rpc_call(
+                dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                "ir.attachment", "search",
+                [("name", "=", vals.get("name")), ("res_model", "=", vals.get("res_model")), ("res_id", "=", vals.get("res_id"))],
+                limit=1
+            )
+            write_vals = {
+                "name": vals.get("name"),
+                "res_model": vals.get("res_model"),
+                "res_id": vals.get("res_id"),
+                "mimetype": vals.get("mimetype"),
+                "type": vals.get("type") or "binary",
+                "datas": vals.get("datas"),
+                "url": vals.get("url"),
+            }
+            if existing:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "ir.attachment", "write", existing, write_vals
+                )
+            else:
+                self._rpc_call(
+                    dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
+                    "ir.attachment", "create", write_vals
+                )
+
+        for batch in self._iter_batches(att_ids):
+            for aid in batch:
+                if aid <= last_id:
+                    continue
+                ok = self._safe_process_record(_process, aid, cp, "ir.attachment_last_id", errors, "ir.attachment")
+                if ok:
+                    migrated += 1
+
+        self.migrated_documents += migrated
         return errors
 
     def _sync_account_tax(self, src_rpc, src_uid, dst_rpc, dst_uid, cp):
@@ -799,6 +1150,14 @@ class SceOdooMigrationRun(models.Model):
                     errors += rec._sync_product_template(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
 
+                if rec.sync_product_categories:
+                    errors += rec._sync_product_category(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
+                    rec._save_checkpoint(cp)
+
+                if rec.sync_product_web_categories:
+                    errors += rec._sync_product_public_category(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
+                    rec._save_checkpoint(cp)
+
                 if rec.sync_taxes:
                     errors += rec._sync_account_tax(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
@@ -832,6 +1191,8 @@ class SceOdooMigrationRun(models.Model):
                                 "partners": rec.migrated_partners,
                                 "products": rec.migrated_products,
                                 "taxes": rec.migrated_taxes,
+                                "product_categories": rec.migrated_product_categories,
+                                "product_web_categories": rec.migrated_product_web_categories,
                                 "sales": rec.migrated_sales,
                                 "purchases": rec.migrated_purchases,
                                 "invoices": rec.migrated_invoices,
@@ -863,6 +1224,8 @@ class SceOdooMigrationRun(models.Model):
             "migrated_partners": 0,
             "migrated_products": 0,
             "migrated_taxes": 0,
+            "migrated_product_categories": 0,
+            "migrated_product_web_categories": 0,
             "migrated_sales": 0,
             "migrated_purchases": 0,
             "migrated_invoices": 0,

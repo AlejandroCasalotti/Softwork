@@ -65,9 +65,14 @@
                             <field name="sync_partners"/>
                             <field name="sync_products"/>
                             <field name="sync_taxes"/>
+                            <field name="sync_product_categories"/>
+                            <field name="sync_product_web_categories"/>
+                            <field name="sync_product_suppliers"/>
                             <field name="sync_sales"/>
                             <field name="sync_purchases"/>
                             <field name="sync_invoices"/>
+                            <field name="sync_payments"/>
+                            <field name="sync_documents"/>
                             <field name="sync_stock_warehouses"/>
                             <field name="sync_stock_locations"/>
                         </group>
@@ -75,9 +80,14 @@
                             <field name="migrated_partners" readonly="1"/>
                             <field name="migrated_products" readonly="1"/>
                             <field name="migrated_taxes" readonly="1"/>
+                            <field name="migrated_product_categories" readonly="1"/>
+                            <field name="migrated_product_web_categories" readonly="1"/>
+                            <field name="migrated_product_suppliers" readonly="1"/>
                             <field name="migrated_sales" readonly="1"/>
                             <field name="migrated_purchases" readonly="1"/>
                             <field name="migrated_invoices" readonly="1"/>
+                            <field name="migrated_payments" readonly="1"/>
+                            <field name="migrated_documents" readonly="1"/>
                             <field name="migrated_warehouses" readonly="1"/>
                             <field name="migrated_locations" readonly="1"/>
                         </group>
@@ -124,9 +134,14 @@
                     <field name="sync_partners"/>
                     <field name="sync_products"/>
                     <field name="sync_taxes"/>
+                    <field name="sync_product_categories"/>
+                    <field name="sync_product_web_categories"/>
+                    <field name="sync_product_suppliers"/>
                     <field name="sync_sales"/>
                     <field name="sync_purchases"/>
                     <field name="sync_invoices"/>
+                    <field name="sync_payments"/>
+                    <field name="sync_documents"/>
                     <field name="sync_stock_warehouses"/>
                     <field name="sync_stock_locations"/>
                 </group>
