@@ -14,13 +14,22 @@ class OdooProvider:
         self.env = env
         self.account = account
 
-    def ping(self):
+    def health(self):
+        """
+        Health-check esperado por el framework base.
+        """
         return {
             "ok": True,
             "provider": "odoo",
             "account_id": self.account.id,
             "connector_id": self.account.connector_id.id,
         }
+
+    def ping(self):
+        """
+        Alias de compatibilidad.
+        """
+        return self.health()
 
 
 def get_provider(env, account):
