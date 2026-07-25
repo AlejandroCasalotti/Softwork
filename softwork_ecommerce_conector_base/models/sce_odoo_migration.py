@@ -356,16 +356,29 @@ class SceOdooMigrationRun(models.Model):
                 src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key,
                 "product.template", "read", [ptid], fields=read_fields
             )[0]
-            search_domain = [("default_code", "=", vals.get("default_code"))] if vals.get("default_code") else [("name", "=", vals.get("name"))]
+
+            raw_default_code = vals.get("default_code")
+            if isinstance(raw_default_code, dict):
+                default_code = raw_default_code.get("name") or raw_default_code.get("display_name") or False
+            else:
+                default_code = raw_default_code
+
+            raw_name = vals.get("name")
+            if isinstance(raw_name, dict):
+                name = raw_name.get("name") or raw_name.get("display_name") or False
+            else:
+                name = raw_name
+
+            search_domain = [("default_code", "=", default_code)] if default_code else [("name", "=", name)]
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
                 "product.template", "search", search_domain, limit=1
             )
             write_vals = {}
             if self._has_field(dst_fields, "name"):
-                write_vals["name"] = vals.get("name")
+                write_vals["name"] = name
             if self._has_field(dst_fields, "default_code"):
-                write_vals["default_code"] = vals.get("default_code")
+                write_vals["default_code"] = default_code
             if self._has_field(dst_fields, "list_price"):
                 write_vals["list_price"] = vals.get("list_price") or 0.0
             if self._has_field(dst_fields, "standard_price"):
@@ -402,12 +415,12 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.template", "write", [existing, write_vals]
+                    "product.template", "write", existing, write_vals
                 )
             else:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.template", "create", [write_vals]
+                    "product.template", "create", write_vals
                 )
 
         for batch in self._iter_batches(product_ids):
