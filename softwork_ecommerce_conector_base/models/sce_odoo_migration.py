@@ -1264,9 +1264,14 @@ class SceOdooMigrationWizard(models.TransientModel):
     sync_partners = fields.Boolean(default=True, string="Clientes/Proveedores")
     sync_products = fields.Boolean(default=True, string="Productos/Categorías base")
     sync_taxes = fields.Boolean(default=True, string="Impuestos")
+    sync_product_categories = fields.Boolean(default=True, string="Categorías de producto")
+    sync_product_web_categories = fields.Boolean(default=True, string="Categorías web de producto")
+    sync_product_suppliers = fields.Boolean(default=True, string="Proveedores de producto")
     sync_sales = fields.Boolean(default=False, string="Ventas")
     sync_purchases = fields.Boolean(default=False, string="Compras")
     sync_invoices = fields.Boolean(default=False, string="Facturas")
+    sync_payments = fields.Boolean(default=False, string="Pagos")
+    sync_documents = fields.Boolean(default=False, string="Documentos/Adjuntos")
     sync_stock_warehouses = fields.Boolean(default=False, string="Almacenes")
     sync_stock_locations = fields.Boolean(default=False, string="Ubicaciones")
 
@@ -1297,9 +1302,14 @@ class SceOdooMigrationWizard(models.TransientModel):
                 "sync_partners": self.sync_partners,
                 "sync_products": self.sync_products,
                 "sync_taxes": self.sync_taxes,
+                "sync_product_categories": self.sync_product_categories,
+                "sync_product_web_categories": self.sync_product_web_categories,
+                "sync_product_suppliers": self.sync_product_suppliers,
                 "sync_sales": self.sync_sales,
                 "sync_purchases": self.sync_purchases,
                 "sync_invoices": self.sync_invoices,
+                "sync_payments": self.sync_payments,
+                "sync_documents": self.sync_documents,
                 "sync_stock_warehouses": self.sync_stock_warehouses,
                 "sync_stock_locations": self.sync_stock_locations,
             }
