@@ -300,7 +300,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "res.partner", "write", existing, write_vals
+                    "res.partner", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -470,7 +470,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.template", "write", existing, write_vals
+                    "product.template", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -521,7 +521,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.category", "write", existing, write_vals
+                    "product.category", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -572,7 +572,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.public.category", "write", existing, write_vals
+                    "product.public.category", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -628,7 +628,9 @@ class SceOdooMigrationRun(models.Model):
                 )
 
             if not partner_id or not product_tmpl_id:
-                return
+                raise UserError(
+                    "No se pudo mapear supplierinfo: partner_id o product_tmpl_id inexistente en destino"
+                )
 
             existing = self._rpc_call(
                 dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
@@ -648,7 +650,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "product.supplierinfo", "write", existing, write_vals
+                    "product.supplierinfo", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -723,7 +725,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.payment", "write", existing, write_vals
+                    "account.payment", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -781,7 +783,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "ir.attachment", "write", existing, write_vals
+                    "ir.attachment", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -830,7 +832,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.tax", "write", existing, write_vals
+                    "account.tax", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -882,7 +884,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "sale.order", "write", existing, write_vals
+                    "sale.order", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -934,7 +936,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "purchase.order", "write", existing, write_vals
+                    "purchase.order", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -991,7 +993,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "account.move", "write", existing, write_vals
+                    "account.move", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -1035,7 +1037,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.warehouse", "write", existing, write_vals
+                    "stock.warehouse", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -1087,7 +1089,7 @@ class SceOdooMigrationRun(models.Model):
             if existing:
                 self._rpc_call(
                     dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key,
-                    "stock.location", "write", existing, write_vals
+                    "stock.location", "write", existing[0], write_vals
                 )
             else:
                 self._rpc_call(
@@ -1158,6 +1160,10 @@ class SceOdooMigrationRun(models.Model):
                     errors += rec._sync_product_public_category(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
 
+                if rec.sync_product_suppliers:
+                    errors += rec._sync_product_supplierinfo(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
+                    rec._save_checkpoint(cp)
+
                 if rec.sync_taxes:
                     errors += rec._sync_account_tax(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
@@ -1172,6 +1178,14 @@ class SceOdooMigrationRun(models.Model):
 
                 if rec.sync_invoices:
                     errors += rec._sync_account_move(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
+                    rec._save_checkpoint(cp)
+
+                if rec.sync_payments:
+                    errors += rec._sync_account_payment(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
+                    rec._save_checkpoint(cp)
+
+                if rec.sync_documents:
+                    errors += rec._sync_ir_attachment(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
 
                 if rec.sync_stock_warehouses:
