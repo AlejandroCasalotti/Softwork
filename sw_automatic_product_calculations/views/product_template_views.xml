@@ -29,7 +29,7 @@
         <field name="model">product.template</field>
         <field name="inherit_id" ref="sale.product_template_form_view"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='packaging_ids']" position="after">
+            <xpath expr="//page[@name='sales']//group[.//field[@name='uom_id']]" position="inside">
                 <field name="web_uom_ids" widget="many2many_tags" options="{'no_create_edit': True}"/>
             </xpath>
         </field>
