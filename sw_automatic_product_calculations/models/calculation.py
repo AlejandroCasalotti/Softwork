@@ -82,14 +82,6 @@ class CalculationMethodLine(models.Model):
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
-    web_uom_ids = fields.Many2many(
-        'uom.uom',
-        'product_template_web_uom_rel',
-        'product_tmpl_id',
-        'uom_id',
-        string='Embalajes en la web',
-        help='Si se configura, en la web se mostrarán solo estas UoM. Si está vacío, se usarán las UoM alternativas del producto.',
-    )
 
     website_enable_calculator = fields.Boolean(
         string='Habilitar cálculo en sitio web',
@@ -131,16 +123,13 @@ class ProductTemplate(models.Model):
         help='Para producto destacado web: si Tipo cantidad = Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
     )
 
-    @api.onchange('product_variant_ids', 'website_enable_calculator')
+    @api.onchange('website_enable_calculator')
     def _onchange_autofill_website_packaging_equivalent(self):
         for rec in self:
             if not rec.website_enable_calculator:
                 continue
             if rec.website_packaging_equivalent:
                 continue
-            first_packaging = rec.packaging_ids[:1]
-            if first_packaging and first_packaging.qty:
-                rec.website_packaging_equivalent = first_packaging.qty
 
     def _apply_featured_rounding(self, qty):
         self.ensure_one()
