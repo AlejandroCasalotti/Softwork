@@ -138,10 +138,7 @@ class ProductTemplate(models.Model):
                 continue
             if rec.website_packaging_equivalent:
                 continue
-            first_variant = rec.product_variant_ids[:1]
-            if not first_variant:
-                continue
-            first_packaging = first_variant.packaging_ids[:1]
+            first_packaging = rec.packaging_ids[:1]
             if first_packaging and first_packaging.qty:
                 rec.website_packaging_equivalent = first_packaging.qty
 
