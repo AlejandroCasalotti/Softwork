@@ -82,6 +82,16 @@ class CalculationMethodLine(models.Model):
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
+    web_uom_ids = fields.Many2many(
+        'product.packaging',
+        'product_template_web_packaging_rel',
+        'product_tmpl_id',
+        'packaging_id',
+        string='Embalajes en la web',
+        domain="[('product_tmpl_id', '=', id)]",
+        help='Si se configura, en la web se mostrarán solo estos embalajes. Si está vacío, se usarán los embalajes normales del producto.',
+    )
+
     website_enable_calculator = fields.Boolean(
         string='Habilitar cálculo en sitio web',
         default=False,
