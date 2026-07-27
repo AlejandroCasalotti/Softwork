@@ -74,14 +74,9 @@ class SwAutomaticCalculationController(http.Controller):
                 if featured_line.quantity_type == "integer":
                     featured_qty = float(math.ceil(featured_qty))
             else:
-                # Prioridad: embalaje seleccionado en backend
-                if template.website_selected_packaging_id and template.website_selected_packaging_id.qty:
-                    featured_qty = total_surface
-                    featured_qty = float(math.ceil(featured_qty / template.website_selected_packaging_id.qty) * template.website_selected_packaging_id.qty)
-                else:
-                    factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
-                    featured_qty = total_surface * (factor or 0.0)
-                    featured_qty = template._apply_featured_rounding(featured_qty)
+                factor = template.website_m3_factor if method.method_type == "m3" else template.website_m2_factor
+                featured_qty = total_surface * (factor or 0.0)
+                featured_qty = template._apply_featured_rounding(featured_qty)
 
             if featured_qty > 0:
                 computed_lines.append({
