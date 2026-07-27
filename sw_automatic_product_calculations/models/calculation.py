@@ -83,13 +83,12 @@ class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
     web_uom_ids = fields.Many2many(
-        'product.packaging',
-        'product_template_web_packaging_rel',
+        'uom.uom',
+        'product_template_web_uom_rel',
         'product_tmpl_id',
-        'packaging_id',
+        'uom_id',
         string='Embalajes en la web',
-        domain="[('product_tmpl_id', '=', id)]",
-        help='Si se configura, en la web se mostrarán solo estos embalajes. Si está vacío, se usarán los embalajes normales del producto.',
+        help='Si se configura, en la web se mostrarán solo estas UoM. Si está vacío, se usarán las UoM alternativas del producto.',
     )
 
     website_enable_calculator = fields.Boolean(
