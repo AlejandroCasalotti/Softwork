@@ -82,6 +82,19 @@ class CalculationMethodLine(models.Model):
 class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
+    website_selected_packaging_id = fields.Many2one(
+        'product.packaging',
+        string='Embalaje visible en web',
+        domain="[('product_tmpl_id', '=', id)]",
+        help='Si se define, este embalaje será el usado/mostrado para la venta web de este producto.',
+    )
+    website_packaging_qty = fields.Float(
+        string='Cantidad del embalaje web',
+        compute='_compute_website_packaging_qty',
+        store=False,
+        readonly=True,
+    )
+
     website_enable_calculator = fields.Boolean(
         string='Habilitar cálculo en sitio web',
         default=False,
@@ -121,6 +134,27 @@ class ProductTemplate(models.Model):
         default=0.0,
         help='Para producto destacado web: si Tipo cantidad = Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
     )
+
+    @api.depends('website_selected_packaging_id', 'website_selected_packaging_id.qty')
+    def _compute_website_packaging_qty(self):
+        for rec in self:
+            rec.website_packaging_qty = rec.website_selected_packaging_id.qty if rec.website_selected_packaging_id else 0.0
+
+    @api.onchange('website_selected_packaging_id')
+    def _onchange_website_selected_packaging_id(self):
+        for rec in self:
+            if rec.website_selected_packaging_id and rec.website_selected_packaging_id.qty:
+                rec.website_packaging_equivalent = rec.website_selected_packaging_id.qty
+
+    @api.onchange('website_enable_calculator')
+    def _onchange_website_enable_calculator_packaging_default(self):
+        for rec in self:
+            if rec.website_enable_calculator and not rec.website_selected_packaging_id:
+                first_packaging = rec.packaging_ids[:1]
+                if first_packaging:
+                    rec.website_selected_packaging_id = first_packaging.id
+                    if first_packaging.qty:
+                        rec.website_packaging_equivalent = first_packaging.qty
 
     def _apply_featured_rounding(self, qty):
         self.ensure_one()
