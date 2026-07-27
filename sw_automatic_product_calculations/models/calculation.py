@@ -83,10 +83,10 @@ class ProductTemplate(models.Model):
     _inherit = 'product.template'
 
     website_selected_packaging_id = fields.Many2one(
-        'product.packaging',
+        'product.template.attribute.value',
         string='Embalaje visible en web',
-        domain="[('product_tmpl_id', '=', id)]",
-        help='Si se define, este embalaje será el usado/mostrado para la venta web de este producto.',
+        domain="[('attribute_id.name', 'ilike', 'embalaje'), ('product_tmpl_id', '=', id)]",
+        help='Si se define, este valor de atributo (Embalaje) será el usado/mostrado para la venta web de este producto.',
     )
     website_packaging_qty = fields.Float(
         string='Cantidad del embalaje web',
@@ -135,26 +135,37 @@ class ProductTemplate(models.Model):
         help='Para producto destacado web: si Tipo cantidad = Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
     )
 
-    @api.depends('website_selected_packaging_id', 'website_selected_packaging_id.qty')
+    @api.depends('website_selected_packaging_id', 'website_selected_packaging_id.name')
     def _compute_website_packaging_qty(self):
         for rec in self:
-            rec.website_packaging_qty = rec.website_selected_packaging_id.qty if rec.website_selected_packaging_id else 0.0
+            qty = 0.0
+            if rec.website_selected_packaging_id and rec.website_selected_packaging_id.name:
+                token = ''.join(ch if (ch.isdigit() or ch in ',.') else ' ' for ch in rec.website_selected_packaging_id.name).strip().split()
+                if token:
+                    try:
+                        qty = float(token[0].replace(',', '.'))
+                    except Exception:
+                        qty = 0.0
+            rec.website_packaging_qty = qty
 
     @api.onchange('website_selected_packaging_id')
     def _onchange_website_selected_packaging_id(self):
         for rec in self:
-            if rec.website_selected_packaging_id and rec.website_selected_packaging_id.qty:
-                rec.website_packaging_equivalent = rec.website_selected_packaging_id.qty
+            if rec.website_packaging_qty > 0:
+                rec.website_packaging_equivalent = rec.website_packaging_qty
 
     @api.onchange('website_enable_calculator')
     def _onchange_website_enable_calculator_packaging_default(self):
         for rec in self:
             if rec.website_enable_calculator and not rec.website_selected_packaging_id:
-                first_packaging = rec.packaging_ids[:1]
+                candidates = rec.attribute_line_ids.mapped('value_ids').filtered(
+                    lambda v: v.attribute_id and v.attribute_id.name and 'embalaje' in v.attribute_id.name.lower()
+                )
+                first_packaging = candidates[:1]
                 if first_packaging:
                     rec.website_selected_packaging_id = first_packaging.id
-                    if first_packaging.qty:
-                        rec.website_packaging_equivalent = first_packaging.qty
+                    if rec.website_packaging_qty > 0:
+                        rec.website_packaging_equivalent = rec.website_packaging_qty
 
     def _apply_featured_rounding(self, qty):
         self.ensure_one()
