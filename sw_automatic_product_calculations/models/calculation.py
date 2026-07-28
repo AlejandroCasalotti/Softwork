@@ -36,13 +36,7 @@ class ProductPackagingOption(models.Model):
         'uom.uom',
         string='Unidad de embalaje',
         required=True,
-        domain="[('category_id', '=', uom_category_id)]",
-    )
-    uom_category_id = fields.Many2one(
-        'uom.category',
-        compute='_compute_uom_category_id',
-        store=True,
-        readonly=True,
+        domain="[('category_id', '=', product_tmpl_id.uom_id.category_id)]",
     )
     qty = fields.Float(
         string='Cantidad equivalente (en UoM base)',
@@ -51,10 +45,6 @@ class ProductPackagingOption(models.Model):
     )
     active = fields.Boolean(default=True)
 
-    @api.depends('product_tmpl_id', 'product_tmpl_id.uom_id')
-    def _compute_uom_category_id(self):
-        for rec in self:
-            rec.uom_category_id = rec.product_tmpl_id.uom_id.category_id if rec.product_tmpl_id and rec.product_tmpl_id.uom_id else False
 
     @api.constrains('qty')
     def _check_qty_positive(self):
