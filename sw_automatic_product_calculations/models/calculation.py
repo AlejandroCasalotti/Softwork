@@ -36,7 +36,7 @@ class ProductPackagingOption(models.Model):
         'uom.uom',
         string='Unidad de embalaje',
         required=True,
-        domain="[('category_id', '=', product_tmpl_id.uom_id.category_id)]",
+        domain="[('category_id', '=', product_tmpl_id.uom_id.category_id.id)]",
     )
     qty = fields.Float(
         string='Cantidad equivalente (en UoM base)',
