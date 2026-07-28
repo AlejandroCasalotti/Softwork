@@ -76,7 +76,7 @@ class CalculationMethodLine(models.Model):
         if self.quantity_type != 'integer':
             return qty
         rounding_uom = self.rounding_uom_id or self.product_id.uom_id
-        if rounding_uom and self.product_id.uom_id and rounding_uom.category_id == self.product_id.uom_id.category_id:
+        if rounding_uom and self.product_id.uom_id and rounding_uom.category_id.id == self.product_id.uom_id.category_id.id:
             qty_in_rounding = self.product_id.uom_id._compute_quantity(qty, rounding_uom)
             qty_in_rounding = float(math.ceil(qty_in_rounding))
             return float(rounding_uom._compute_quantity(qty_in_rounding, self.product_id.uom_id))
@@ -185,7 +185,7 @@ class ProductTemplate(models.Model):
         if self.website_featured_qty_type != 'integer':
             return qty
         target_uom = self.website_featured_uom_id or self.uom_id
-        if target_uom and self.uom_id and target_uom.category_id == self.uom_id.category_id:
+        if target_uom and self.uom_id and target_uom.category_id.id == self.uom_id.category_id.id:
             qty_in_target = self.uom_id._compute_quantity(qty, target_uom)
             qty_in_target = float(math.ceil(qty_in_target))
             return float(target_uom._compute_quantity(qty_in_target, self.uom_id))
@@ -266,7 +266,9 @@ class CalculationWizard(models.TransientModel):
             if not rec.featured_product_id or rec.total_surface <= 0:
                 continue
             target_uom = rec.featured_uom_id or rec.featured_product_id.uom_id
-            if not target_uom or target_uom.category_id != rec.featured_product_id.uom_id.category_id:
+            if not target_uom:
+                continue
+            if target_uom.category_id.id != rec.featured_product_id.uom_id.category_id.id:
                 continue
             qty_in_target = rec.featured_product_id.uom_id._compute_quantity(rec.total_surface, target_uom)
             qty_in_target = float(math.ceil(qty_in_target))
@@ -308,7 +310,7 @@ class CalculationWizard(models.TransientModel):
         if self.featured_product_id and self.featured_quantity > 0:
             line_uom = self.featured_uom_id or self.featured_product_id.uom_id
             qty_base = self.featured_quantity
-            if line_uom and self.featured_product_id.uom_id and line_uom.category_id == self.featured_product_id.uom_id.category_id:
+            if line_uom and self.featured_product_id.uom_id and line_uom.category_id.id == self.featured_product_id.uom_id.category_id.id:
                 qty_base = line_uom._compute_quantity(self.featured_quantity, self.featured_product_id.uom_id)
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
