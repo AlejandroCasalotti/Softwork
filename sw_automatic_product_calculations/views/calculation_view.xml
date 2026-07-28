@@ -33,7 +33,7 @@
                                 <field name="product_id"/>
                                 <field name="quantity_per_unit"/>
                                 <field name="quantity_type"/>
-                                <field name="packaging_option_id"/>
+                                <field name="rounding_uom_id"/>
                                 <field name="uom_id" readonly="1" force_save="1"/>
                             </list>
                         </field>
@@ -84,7 +84,7 @@
                 <group string="Producto destacado">
                     <field name="featured_product_id"/>
                     <field name="featured_quantity"/>
-                    <field name="featured_packaging_option_id"/>
+                    <field name="featured_uom_id"/>
                     <field name="featured_quantity_recommendation" readonly="1" nolabel="1"
                            invisible="not featured_quantity_recommendation"/>
                 </group>

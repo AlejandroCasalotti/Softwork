@@ -124,7 +124,9 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
                     </div>
                 </td>
                 <td>
-                    ${line.uom_name || ""}
+                    <select class="form-select form-select-sm o_sw_line_uom">
+                        <option value="${line.uom_id || ""}">${line.uom_name || ""}</option>
+                    </select>
                 </td>
                 <td>
                     <input type="number" step="0.01" min="0" class="form-control form-control-sm o_sw_line_qty" value="${line.qty}"/>
@@ -143,8 +145,9 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
         rows.forEach((row) => {
             const productId = parseInt(row.querySelector(".o_sw_line_product_id")?.value || "0", 10);
             const qty = parseFloat(row.querySelector(".o_sw_line_qty")?.value || "0");
+            const uomId = parseInt(row.querySelector(".o_sw_line_uom")?.value || "0", 10);
             if (productId > 0 && qty > 0) {
-                lines.push({ product_id: productId, qty });
+                lines.push({ product_id: productId, qty, uom_id: uomId || false });
             }
         });
         return lines;

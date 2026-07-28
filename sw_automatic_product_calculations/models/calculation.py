@@ -75,9 +75,11 @@ class CalculationMethodLine(models.Model):
         qty = float(qty or 0.0)
         if self.quantity_type != 'integer':
             return qty
-        packaging = float((self.packaging_option_id.qty if self.packaging_option_id else 0.0) or 0.0)
-        if packaging > 0:
-            return float(math.ceil(qty / packaging) * packaging)
+        rounding_uom = self.rounding_uom_id or self.product_id.uom_id
+        if rounding_uom and self.product_id.uom_id and rounding_uom.category_id == self.product_id.uom_id.category_id:
+            qty_in_rounding = self.product_id.uom_id._compute_quantity(qty, rounding_uom)
+            qty_in_rounding = float(math.ceil(qty_in_rounding))
+            return float(rounding_uom._compute_quantity(qty_in_rounding, self.product_id.uom_id))
         return float(math.ceil(qty))
 
     method_id = fields.Many2one(
@@ -101,10 +103,10 @@ class CalculationMethodLine(models.Model):
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
-    packaging_option_id = fields.Many2one(
-        'product.packaging.option',
-        string='Embalaje',
-        domain="[('product_tmpl_id.product_variant_ids', 'in', product_id)]",
+    rounding_uom_id = fields.Many2one(
+        'uom.uom',
+        string='UoM redondeo',
+        domain="[('category_id', '=', uom_id.category_id)]",
     )
     
     uom_id = fields.Many2one(
@@ -164,29 +166,31 @@ class ProductTemplate(models.Model):
         'product_tmpl_id',
         string='Opciones de embalaje',
     )
-    website_featured_packaging_option_id = fields.Many2one(
-        'product.packaging.option',
-        string='Embalaje destacado web',
-        domain="[('product_tmpl_id', '=', id)]",
+    website_featured_uom_id = fields.Many2one(
+        'uom.uom',
+        string='UoM destacada web',
+        domain="[('category_id', '=', uom_id.category_id)]",
     )
 
     @api.onchange('website_enable_calculator')
-    def _onchange_autofill_website_packaging_equivalent(self):
+    def _onchange_autofill_website_featured_uom(self):
         for rec in self:
             if not rec.website_enable_calculator:
                 continue
-            if rec.website_featured_packaging_option_id:
+            if rec.website_featured_uom_id:
                 continue
-            rec.website_featured_packaging_option_id = rec.packaging_option_ids[:1].id if rec.packaging_option_ids else False
+            rec.website_featured_uom_id = rec.uom_id.id if rec.uom_id else False
 
     def _apply_featured_rounding(self, qty):
         self.ensure_one()
         qty = float(qty or 0.0)
         if self.website_featured_qty_type != 'integer':
             return qty
-        packaging = float((self.website_featured_packaging_option_id.qty if self.website_featured_packaging_option_id else 0.0) or 0.0)
-        if packaging > 0:
-            return float(math.ceil(qty / packaging) * packaging)
+        target_uom = self.website_featured_uom_id or self.uom_id
+        if target_uom and self.uom_id and target_uom.category_id == self.uom_id.category_id:
+            qty_in_target = self.uom_id._compute_quantity(qty, target_uom)
+            qty_in_target = float(math.ceil(qty_in_target))
+            return float(target_uom._compute_quantity(qty_in_target, self.uom_id))
         return float(math.ceil(qty))
 
 
@@ -234,10 +238,10 @@ class CalculationWizard(models.TransientModel):
         string='Cantidad destacada',
         default=0.0
     )
-    featured_packaging_option_id = fields.Many2one(
-        'product.packaging.option',
-        string='Unidad de embalaje',
-        domain="[('product_tmpl_id.product_variant_ids', 'in', featured_product_id)]",
+    featured_uom_id = fields.Many2one(
+        'uom.uom',
+        string='UoM',
+        domain="[('category_id', '=', featured_product_id.uom_id.category_id)]",
     )
     
     total_surface = fields.Float(
@@ -258,20 +262,19 @@ class CalculationWizard(models.TransientModel):
             else:
                 rec.total_surface = rec.length * rec.width
 
-    @api.depends('featured_product_id', 'featured_packaging_option_id', 'total_surface')
+    @api.depends('featured_product_id', 'featured_uom_id', 'total_surface')
     def _compute_featured_quantity_recommendation(self):
         for rec in self:
             rec.featured_quantity_recommendation = False
             if not rec.featured_product_id or rec.total_surface <= 0:
                 continue
-            packaging = float((rec.featured_packaging_option_id.qty if rec.featured_packaging_option_id else 0.0) or 0.0)
-            if packaging <= 0:
+            target_uom = rec.featured_uom_id or rec.featured_product_id.uom_id
+            if not target_uom or target_uom.category_id != rec.featured_product_id.uom_id.category_id:
                 continue
-            recommended = float(math.ceil(rec.total_surface / packaging) * packaging)
-            rec.featured_quantity_recommendation = (
-                f"Recomendación automática: {recommended:g} unidades "
-                f"(múltiplo de embalaje {packaging:g})."
-            )
+            qty_in_target = rec.featured_product_id.uom_id._compute_quantity(rec.total_surface, target_uom)
+            qty_in_target = float(math.ceil(qty_in_target))
+            recommended = float(target_uom._compute_quantity(qty_in_target, rec.featured_product_id.uom_id))
+            rec.featured_quantity_recommendation = f"Recomendación automática: {recommended:g} ({target_uom.name})."
 
     @api.onchange('method_id')
     def _onchange_method_id(self):
@@ -300,15 +303,21 @@ class CalculationWizard(models.TransientModel):
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': qty,
+                'product_uom_id': line.product_id.uom_id.id,
                 'price_unit': line.product_id.list_price or 0,
             })
         
         # Agregar producto destacado
         if self.featured_product_id and self.featured_quantity > 0:
+            line_uom = self.featured_uom_id or self.featured_product_id.uom_id
+            qty_base = self.featured_quantity
+            if line_uom and self.featured_product_id.uom_id and line_uom.category_id == self.featured_product_id.uom_id.category_id:
+                qty_base = line_uom._compute_quantity(self.featured_quantity, self.featured_product_id.uom_id)
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': self.featured_product_id.id,
-                'product_uom_qty': self.featured_quantity,
+                'product_uom_qty': qty_base,
+                'product_uom_id': self.featured_product_id.uom_id.id,
                 'price_unit': self.featured_product_id.list_price or 0,
             })
         

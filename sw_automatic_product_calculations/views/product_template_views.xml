@@ -17,7 +17,7 @@
                             <field name="website_m2_factor"/>
                             <field name="website_m3_factor"/>
                             <field name="website_featured_qty_type"/>
-                            <field name="website_featured_packaging_option_id"/>
+                            <field name="website_featured_uom_id"/>
                         </group>
                     </group>
                     <group string="Opciones de embalaje">

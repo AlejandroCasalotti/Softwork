@@ -59,12 +59,17 @@ class SwAutomaticCalculationController(http.Controller):
             qty = line._apply_rounding_by_type(qty)
             if qty <= 0:
                 continue
+            selected_uom = line.rounding_uom_id or line.product_id.uom_id
+            selected_qty = qty
+            if selected_uom and line.product_id.uom_id and selected_uom.category_id == line.product_id.uom_id.category_id:
+                selected_qty = line.product_id.uom_id._compute_quantity(qty, selected_uom)
             computed_lines.append({
                 "product_id": line.product_id.id,
                 "product_name": line.product_id.display_name,
                 "product_image_url": f"/web/image/product.product/{line.product_id.id}/image_128",
-                "qty": qty,
-                "uom_name": line.product_id.uom_id.name or "",
+                "qty": selected_qty,
+                "uom_id": selected_uom.id if selected_uom else line.product_id.uom_id.id,
+                "uom_name": selected_uom.name if selected_uom else (line.product_id.uom_id.name or ""),
             })
 
         featured_product = template.product_variant_id
@@ -80,12 +85,17 @@ class SwAutomaticCalculationController(http.Controller):
                 featured_qty = template._apply_featured_rounding(featured_qty)
 
             if featured_qty > 0:
+                featured_uom = template.website_featured_uom_id or featured_product.uom_id
+                featured_qty_uom = featured_qty
+                if featured_uom and featured_product.uom_id and featured_uom.category_id == featured_product.uom_id.category_id:
+                    featured_qty_uom = featured_product.uom_id._compute_quantity(featured_qty, featured_uom)
                 computed_lines.append({
                     "product_id": featured_product.id,
                     "product_name": featured_product.display_name,
                     "product_image_url": f"/web/image/product.product/{featured_product.id}/image_128",
-                    "qty": featured_qty,
-                    "uom_name": featured_product.uom_id.name or "",
+                    "qty": featured_qty_uom,
+                    "uom_id": featured_uom.id if featured_uom else featured_product.uom_id.id,
+                    "uom_name": featured_uom.name if featured_uom else (featured_product.uom_id.name or ""),
                 })
 
         return {
@@ -179,6 +189,7 @@ class SwAutomaticCalculationController(http.Controller):
             try:
                 product_id = int((line or {}).get("product_id") or 0)
                 qty = float((line or {}).get("qty") or 0.0)
+                uom_id = int((line or {}).get("uom_id") or 0)
             except Exception:
                 continue
 
@@ -192,6 +203,14 @@ class SwAutomaticCalculationController(http.Controller):
                 continue
 
             existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
+            target_uom = request.env["uom.uom"].sudo().browse(uom_id) if uom_id else product.uom_id
+            if (not target_uom.exists()) or (target_uom.category_id != product.uom_id.category_id):
+                target_uom = product.uom_id
+            qty_base = target_uom._compute_quantity(qty, product.uom_id)
+
+            existing_line = order.order_line.filtered(
+                lambda l: l.product_id.id == product_id and l.product_uom_id.id == target_uom.id
+            )[:1]
             if existing_line:
                 existing_line.sudo().write({
                     "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
@@ -204,7 +223,7 @@ class SwAutomaticCalculationController(http.Controller):
                     "name": product.display_name,
                     "price_unit": product.lst_price,
                     "customer_lead": 0.0,
-                    "product_uom_id": product.uom_id.id,
+                    "product_uom_id": target_uom.id,
                     "order_partner_id": order.partner_id.id,
                 })
 
@@ -213,7 +232,9 @@ class SwAutomaticCalculationController(http.Controller):
                 "product_name": product.display_name,
                 "product_image_url": f"/web/image/product.product/{product.id}/image_128",
                 "qty": qty,
-                "uom_name": product.uom_id.name or "",
+                "uom_id": target_uom.id,
+                "uom_name": target_uom.name or "",
+                "qty_base": qty_base,
             })
 
         if not added_lines:
