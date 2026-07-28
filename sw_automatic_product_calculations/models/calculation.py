@@ -106,7 +106,6 @@ class CalculationMethodLine(models.Model):
     rounding_uom_id = fields.Many2one(
         'uom.uom',
         string='UoM redondeo',
-        domain="[('category_id', '=', uom_id.category_id)]",
     )
     
     uom_id = fields.Many2one(
@@ -169,7 +168,6 @@ class ProductTemplate(models.Model):
     website_featured_uom_id = fields.Many2one(
         'uom.uom',
         string='UoM destacada web',
-        domain="[('category_id', '=', uom_id.category_id)]",
     )
 
     @api.onchange('website_enable_calculator')
@@ -241,7 +239,6 @@ class CalculationWizard(models.TransientModel):
     featured_uom_id = fields.Many2one(
         'uom.uom',
         string='UoM',
-        domain="[('category_id', '=', featured_product_id.uom_id.category_id)]",
     )
     
     total_surface = fields.Float(
