@@ -85,7 +85,7 @@
                     <field name="featured_product_id"/>
                     <field name="featured_quantity"/>
                     <field name="featured_quantity_recommendation" readonly="1" nolabel="1"
-                           attrs="{'invisible': [('featured_quantity_recommendation', '=', False)]}"/>
+                           invisible="not featured_quantity_recommendation"/>
                 </group>
                 <footer>
                     <button string="Calcular y Agregar" type="object" name="action_calculate_and_add" class="oe_highlight"/>
