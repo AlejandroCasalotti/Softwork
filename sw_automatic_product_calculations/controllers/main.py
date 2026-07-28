@@ -64,6 +64,7 @@ class SwAutomaticCalculationController(http.Controller):
                 "product_name": line.product_id.display_name,
                 "product_image_url": f"/web/image/product.product/{line.product_id.id}/image_128",
                 "qty": qty,
+                "uom_name": line.product_id.uom_id.name or "",
             })
 
         featured_product = template.product_variant_id
@@ -84,6 +85,7 @@ class SwAutomaticCalculationController(http.Controller):
                     "product_name": featured_product.display_name,
                     "product_image_url": f"/web/image/product.product/{featured_product.id}/image_128",
                     "qty": featured_qty,
+                    "uom_name": featured_product.uom_id.name or "",
                 })
 
         return {
@@ -211,6 +213,7 @@ class SwAutomaticCalculationController(http.Controller):
                 "product_name": product.display_name,
                 "product_image_url": f"/web/image/product.product/{product.id}/image_128",
                 "qty": qty,
+                "uom_name": product.uom_id.name or "",
             })
 
         if not added_lines:

@@ -67,6 +67,7 @@
                                     <thead>
                                         <tr>
                                             <th>Producto</th>
+                                            <th style="width: 180px;">Unidad</th>
                                             <th style="width: 160px;">Cantidad</th>
                                         </tr>
                                     </thead>

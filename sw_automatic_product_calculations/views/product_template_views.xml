@@ -17,8 +17,18 @@
                             <field name="website_m2_factor"/>
                             <field name="website_m3_factor"/>
                             <field name="website_featured_qty_type"/>
-                            <field name="website_packaging_equivalent"/>
+                            <field name="website_featured_packaging_option_id"/>
                         </group>
+                    </group>
+                    <group string="Opciones de embalaje">
+                        <field name="packaging_option_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="sequence" widget="handle"/>
+                                <field name="uom_id"/>
+                                <field name="qty"/>
+                                <field name="active"/>
+                            </list>
+                        </field>
                     </group>
                 </page>
             </xpath>

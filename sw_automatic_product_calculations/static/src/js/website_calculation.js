@@ -124,6 +124,9 @@ publicWidget.registry.SwWebsiteCalculation = publicWidget.Widget.extend({
                     </div>
                 </td>
                 <td>
+                    ${line.uom_name || ""}
+                </td>
+                <td>
                     <input type="number" step="0.01" min="0" class="form-control form-control-sm o_sw_line_qty" value="${line.qty}"/>
                 </td>
             `;
