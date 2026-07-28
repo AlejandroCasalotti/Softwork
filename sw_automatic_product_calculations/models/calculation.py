@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 import logging
 import math
 
@@ -24,6 +25,43 @@ class CalculationMethod(models.Model):
     )
 
 
+class ProductPackagingOption(models.Model):
+    _name = 'product.packaging.option'
+    _description = 'Opciones de embalaje por producto'
+    _order = 'sequence, id'
+
+    sequence = fields.Integer(default=10)
+    product_tmpl_id = fields.Many2one('product.template', required=True, ondelete='cascade')
+    uom_id = fields.Many2one(
+        'uom.uom',
+        string='Unidad de embalaje',
+        required=True,
+        domain="[('category_id', '=', uom_category_id)]",
+    )
+    uom_category_id = fields.Many2one(
+        'uom.category',
+        related='product_tmpl_id.uom_id.category_id',
+        store=True,
+        readonly=True,
+    )
+    qty = fields.Float(
+        string='Cantidad equivalente (en UoM base)',
+        required=True,
+        default=1.0,
+    )
+    active = fields.Boolean(default=True)
+
+    _sql_constraints = [
+        ('product_uom_unique', 'unique(product_tmpl_id, uom_id)', 'La unidad de embalaje ya existe para este producto.'),
+    ]
+
+    @api.constrains('qty')
+    def _check_qty_positive(self):
+        for rec in self:
+            if rec.qty <= 0:
+                raise ValidationError('La cantidad equivalente debe ser mayor a cero.')
+
+
 class CalculationMethodLine(models.Model):
     _name = 'calculation.method.line'
     _description = 'Línea de Método de Cálculo'
@@ -33,7 +71,7 @@ class CalculationMethodLine(models.Model):
         qty = float(qty or 0.0)
         if self.quantity_type != 'integer':
             return qty
-        packaging = float(self.packaging_equivalent or 0.0)
+        packaging = float((self.packaging_option_id.qty if self.packaging_option_id else 0.0) or 0.0)
         if packaging > 0:
             return float(math.ceil(qty / packaging) * packaging)
         return float(math.ceil(qty))
@@ -59,10 +97,10 @@ class CalculationMethodLine(models.Model):
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad', default='fractional')
-    packaging_equivalent = fields.Float(
-        string='Equivalente a embalaje',
-        default=0.0,
-        help='Si Tipo cantidad es Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
+    packaging_option_id = fields.Many2one(
+        'product.packaging.option',
+        string='Embalaje',
+        domain="[('product_tmpl_id.product_variant_ids', 'in', product_id)]",
     )
     
     uom_id = fields.Many2one(
@@ -117,10 +155,15 @@ class ProductTemplate(models.Model):
         ('integer', 'Entero'),
         ('fractional', 'Fracción'),
     ], string='Tipo cantidad producto destacado', default='fractional')
-    website_packaging_equivalent = fields.Float(
-        string='Equivalente a embalaje',
-        default=0.0,
-        help='Para producto destacado web: si Tipo cantidad = Entero y este valor > 0, redondea al múltiplo superior de este embalaje.',
+    packaging_option_ids = fields.One2many(
+        'product.packaging.option',
+        'product_tmpl_id',
+        string='Opciones de embalaje',
+    )
+    website_featured_packaging_option_id = fields.Many2one(
+        'product.packaging.option',
+        string='Embalaje destacado web',
+        domain="[('product_tmpl_id', '=', id)]",
     )
 
     @api.onchange('website_enable_calculator')
@@ -128,15 +171,16 @@ class ProductTemplate(models.Model):
         for rec in self:
             if not rec.website_enable_calculator:
                 continue
-            if rec.website_packaging_equivalent:
+            if rec.website_featured_packaging_option_id:
                 continue
+            rec.website_featured_packaging_option_id = rec.packaging_option_ids[:1].id if rec.packaging_option_ids else False
 
     def _apply_featured_rounding(self, qty):
         self.ensure_one()
         qty = float(qty or 0.0)
         if self.website_featured_qty_type != 'integer':
             return qty
-        packaging = float(self.website_packaging_equivalent or 0.0)
+        packaging = float((self.website_featured_packaging_option_id.qty if self.website_featured_packaging_option_id else 0.0) or 0.0)
         if packaging > 0:
             return float(math.ceil(qty / packaging) * packaging)
         return float(math.ceil(qty))
@@ -186,6 +230,11 @@ class CalculationWizard(models.TransientModel):
         string='Cantidad destacada',
         default=0.0
     )
+    featured_packaging_option_id = fields.Many2one(
+        'product.packaging.option',
+        string='Unidad de embalaje',
+        domain="[('product_tmpl_id.product_variant_ids', 'in', featured_product_id)]",
+    )
     
     total_surface = fields.Float(
         string='Total m²/m³',
@@ -205,14 +254,13 @@ class CalculationWizard(models.TransientModel):
             else:
                 rec.total_surface = rec.length * rec.width
 
-    @api.depends('featured_product_id', 'total_surface')
+    @api.depends('featured_product_id', 'featured_packaging_option_id', 'total_surface')
     def _compute_featured_quantity_recommendation(self):
         for rec in self:
             rec.featured_quantity_recommendation = False
             if not rec.featured_product_id or rec.total_surface <= 0:
                 continue
-            tmpl = rec.featured_product_id.product_tmpl_id
-            packaging = float(tmpl.website_packaging_equivalent or 0.0)
+            packaging = float((rec.featured_packaging_option_id.qty if rec.featured_packaging_option_id else 0.0) or 0.0)
             if packaging <= 0:
                 continue
             recommended = float(math.ceil(rec.total_surface / packaging) * packaging)
