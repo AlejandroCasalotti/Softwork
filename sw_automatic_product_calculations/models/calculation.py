@@ -40,7 +40,7 @@ class ProductPackagingOption(models.Model):
     )
     uom_category_id = fields.Many2one(
         'uom.category',
-        related='product_tmpl_id.uom_id.category_id',
+        compute='_compute_uom_category_id',
         store=True,
         readonly=True,
     )
@@ -51,15 +51,29 @@ class ProductPackagingOption(models.Model):
     )
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ('product_uom_unique', 'unique(product_tmpl_id, uom_id)', 'La unidad de embalaje ya existe para este producto.'),
-    ]
+    @api.depends('product_tmpl_id', 'product_tmpl_id.uom_id')
+    def _compute_uom_category_id(self):
+        for rec in self:
+            rec.uom_category_id = rec.product_tmpl_id.uom_id.category_id if rec.product_tmpl_id and rec.product_tmpl_id.uom_id else False
 
     @api.constrains('qty')
     def _check_qty_positive(self):
         for rec in self:
             if rec.qty <= 0:
                 raise ValidationError('La cantidad equivalente debe ser mayor a cero.')
+
+    @api.constrains('product_tmpl_id', 'uom_id')
+    def _check_product_uom_unique(self):
+        for rec in self:
+            if not rec.product_tmpl_id or not rec.uom_id:
+                continue
+            dup = self.search([
+                ('id', '!=', rec.id),
+                ('product_tmpl_id', '=', rec.product_tmpl_id.id),
+                ('uom_id', '=', rec.uom_id.id),
+            ], limit=1)
+            if dup:
+                raise ValidationError('La unidad de embalaje ya existe para este producto.')
 
 
 class CalculationMethodLine(models.Model):
