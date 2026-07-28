@@ -296,11 +296,15 @@ class CalculationWizard(models.TransientModel):
             qty = line.quantity_per_unit * self.total_surface
             qty = line._apply_rounding_by_type(qty)
             
+            target_uom = line.rounding_uom_id or line.product_id.uom_id
+            qty_target = qty
+            if target_uom and line.product_id.uom_id:
+                qty_target = line.product_id.uom_id._compute_quantity(qty, target_uom)
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
-                'product_uom_qty': qty,
-                'product_uom_id': line.product_id.uom_id.id,
+                'product_uom_qty': qty_target,
+                'product_uom_id': target_uom.id if target_uom else line.product_id.uom_id.id,
                 'price_unit': line.product_id.list_price or 0,
             })
         
@@ -313,8 +317,8 @@ class CalculationWizard(models.TransientModel):
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': self.featured_product_id.id,
-                'product_uom_qty': qty_base,
-                'product_uom_id': self.featured_product_id.uom_id.id,
+                'product_uom_qty': self.featured_quantity,
+                'product_uom_id': line_uom.id if line_uom else self.featured_product_id.uom_id.id,
                 'price_unit': self.featured_product_id.list_price or 0,
             })
         

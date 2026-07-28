@@ -209,11 +209,11 @@ class SwAutomaticCalculationController(http.Controller):
             qty_base = target_uom._compute_quantity(qty, product.uom_id)
 
             existing_line = order.order_line.filtered(
-                lambda l: l.product_id.id == product_id and l.product_uom_id.id == target_uom.id
+                lambda l: l.product_id.id == product_id and l.product_uom_id.id == product.uom_id.id
             )[:1]
             if existing_line:
                 existing_line.sudo().write({
-                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
+                    "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty_base,
                 })
             else:
                 request.env["sale.order.line"].sudo().create({
