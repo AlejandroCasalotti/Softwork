@@ -4,3 +4,4 @@ access_calculation_method,calculation.method,model_calculation_method,base.group
 access_calculation_method_line,calculation.method.line,model_calculation_method_line,base.group_user,1,1,1,1
 access_calculation_method_portal_read,calculation.method.portal.read,model_calculation_method,base.group_portal,1,0,0,0
 access_calculation_method_public_read,calculation.method.public.read,model_calculation_method,base.group_public,1,0,0,0
+access_product_packaging_option_user,product.packaging.option.user,model_product_packaging_option,base.group_user,1,1,1,1
