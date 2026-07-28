@@ -192,6 +192,10 @@ class CalculationWizard(models.TransientModel):
         compute='_compute_total',
         store=True
     )
+    featured_quantity_recommendation = fields.Char(
+        string='Recomendación',
+        compute='_compute_featured_quantity_recommendation',
+    )
 
     @api.depends('method_id', 'length', 'width', 'height')
     def _compute_total(self):
@@ -200,6 +204,22 @@ class CalculationWizard(models.TransientModel):
                 rec.total_surface = rec.length * rec.width * rec.height
             else:
                 rec.total_surface = rec.length * rec.width
+
+    @api.depends('featured_product_id', 'total_surface')
+    def _compute_featured_quantity_recommendation(self):
+        for rec in self:
+            rec.featured_quantity_recommendation = False
+            if not rec.featured_product_id or rec.total_surface <= 0:
+                continue
+            tmpl = rec.featured_product_id.product_tmpl_id
+            packaging = float(tmpl.website_packaging_equivalent or 0.0)
+            if packaging <= 0:
+                continue
+            recommended = float(math.ceil(rec.total_surface / packaging) * packaging)
+            rec.featured_quantity_recommendation = (
+                f"Recomendación automática: {recommended:g} unidades "
+                f"(múltiplo de embalaje {packaging:g})."
+            )
 
     @api.onchange('method_id')
     def _onchange_method_id(self):
