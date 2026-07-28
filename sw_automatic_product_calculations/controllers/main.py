@@ -61,7 +61,7 @@ class SwAutomaticCalculationController(http.Controller):
                 continue
             selected_uom = line.rounding_uom_id or line.product_id.uom_id
             selected_qty = qty
-            if selected_uom and line.product_id.uom_id and selected_uom.category_id == line.product_id.uom_id.category_id:
+            if selected_uom and line.product_id.uom_id:
                 selected_qty = line.product_id.uom_id._compute_quantity(qty, selected_uom)
             computed_lines.append({
                 "product_id": line.product_id.id,
@@ -87,7 +87,7 @@ class SwAutomaticCalculationController(http.Controller):
             if featured_qty > 0:
                 featured_uom = template.website_featured_uom_id or featured_product.uom_id
                 featured_qty_uom = featured_qty
-                if featured_uom and featured_product.uom_id and featured_uom.category_id == featured_product.uom_id.category_id:
+                if featured_uom and featured_product.uom_id:
                     featured_qty_uom = featured_product.uom_id._compute_quantity(featured_qty, featured_uom)
                 computed_lines.append({
                     "product_id": featured_product.id,
@@ -204,7 +204,7 @@ class SwAutomaticCalculationController(http.Controller):
 
             existing_line = order.order_line.filtered(lambda l: l.product_id.id == product_id)[:1]
             target_uom = request.env["uom.uom"].sudo().browse(uom_id) if uom_id else product.uom_id
-            if (not target_uom.exists()) or (target_uom.category_id != product.uom_id.category_id):
+            if not target_uom.exists():
                 target_uom = product.uom_id
             qty_base = target_uom._compute_quantity(qty, product.uom_id)
 
@@ -219,11 +219,11 @@ class SwAutomaticCalculationController(http.Controller):
                 request.env["sale.order.line"].sudo().create({
                     "order_id": order.id,
                     "product_id": product_id,
-                    "product_uom_qty": qty,
+                    "product_uom_qty": qty_base,
                     "name": product.display_name,
                     "price_unit": product.lst_price,
                     "customer_lead": 0.0,
-                    "product_uom_id": target_uom.id,
+                    "product_uom_id": product.uom_id.id,
                     "order_partner_id": order.partner_id.id,
                 })
 
