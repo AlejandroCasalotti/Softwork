@@ -21,7 +21,7 @@ class ProductTemplate(models.Model):
     def _check_web_allowed_packaging_ids(self):
         for rec in self:
             invalid = rec.web_allowed_packaging_ids.filtered(
-                lambda p: p.product_tmpl_id != rec
+                lambda p: p.product_id.product_tmpl_id != rec
             )
             if invalid:
                 raise ValidationError(
