@@ -5,12 +5,12 @@
             <input
                 type="hidden"
                 name="sw_web_allowed_packaging_ids"
-                t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"
+                t-att-value="','.join(str(p.id) for p in (product.product_tmpl_id.web_allowed_packaging_ids or product.web_allowed_packaging_ids))"
             />
             <input
                 type="hidden"
                 name="sw_web_allowed_uom_ids"
-                t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"
+                t-att-value="','.join(str(p.id) for p in (product.product_tmpl_id.web_allowed_packaging_ids or product.web_allowed_packaging_ids))"
             />
         </xpath>
     </template>
