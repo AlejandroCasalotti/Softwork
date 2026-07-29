@@ -8,7 +8,7 @@ class ProductTemplate(models.Model):
     _inherit = "product.template"
 
     web_allowed_packaging_ids = fields.Many2many(
-        "product.packaging",
+        "product.packaging.level",
         "product_tmpl_web_packaging_rel",
         "product_tmpl_id",
         "packaging_id",
