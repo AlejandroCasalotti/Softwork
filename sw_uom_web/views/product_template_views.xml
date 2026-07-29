@@ -14,7 +14,7 @@
                             domain="[('id', 'in', uom_ids)]"
                             options="{'no_create_edit': True, 'no_create': True}"
                         />
-                        <label string="Si no selecciona embalajes, en web se mostrarán todos (comportamiento estándar)." class="text-muted"/>
+                        <label for="web_allowed_packaging_ids" string="Si no selecciona embalajes, en web se mostrarán todos (comportamiento estándar)." class="text-muted"/>
                     </group>
                 </page>
             </xpath>
