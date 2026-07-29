@@ -22,9 +22,4 @@
         </xpath>
     </template>
 
-    <template id="sw_uom_web_hide_packaging" inherit_id="website_sale.product" name="SW UoM Web Hide Packaging">
-        <xpath expr="//div[@id='o_wsale_cta_wrapper']" position="attributes">
-            <attribute name="t-attf-class">#{'d-none' if product.web_uom_sale_mode else ''} o_wsale_cta_wrapper d-flex flex-wrap align-items-center</attribute>
-        </xpath>
-    </template>
 </odoo>
