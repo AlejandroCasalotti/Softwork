@@ -7,7 +7,25 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
     start() {
         this._applyPackagingFilter();
+        this._bindReapplyHooks();
         return this._super(...arguments);
+    },
+
+    _bindReapplyHooks() {
+        // Reaplicar cuando Odoo recompone DOM por combinación/qty
+        if (this._observer) {
+            this._observer.disconnect();
+        }
+        this._observer = new MutationObserver(() => this._applyPackagingFilter());
+        this._observer.observe(this.el, { childList: true, subtree: true });
+
+        this.el.addEventListener("change", (ev) => {
+            const t = ev.target;
+            if (!t) return;
+            if (["uom_id", "uom", "packaging_id", "add_qty", "quantity"].includes(t.name)) {
+                setTimeout(() => this._applyPackagingFilter(), 0);
+            }
+        });
     },
 
     _getAllowedIds() {
@@ -62,23 +80,35 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             }
         });
 
-        // Filtro adicional para pills/radios que no exponen name estándar
-        const valueNodes = this.el.querySelectorAll("[data-value_id], [data-value-id], input[type='radio'][value], .o_variant_pills label, .css_attribute_color");
-        valueNodes.forEach((node) => {
-            const raw =
-                node.getAttribute("data-value_id") ||
-                node.getAttribute("data-value-id") ||
-                node.getAttribute("value") ||
-                node.dataset.valueId ||
-                "";
-            const id = parseInt(raw || "0", 10);
-            if (!id) return;
-            if (!allowedIds.includes(id)) {
-                const container = node.closest("label, li, .css_attribute_color, .o_variant_pills, .js_attribute_value, .o_wsale_product_attribute")
-                    || node;
-                container.classList.add("d-none");
-                container.setAttribute("aria-hidden", "true");
+        // Filtro exacto para tu HTML: <li class="o_variant_pills ..."><input type="radio" name="uom_id" value="..">
+        const uomPills = this.el.querySelectorAll("li.o_variant_pills input[type='radio'][name='uom_id']");
+        uomPills.forEach((input) => {
+            const id = parseInt(input.value || "0", 10);
+            const li = input.closest("li.o_variant_pills");
+            if (!li || !id) return;
+
+            if (allowedIds.includes(id)) {
+                li.classList.remove("d-none");
+                li.removeAttribute("aria-hidden");
+                input.disabled = false;
+            } else {
+                li.classList.add("d-none");
+                li.setAttribute("aria-hidden", "true");
+                input.disabled = true;
+                input.checked = false;
             }
         });
+
+        // Garantizar selección válida visible
+        const checked = this.el.querySelector("li.o_variant_pills input[type='radio'][name='uom_id']:checked");
+        if (!checked || !allowedIds.includes(parseInt(checked.value || "0", 10))) {
+            const firstAllowed = this.el.querySelector(
+                "li.o_variant_pills:not(.d-none) input[type='radio'][name='uom_id']"
+            );
+            if (firstAllowed) {
+                firstAllowed.checked = true;
+                firstAllowed.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        }
     },
 });
