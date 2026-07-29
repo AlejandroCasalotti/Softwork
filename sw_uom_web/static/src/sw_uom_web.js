@@ -27,9 +27,9 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             return;
         }
 
-        // Embalajes en website_sale suelen venir en inputs/selects con nombre packaging_id
+        // Soporta distintos nombres según implementación de web/UoM
         const packagingFields = this.el.querySelectorAll(
-            "input[name='packaging_id'], select[name='packaging_id']"
+            "input[name='packaging_id'], select[name='packaging_id'], input[name='uom_id'], select[name='uom_id'], input[name='uom'], select[name='uom']"
         );
 
         packagingFields.forEach((field) => {
