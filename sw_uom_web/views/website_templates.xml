@@ -1,24 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="sw_uom_web_product_data" inherit_id="website_sale.product" name="SW UoM Web Product Data">
+    <template id="sw_uom_web_allowed_packaging_data" inherit_id="website_sale.product" name="SW UoM Web Allowed Packaging Data">
         <xpath expr="//div[@id='product_details']" position="inside">
-            <t t-if="product.web_uom_sale_mode">
-                <input type="hidden" name="sw_web_min_sale_qty" t-att-value="product.web_min_sale_qty or 0.0"/>
-                <input type="hidden" name="sw_web_sale_uom_id" t-att-value="product.web_sale_uom_id.id if product.web_sale_uom_id else 0"/>
-                <input type="hidden" name="sw_web_sale_uom_name" t-att-value="product.web_sale_uom_id.display_name if product.web_sale_uom_id else ''"/>
-                <input type="hidden" name="sw_web_base_uom_name" t-att-value="product.uom_id.display_name if product.uom_id else ''"/>
-                <input type="hidden" name="sw_web_sale_uom_price" t-att-value="product.web_sale_uom_price or 0.0"/>
-                <input type="hidden" name="sw_web_uom_sale_mode" t-att-value="1"/>
-
-                <div class="alert alert-info mb-2 sw_uom_web_note">
-                    <span t-esc="product.web_sale_uom_total_text"/>
-                </div>
-
-                <div class="mt-2 text-muted sw_uom_web_buying_total" data-sw-uom-web="1">
-                    Comprás: <strong class="sw_uom_web_total_qty"><t t-esc="product.web_min_sale_qty or 0.0"/></strong>
-                    <span class="sw_uom_web_base_uom"><t t-esc="product.uom_id.display_name"/></span>
-                </div>
-            </t>
+            <input
+                type="hidden"
+                name="sw_web_allowed_packaging_ids"
+                t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"
+            />
         </xpath>
     </template>
 </odoo>

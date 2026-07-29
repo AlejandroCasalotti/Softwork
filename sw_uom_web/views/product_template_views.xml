@@ -6,15 +6,15 @@
         <field name="inherit_id" ref="product.product_template_only_form_view"/>
         <field name="arch" type="xml">
             <xpath expr="//sheet/notebook" position="inside">
-                <page string="Venta Web UoM">
+                <page string="Embalajes Web">
                     <group>
-                        <field name="web_min_sale_qty"/>
-                        <field name="web_sale_uom_id"/>
-                    </group>
-                    <group>
-                        <field name="web_uom_sale_mode" readonly="1"/>
-                        <field name="web_sale_uom_price" readonly="1"/>
-                        <field name="web_sale_uom_total_text" readonly="1"/>
+                        <field
+                            name="web_allowed_packaging_ids"
+                            widget="many2many_tags"
+                            domain="[('product_tmpl_id', '=', id)]"
+                            options="{'no_create_edit': True, 'no_create': True}"
+                        />
+                        <label string="Si no selecciona embalajes, en web se mostrarán todos (comportamiento estándar)." class="text-muted"/>
                     </group>
                 </page>
             </xpath>

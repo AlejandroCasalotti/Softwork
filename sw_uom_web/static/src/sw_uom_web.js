@@ -2,154 +2,63 @@
 
 import publicWidget from "@web/legacy/js/public/public_widget";
 
-publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
+publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
     selector: ".oe_website_sale",
-    events: {
-        "change form.o_wsale_product_form input[name='add_qty']": "_onQtyChange",
-        "click form.o_wsale_product_form .js_add_cart_json": "_onBeforeAddToCart",
-        "click form.o_wsale_product_form .o_we_buy_now": "_onBeforeAddToCart",
-    },
 
     start() {
-        this._refreshAll();
+        this._applyPackagingFilter();
         return this._super(...arguments);
     },
 
-    _getForm() {
-        return this.el.querySelector("form.o_wsale_product_form");
+    _getAllowedIds() {
+        const input = this.el.querySelector("input[name='sw_web_allowed_packaging_ids']");
+        const raw = (input?.value || "").trim();
+        if (!raw) return [];
+        return raw
+            .split(",")
+            .map((v) => parseInt(v.trim(), 10))
+            .filter((n) => Number.isInteger(n) && n > 0);
     },
 
-    _isEnabled(form) {
-        if (!form) return false;
-        const flag = form.querySelector("input[name='sw_web_uom_sale_mode']");
-        return !!(flag && Number(flag.value || 0) === 1);
-    },
-
-    _toFloat(v, d = 0.0) {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : d;
-    },
-
-    _getQtyData(form) {
-        const addQty = this._toFloat(form.querySelector("input[name='add_qty']")?.value, 1.0);
-        const minQty = this._toFloat(form.querySelector("input[name='sw_web_min_sale_qty']")?.value, 0.0);
-        return { addQty, minQty };
-    },
-
-    _refreshAll() {
-        const form = this._getForm();
-        if (!this._isEnabled(form)) return;
-        this._hidePackagingUi(form);
-        this._appendBaseUomToMainPrice(form);
-        this._updateBuyingTotal(form);
-        this._applyUomLabel(form);
-        this._forceUomInForm(form);
-    },
-
-    _applyUomLabel(form) {
-        const uomName = form.querySelector("input[name='sw_web_sale_uom_name']")?.value || "";
-        if (!uomName) return;
-        let label = form.querySelector(".sw_uom_web_qty_label");
-        const qtyWrapper = form.querySelector(".css_quantity");
-        if (!qtyWrapper) return;
-        if (!label) {
-            label = document.createElement("span");
-            label.className = "sw_uom_web_qty_label me-2";
-            qtyWrapper.parentNode.insertBefore(label, qtyWrapper);
+    _applyPackagingFilter() {
+        const allowedIds = this._getAllowedIds();
+        if (!allowedIds.length) {
+            // Sin selección => comportamiento estándar (mostrar todos)
+            return;
         }
-        label.textContent = `${uomName}:`;
-    },
 
-    _updateBuyingTotal(form) {
-        const totalNode = this.el.querySelector(".sw_uom_web_total_qty");
-        const baseUomNode = this.el.querySelector(".sw_uom_web_base_uom");
-        if (!totalNode) return;
+        // Embalajes en website_sale suelen venir en inputs/selects con nombre packaging_id
+        const packagingFields = this.el.querySelectorAll(
+            "input[name='packaging_id'], select[name='packaging_id']"
+        );
 
-        const { addQty, minQty } = this._getQtyData(form);
-        const totalBase = addQty * minQty;
-        totalNode.textContent = totalBase.toFixed(2);
+        packagingFields.forEach((field) => {
+            if (field.tagName === "SELECT") {
+                Array.from(field.options).forEach((opt) => {
+                    const id = parseInt(opt.value || "0", 10);
+                    if (id && !allowedIds.includes(id)) {
+                        opt.hidden = true;
+                    }
+                });
 
-        const baseUom = form.querySelector("input[name='sw_web_base_uom_name']")?.value || "";
-        if (baseUomNode && baseUom) {
-            baseUomNode.textContent = baseUom;
-        }
-    },
-
-    _hidePackagingUi(form) {
-        const selectors = [
-            ".o_variant_pills",
-            ".o_variant_attribute",
-            ".js_add_cart_variants",
-            ".o_product_configurator",
-            ".o_wsale_product_packaging",
-            ".js_product .product_packaging",
-            ".o_wsale_cta_wrapper .o_additional_uom",
-            "label:has(+ .o_wsale_product_packaging)",
-        ];
-        selectors.forEach((s) => {
-            this.el.querySelectorAll(s).forEach((n) => n.classList.add("d-none"));
-        });
-
-        this.el.querySelectorAll("label, span, div").forEach((n) => {
-            const txt = (n.textContent || "").trim().toLowerCase();
-            if (txt === "packaging" || txt === "embalaje") {
-                n.classList.add("d-none");
+                // Si el valor actual no está permitido, seleccionar primero válido
+                const current = parseInt(field.value || "0", 10);
+                if (current && !allowedIds.includes(current)) {
+                    const firstAllowed = Array.from(field.options).find((opt) =>
+                        allowedIds.includes(parseInt(opt.value || "0", 10))
+                    );
+                    if (firstAllowed) {
+                        field.value = firstAllowed.value;
+                        field.dispatchEvent(new Event("change", { bubbles: true }));
+                    }
+                }
+            } else {
+                const id = parseInt(field.value || "0", 10);
+                const container = field.closest("label, .form-check, .radio, .o_variant_pills, .o_wsale_product_packaging_line") || field;
+                if (id && !allowedIds.includes(id)) {
+                    container.classList.add("d-none");
+                }
             }
         });
-    },
-
-    _appendBaseUomToMainPrice(form) {
-        const baseUom = form.querySelector("input[name='sw_web_base_uom_name']")?.value || "";
-        if (!baseUom) return;
-
-        const priceSelectors = [
-            "#product_details .oe_price .oe_currency_value",
-            "#product_details .oe_price",
-            "#product_details .product_price",
-            "#product_details [itemprop='price']",
-        ];
-
-        for (const sel of priceSelectors) {
-            const priceNode = this.el.querySelector(sel);
-            if (!priceNode) continue;
-
-            let uomNode = priceNode.parentElement?.querySelector(".sw_uom_web_price_uom");
-            if (!uomNode) {
-                uomNode = document.createElement("span");
-                uomNode.className = "sw_uom_web_price_uom text-muted ms-1";
-                priceNode.parentElement?.appendChild(uomNode);
-            }
-            uomNode.textContent = baseUom;
-            break;
-        }
-    },
-
-    _forceUomInForm(form) {
-        const uomId = parseInt(form.querySelector("input[name='sw_web_sale_uom_id']")?.value || "0", 10);
-        if (!uomId) return;
-
-        let uomInput = form.querySelector("input[name='uom_id']");
-        if (!uomInput) {
-            uomInput = document.createElement("input");
-            uomInput.type = "hidden";
-            uomInput.name = "uom_id";
-            form.appendChild(uomInput);
-        }
-        uomInput.value = String(uomId);
-    },
-
-    _onQtyChange(ev) {
-        const form = ev.currentTarget.closest("form.o_wsale_product_form");
-        if (!this._isEnabled(form)) return;
-        this._hidePackagingUi(form);
-        this._appendBaseUomToMainPrice(form);
-        this._updateBuyingTotal(form);
-        this._forceUomInForm(form);
-    },
-
-    _onBeforeAddToCart(ev) {
-        const form = ev.currentTarget.closest("form.o_wsale_product_form");
-        if (!this._isEnabled(form)) return;
-        this._forceUomInForm(form);
     },
 });
