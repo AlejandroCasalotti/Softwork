@@ -270,8 +270,7 @@ class CalculationWizard(models.TransientModel):
                 continue
             qty_in_target = rec.featured_product_id.uom_id._compute_quantity(rec.total_surface, target_uom)
             qty_in_target = float(math.ceil(qty_in_target))
-            recommended = float(target_uom._compute_quantity(qty_in_target, rec.featured_product_id.uom_id))
-            rec.featured_quantity_recommendation = f"Recomendación automática: {recommended:g} ({target_uom.name})."
+            rec.featured_quantity_recommendation = f"Recomendación automática: {qty_in_target:g} ({target_uom.name})."
 
     @api.onchange('method_id')
     def _onchange_method_id(self):
