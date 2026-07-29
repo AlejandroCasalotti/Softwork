@@ -39,6 +39,7 @@ publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
     _refreshAll() {
         const form = this._getForm();
         if (!this._isEnabled(form)) return;
+        this._hidePackagingUi(form);
         this._updateBuyingTotal(form);
         this._applyUomLabel(form);
         this._forceUomInForm(form);
@@ -71,6 +72,21 @@ publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
         if (baseUomNode && baseUom) {
             baseUomNode.textContent = baseUom;
         }
+    },
+
+    _hidePackagingUi(form) {
+        const selectors = [
+            ".o_variant_pills",
+            ".o_variant_attribute",
+            ".js_add_cart_variants",
+            ".o_product_configurator",
+            ".o_wsale_product_packaging",
+            ".js_product .product_packaging",
+            ".o_wsale_cta_wrapper .o_additional_uom",
+        ];
+        selectors.forEach((s) => {
+            this.el.querySelectorAll(s).forEach((n) => n.classList.add("d-none"));
+        });
     },
 
     _forceUomInForm(form) {

@@ -10,6 +10,12 @@
                 <input type="hidden" name="sw_web_sale_uom_price" t-att-value="product.web_sale_uom_price or 0.0"/>
                 <input type="hidden" name="sw_web_uom_sale_mode" t-att-value="1"/>
 
+                <div class="sw_uom_web_price_base mb-2">
+                    <strong t-esc="product.currency_id.symbol if product.currency_id else '$'"/>
+                    <strong t-esc="' %.2f' % (product.list_price or 0.0)"/>
+                    <span class="text-muted"> <t t-esc="product.uom_id.display_name if product.uom_id else ''"/></span>
+                </div>
+
                 <div class="alert alert-info mb-2 sw_uom_web_note">
                     <span t-esc="product.web_sale_uom_total_text"/>
                 </div>
@@ -21,5 +27,4 @@
             </t>
         </xpath>
     </template>
-
 </odoo>
