@@ -29,7 +29,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             return;
         }
 
-        // Soporta distintos nombres según implementación de web/UoM
+        // Selectores posibles para UoM/embalaje visibles
         const packagingFields = this.el.querySelectorAll(
             "input[name='packaging_id'], select[name='packaging_id'], input[name='uom_id'], select[name='uom_id'], input[name='uom'], select[name='uom']"
         );
@@ -43,7 +43,6 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
                     }
                 });
 
-                // Si el valor actual no está permitido, seleccionar primero válido
                 const current = parseInt(field.value || "0", 10);
                 if (current && !allowedIds.includes(current)) {
                     const firstAllowed = Array.from(field.options).find((opt) =>
@@ -60,6 +59,25 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
                 if (id && !allowedIds.includes(id)) {
                     container.classList.add("d-none");
                 }
+            }
+        });
+
+        // Filtro adicional para pills/radios que no exponen name estándar
+        const valueNodes = this.el.querySelectorAll("[data-value_id], [data-value-id], input[type='radio'][value], .o_variant_pills label, .css_attribute_color");
+        valueNodes.forEach((node) => {
+            const raw =
+                node.getAttribute("data-value_id") ||
+                node.getAttribute("data-value-id") ||
+                node.getAttribute("value") ||
+                node.dataset.valueId ||
+                "";
+            const id = parseInt(raw || "0", 10);
+            if (!id) return;
+            if (!allowedIds.includes(id)) {
+                const container = node.closest("label, li, .css_attribute_color, .o_variant_pills, .js_attribute_value, .o_wsale_product_attribute")
+                    || node;
+                container.classList.add("d-none");
+                container.setAttribute("aria-hidden", "true");
             }
         });
     },
