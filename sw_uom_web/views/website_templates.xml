@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="sw_uom_web_allowed_packaging_data" inherit_id="website_sale.product" name="SW UoM Web Allowed Packaging Data">
-        <xpath expr="//div[@id='product_details']" position="inside">
+        <xpath expr="//form[hasclass('js_main_product')]" position="inside">
             <input
                 type="hidden"
                 name="sw_web_allowed_packaging_ids"
