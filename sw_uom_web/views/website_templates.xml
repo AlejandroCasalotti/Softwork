@@ -9,28 +9,22 @@
                 <input type="hidden" name="sw_web_base_uom_name" t-att-value="product.uom_id.display_name if product.uom_id else ''"/>
                 <input type="hidden" name="sw_web_sale_uom_price" t-att-value="product.web_sale_uom_price or 0.0"/>
                 <input type="hidden" name="sw_web_uom_sale_mode" t-att-value="1"/>
-            </t>
-        </xpath>
-    </template>
 
-    <template id="sw_uom_web_sale_note" inherit_id="website_sale.product" name="SW UoM Web Sale Note">
-        <xpath expr="//div[@id='product_details']" position="inside">
-            <t t-if="product.web_uom_sale_mode">
                 <div class="alert alert-info mb-2 sw_uom_web_note">
                     <span t-esc="product.web_sale_uom_total_text"/>
                 </div>
-            </t>
-        </xpath>
-    </template>
 
-    <template id="sw_uom_web_buying_total" inherit_id="website_sale.product" name="SW UoM Web Buying Total">
-        <xpath expr="//div[@id='product_details']" position="inside">
-            <t t-if="product.web_uom_sale_mode">
                 <div class="mt-2 text-muted sw_uom_web_buying_total" data-sw-uom-web="1">
                     Comprás: <strong class="sw_uom_web_total_qty"><t t-esc="product.web_min_sale_qty or 0.0"/></strong>
                     <span class="sw_uom_web_base_uom"><t t-esc="product.uom_id.display_name"/></span>
                 </div>
             </t>
+        </xpath>
+    </template>
+
+    <template id="sw_uom_web_hide_packaging" inherit_id="website_sale.product" name="SW UoM Web Hide Packaging">
+        <xpath expr="//div[@id='o_wsale_cta_wrapper']" position="attributes">
+            <attribute name="t-attf-class">#{'d-none' if product.web_uom_sale_mode else ''} o_wsale_cta_wrapper d-flex flex-wrap align-items-center</attribute>
         </xpath>
     </template>
 </odoo>

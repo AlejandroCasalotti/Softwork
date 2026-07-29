@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from odoo import api, fields, models
+from odoo.tools.misc import formatLang
 from odoo.exceptions import ValidationError
 
 
@@ -51,9 +52,10 @@ class ProductTemplate(models.Model):
     def _compute_web_sale_uom_total_text(self):
         for rec in self:
             if rec.web_uom_sale_mode and rec.web_sale_uom_id:
+                amount = formatLang(rec.env, rec.web_sale_uom_price, currency_obj=rec.currency_id) if rec.currency_id else ("%.2f" % rec.web_sale_uom_price)
                 rec.web_sale_uom_total_text = 'Este producto es vendido en "%s" a "%s"' % (
                     rec.web_sale_uom_id.display_name,
-                    rec.currency_id.symbol + (" %.2f" % rec.web_sale_uom_price) if rec.currency_id else ("%.2f" % rec.web_sale_uom_price),
+                    amount,
                 )
             else:
                 rec.web_sale_uom_total_text = False
