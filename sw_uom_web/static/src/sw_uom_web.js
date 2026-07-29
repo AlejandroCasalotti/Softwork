@@ -11,7 +11,9 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
     },
 
     _getAllowedIds() {
-        const input = this.el.querySelector("input[name='sw_web_allowed_packaging_ids']");
+        const input =
+            this.el.querySelector("input[name='sw_web_allowed_uom_ids']") ||
+            this.el.querySelector("input[name='sw_web_allowed_packaging_ids']");
         const raw = (input?.value || "").trim();
         if (!raw) return [];
         return raw
