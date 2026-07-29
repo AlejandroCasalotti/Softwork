@@ -299,12 +299,14 @@ class CalculationWizard(models.TransientModel):
             qty_target = qty
             if target_uom and line.product_id.uom_id:
                 qty_target = line.product_id.uom_id._compute_quantity(qty, target_uom)
+            price_uom = target_uom or line.product_id.uom_id
+            price_unit = line.product_id.uom_id._compute_price(line.product_id.list_price or 0.0, price_uom)
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': line.product_id.id,
                 'product_uom_qty': qty_target,
                 'product_uom_id': target_uom.id if target_uom else line.product_id.uom_id.id,
-                'price_unit': line.product_id.list_price or 0,
+                'price_unit': price_unit,
             })
         
         # Agregar producto destacado
@@ -313,12 +315,17 @@ class CalculationWizard(models.TransientModel):
             qty_base = self.featured_quantity
             if line_uom and self.featured_product_id.uom_id:
                 qty_base = line_uom._compute_quantity(self.featured_quantity, self.featured_product_id.uom_id)
+            featured_price_uom = line_uom or self.featured_product_id.uom_id
+            featured_price_unit = self.featured_product_id.uom_id._compute_price(
+                self.featured_product_id.list_price or 0.0,
+                featured_price_uom
+            )
             self.env['sale.order.line'].create({
                 'order_id': self.order_id.id,
                 'product_id': self.featured_product_id.id,
                 'product_uom_qty': self.featured_quantity,
                 'product_uom_id': line_uom.id if line_uom else self.featured_product_id.uom_id.id,
-                'price_unit': self.featured_product_id.list_price or 0,
+                'price_unit': featured_price_unit,
             })
         
         return {'type': 'ir.actions.act_window_close'}

@@ -216,12 +216,13 @@ class SwAutomaticCalculationController(http.Controller):
                     "product_uom_qty": (existing_line.product_uom_qty or 0.0) + qty,
                 })
             else:
+                price_unit = product.uom_id._compute_price(product.lst_price or 0.0, target_uom)
                 request.env["sale.order.line"].sudo().create({
                     "order_id": order.id,
                     "product_id": product_id,
                     "product_uom_qty": qty,
                     "name": product.display_name,
-                    "price_unit": product.lst_price,
+                    "price_unit": price_unit,
                     "customer_lead": 0.0,
                     "product_uom_id": target_uom.id,
                     "order_partner_id": order.partner_id.id,
