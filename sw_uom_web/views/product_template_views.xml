@@ -11,7 +11,7 @@
                         <field
                             name="web_allowed_packaging_ids"
                             widget="many2many_tags"
-                            domain="[('product_tmpl_id', '=', id)]"
+                            domain="[('id', 'in', uom_ids)]"
                             options="{'no_create_edit': True, 'no_create': True}"
                         />
                         <label string="Si no selecciona embalajes, en web se mostrarán todos (comportamiento estándar)." class="text-muted"/>

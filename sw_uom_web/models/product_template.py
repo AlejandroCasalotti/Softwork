@@ -8,10 +8,10 @@ class ProductTemplate(models.Model):
     _inherit = "product.template"
 
     web_allowed_packaging_ids = fields.Many2many(
-        "product.packaging.level",
-        "product_tmpl_web_packaging_rel",
+        "uom.uom",
+        "product_tmpl_web_uom_rel",
         "product_tmpl_id",
-        "packaging_id",
+        "uom_id",
         string="Embalajes permitidos en web",
         help="Si se seleccionan embalajes, en el sitio web solo se mostrarán estos para el producto. "
              "Si queda vacío, se mostrarán todos (comportamiento estándar).",
@@ -21,9 +21,9 @@ class ProductTemplate(models.Model):
     def _check_web_allowed_packaging_ids(self):
         for rec in self:
             invalid = rec.web_allowed_packaging_ids.filtered(
-                lambda p: p.product_id.product_tmpl_id != rec
+                lambda u: u not in rec.uom_ids
             )
             if invalid:
                 raise ValidationError(
-                    "Solo puede seleccionar embalajes que pertenezcan al mismo producto."
+                    "Solo puede seleccionar UoM/embalajes que estén cargados en uom_ids del producto."
                 )
