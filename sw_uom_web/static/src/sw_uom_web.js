@@ -40,6 +40,7 @@ publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
         const form = this._getForm();
         if (!this._isEnabled(form)) return;
         this._hidePackagingUi(form);
+        this._appendBaseUomToMainPrice(form);
         this._updateBuyingTotal(form);
         this._applyUomLabel(form);
         this._forceUomInForm(form);
@@ -83,10 +84,44 @@ publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
             ".o_wsale_product_packaging",
             ".js_product .product_packaging",
             ".o_wsale_cta_wrapper .o_additional_uom",
+            "label:has(+ .o_wsale_product_packaging)",
         ];
         selectors.forEach((s) => {
             this.el.querySelectorAll(s).forEach((n) => n.classList.add("d-none"));
         });
+
+        this.el.querySelectorAll("label, span, div").forEach((n) => {
+            const txt = (n.textContent || "").trim().toLowerCase();
+            if (txt === "packaging" || txt === "embalaje") {
+                n.classList.add("d-none");
+            }
+        });
+    },
+
+    _appendBaseUomToMainPrice(form) {
+        const baseUom = form.querySelector("input[name='sw_web_base_uom_name']")?.value || "";
+        if (!baseUom) return;
+
+        const priceSelectors = [
+            "#product_details .oe_price .oe_currency_value",
+            "#product_details .oe_price",
+            "#product_details .product_price",
+            "#product_details [itemprop='price']",
+        ];
+
+        for (const sel of priceSelectors) {
+            const priceNode = this.el.querySelector(sel);
+            if (!priceNode) continue;
+
+            let uomNode = priceNode.parentElement?.querySelector(".sw_uom_web_price_uom");
+            if (!uomNode) {
+                uomNode = document.createElement("span");
+                uomNode.className = "sw_uom_web_price_uom text-muted ms-1";
+                priceNode.parentElement?.appendChild(uomNode);
+            }
+            uomNode.textContent = baseUom;
+            break;
+        }
     },
 
     _forceUomInForm(form) {
@@ -106,6 +141,8 @@ publicWidget.registry.SwUomWeb = publicWidget.Widget.extend({
     _onQtyChange(ev) {
         const form = ev.currentTarget.closest("form.o_wsale_product_form");
         if (!this._isEnabled(form)) return;
+        this._hidePackagingUi(form);
+        this._appendBaseUomToMainPrice(form);
         this._updateBuyingTotal(form);
         this._forceUomInForm(form);
     },
