@@ -6,26 +6,47 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
     selector: ".oe_website_sale",
 
     start() {
+        const superDef = this._super(...arguments);
         this._applyPackagingFilter();
         this._bindReapplyHooks();
-        return this._super(...arguments);
+        return superDef;
     },
 
     _bindReapplyHooks() {
         // Reaplicar cuando Odoo recompone DOM por combinación/qty
+        // Evitar múltiples bindings que pueden causar errores de restauración/controlador
+        if (this._hooksBound) return;
+        this._hooksBound = true;
+
+        if (!this._reapplyFilterDebounced) {
+            this._reapplyFilterDebounced = () => {
+                clearTimeout(this._reapplyTimer);
+                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 30);
+            };
+        }
+
         if (this._observer) {
             this._observer.disconnect();
         }
-        this._observer = new MutationObserver(() => this._applyPackagingFilter());
+        this._observer = new MutationObserver(() => this._reapplyFilterDebounced());
         this._observer.observe(this.el, { childList: true, subtree: true });
 
         this.el.addEventListener("change", (ev) => {
             const t = ev.target;
             if (!t) return;
             if (["uom_id", "uom", "packaging_id", "add_qty", "quantity"].includes(t.name)) {
-                setTimeout(() => this._applyPackagingFilter(), 0);
+                this._reapplyFilterDebounced();
             }
         });
+    },
+
+    destroy() {
+        if (this._observer) {
+            this._observer.disconnect();
+            this._observer = null;
+        }
+        clearTimeout(this._reapplyTimer);
+        return this._super(...arguments);
     },
 
     _getAllowedIds() {
