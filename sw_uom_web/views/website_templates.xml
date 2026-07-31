@@ -6,4 +6,11 @@
             <input type="hidden" name="sw_web_allowed_uom_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_uom_ids)"/>
         </xpath>
     </template>
+
+    <template id="sw_uom_web_filter_uom_pills" inherit_id="website_sale.product" name="SW UoM Web Filter UoM Pills">
+        <!-- Versión robusta: no depende de variable de contexto `attribute_value` -->
+        <xpath expr="//input[@name='uom_id']" position="attributes">
+            <attribute name="t-if">not product.web_allowed_uom_ids or int((uom_id if uom_id is not None else 0)) in product.web_allowed_uom_ids.ids</attribute>
+        </xpath>
+    </template>
 </odoo>
