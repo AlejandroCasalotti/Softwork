@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="sw_uom_web_cart_base_uom_value" inherit_id="website_sale.cart_lines" name="SW UoM Web Cart Base UoM Value">
+        <xpath expr="//h6[@name='website_sale_cart_line_price']" position="inside">
+            <t t-if="line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price and line.product_uom_qty">
+                <t t-set="currency" t-value="website_sale_order.currency_id"/>
+                <t t-set="taxes" t-value="line.tax_id.filtered(lambda t: t.company_id == website_sale_order.company_id)"/>
+                <t t-set="tax_result" t-value="taxes.compute_all(line.price_unit, currency, 1.0, product=line.product_id, partner=website_sale_order.partner_shipping_id)"/>
+                <t t-set="base_unit_price"
+                   t-value="website.show_line_subtotals_tax_selection == 'tax_included' and tax_result.get('total_included', line.price_unit) or tax_result.get('total_excluded', line.price_unit)"/>
+                <small class="text-muted mt-1" style="white-space: nowrap;">
+                    <t t-esc="'Valor por %s %s' % (line.product_id.uom_id.name or '', format_amount(website.env, base_unit_price, currency))"/>
+                </small>
+            </t>
+        </xpath>
+    </template>
+</odoo>
