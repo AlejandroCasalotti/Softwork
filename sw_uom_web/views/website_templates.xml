@@ -12,7 +12,7 @@
     </template>
 
     <template id="sw_uom_web_base_price_label" inherit_id="website_sale.product" name="SW UoM Web Base Price Label">
-        <xpath expr="//input[@name='product_template_id']" position="after">
+        <xpath expr="//div[@id='o_wsale_cta_wrapper']" position="after">
             <div class="mt-2 text-muted small d-none" id="sw_web_base_uom_price_label"/>
         </xpath>
     </template>

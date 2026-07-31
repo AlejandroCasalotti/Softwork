@@ -127,18 +127,12 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         return this.el.querySelector("#sw_web_base_uom_price_label");
     },
 
-    _formatCurrencyLikeVisible(priceNumber, referenceText) {
+    _formatCurrencyLikeVisible(priceNumber) {
         if (!Number.isFinite(priceNumber)) return "";
-        const normalizedRef = (referenceText || "").trim();
-        let decimals = 2;
-        if (normalizedRef.includes(",")) {
-            const split = normalizedRef.split(",");
-            if (split.length > 1) decimals = Math.min(Math.max(split[1].replace(/\D/g, "").length, 0), 4);
-        }
         const locale = "es-AR";
         const formatter = new Intl.NumberFormat(locale, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
         });
         return `$ ${formatter.format(priceNumber)}`;
     },
@@ -194,17 +188,19 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         const enabled = (this.el.querySelector("input[name='sw_web_show_base_uom_price']")?.value || "0") === "1";
         const baseUomName = (this.el.querySelector("input[name='sw_web_base_uom_name']")?.value || "").trim();
-        const rawBaseListPrice = this.el.querySelector("input[name='sw_web_base_uom_list_price']")?.value || "";
-        const baseListPrice = parseFloat(String(rawBaseListPrice).replace(",", "."));
-
-        if (!enabled || !baseUomName || !Number.isFinite(baseListPrice)) {
+        if (!enabled || !baseUomName) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
             return;
         }
 
-        const { text: visibleText } = this._extractVisiblePriceValue();
-        const formatted = this._formatCurrencyLikeVisible(baseListPrice, visibleText || String(baseListPrice));
+        const { value: visiblePrice } = this._extractVisiblePriceValue();
+        const selectedRatio = this._getSelectedUomRatio();
+        const basePrice = Number.isFinite(visiblePrice) && Number.isFinite(selectedRatio) && selectedRatio > 0
+            ? visiblePrice / selectedRatio
+            : NaN;
+
+        const formatted = this._formatCurrencyLikeVisible(basePrice);
         if (!formatted) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
