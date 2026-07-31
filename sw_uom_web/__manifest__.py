@@ -16,6 +16,11 @@
         "views/product_template_views.xml",
         "views/website_templates.xml",
     ],
+    "assets": {
+        "web.assets_frontend": [
+            "sw_uom_web/static/src/js/sw_uom_web.js",
+        ],
+    },
     "installable": True,
     "application": False,
 }
