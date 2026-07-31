@@ -24,6 +24,13 @@ class ProductTemplate(models.Model):
         help="Alias técnico para compatibilidad de templates/JS web.",
     )
 
+    web_show_base_uom_price = fields.Boolean(
+        string="Mostrar precio por UoM base en web",
+        default=False,
+        help="Si está activo, en la ficha de producto web se mostrará debajo del precio "
+             "una leyenda con el precio equivalente por UoM base.",
+    )
+
     @api.depends("web_allowed_packaging_ids")
     def _compute_web_allowed_uom_ids(self):
         for rec in self:

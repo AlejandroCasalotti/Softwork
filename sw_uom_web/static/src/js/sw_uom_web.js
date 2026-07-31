@@ -123,11 +123,111 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         });
     },
 
+    _getPriceLabelNode() {
+        return this.el.querySelector("#sw_web_base_uom_price_label");
+    },
+
+    _formatCurrencyLikeVisible(priceNumber, referenceText) {
+        if (!Number.isFinite(priceNumber)) return "";
+        const normalizedRef = (referenceText || "").trim();
+        let decimals = 2;
+        if (normalizedRef.includes(",")) {
+            const split = normalizedRef.split(",");
+            if (split.length > 1) decimals = Math.min(Math.max(split[1].replace(/\D/g, "").length, 0), 4);
+        }
+        const locale = "es-AR";
+        const formatter = new Intl.NumberFormat(locale, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        });
+        return `$ ${formatter.format(priceNumber)}`;
+    },
+
+    _extractVisiblePriceValue() {
+        const priceNode =
+            this.el.querySelector(".oe_price .oe_currency_value") ||
+            this.el.querySelector(".oe_website_sale .oe_currency_value") ||
+            this.el.querySelector(".product_price .oe_currency_value") ||
+            this.el.querySelector(".product_price .text-nowrap");
+
+        if (!priceNode) return { value: NaN, text: "" };
+        const txt = (priceNode.textContent || "").trim();
+        if (!txt) return { value: NaN, text: "" };
+
+        const normalized = txt
+            .replace(/\s/g, "")
+            .replace(/\./g, "")
+            .replace(",", ".")
+            .replace(/[^\d.-]/g, "");
+
+        return { value: parseFloat(normalized), text: txt };
+    },
+
+    _getSelectedUomRatio() {
+        const selectedRadio = this.el.querySelector("input[type='radio'][name='uom_id']:checked");
+        if (!selectedRadio) return 1.0;
+
+        const candidateNodes = [
+            selectedRadio,
+            selectedRadio.closest("li"),
+            selectedRadio.closest("label"),
+        ].filter(Boolean);
+
+        for (const node of candidateNodes) {
+            const attrs = ["data-sw-ratio", "data-ratio", "data-uom-ratio", "data-factor"];
+            for (const attr of attrs) {
+                const raw = node.getAttribute?.(attr);
+                if (raw) {
+                    const v = parseFloat(String(raw).replace(",", "."));
+                    if (Number.isFinite(v) && v > 0) return v;
+                }
+            }
+        }
+
+        // fallback: si no hay ratio disponible, no romper cálculo
+        return 1.0;
+    },
+
+    _renderBaseUomPriceInfo() {
+        const labelNode = this._getPriceLabelNode();
+        if (!labelNode) return;
+
+        const enabled = (this.el.querySelector("input[name='sw_web_show_base_uom_price']")?.value || "0") === "1";
+        const baseUomName = (this.el.querySelector("input[name='sw_web_base_uom_name']")?.value || "").trim();
+
+        if (!enabled || !baseUomName) {
+            labelNode.classList.add("d-none");
+            labelNode.textContent = "";
+            return;
+        }
+
+        const { value: visiblePrice, text: visibleText } = this._extractVisiblePriceValue();
+        const ratio = this._getSelectedUomRatio();
+
+        if (!Number.isFinite(visiblePrice) || !(ratio > 0)) {
+            labelNode.classList.add("d-none");
+            labelNode.textContent = "";
+            return;
+        }
+
+        const basePrice = visiblePrice / ratio;
+        const formatted = this._formatCurrencyLikeVisible(basePrice, visibleText);
+        if (!formatted) {
+            labelNode.classList.add("d-none");
+            labelNode.textContent = "";
+            return;
+        }
+
+        labelNode.textContent = `El precio por ${baseUomName} es de ${formatted}`;
+        labelNode.classList.remove("d-none");
+    },
+
     _applyPackagingFilter() {
         const allowedIds = this._getAllowedIds();
         if (!allowedIds.length) {
             // Sin selección => comportamiento estándar (mostrar todos)
             this._restoreAllVisibility();
+            this._renderBaseUomPriceInfo();
             return;
         }
 
@@ -206,5 +306,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
                 firstAllowed.dispatchEvent(new Event("change", { bubbles: true }));
             }
         }
+
+        this._renderBaseUomPriceInfo();
     },
 });
