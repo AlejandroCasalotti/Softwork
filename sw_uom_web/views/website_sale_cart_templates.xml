@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="sw_uom_web_cart_base_uom_value" inherit_id="website_sale.cart_lines" name="SW UoM Web Cart Base UoM Value">
-        <xpath expr="//div[contains(@class, 'd-none d-md-block mt-2')]" position="before">
+        <xpath expr="//div[hasclass('d-none', 'd-md-block', 'mt-2')]" position="before">
             <t t-if="line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price and line.product_uom_qty">
                 <t t-set="currency" t-value="website_sale_order.currency_id"/>
                 <t t-set="taxes" t-value="line.tax_id.filtered(lambda t: t.company_id == website_sale_order.company_id)"/>
