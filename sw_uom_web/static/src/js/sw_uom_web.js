@@ -196,9 +196,10 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         const { value: visiblePrice } = this._extractVisiblePriceValue();
         const selectedRatio = this._getSelectedUomRatio();
-        const basePrice = Number.isFinite(visiblePrice) && Number.isFinite(selectedRatio) && selectedRatio > 0
-            ? visiblePrice / selectedRatio
-            : NaN;
+
+        // visiblePrice corresponde a la UoM base cuando la web refresca precio por combinación/UoM.
+        // Para mostrar "precio por UoM base" debemos usar ese valor directo, no dividir por ratio.
+        const basePrice = Number.isFinite(visiblePrice) ? visiblePrice : NaN;
 
         const formatted = this._formatCurrencyLikeVisible(basePrice);
         if (!formatted) {
