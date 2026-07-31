@@ -52,7 +52,9 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
     _getAllowedIds() {
         const input =
             this.el.querySelector("input[name='sw_web_allowed_uom_ids']") ||
-            this.el.querySelector("input[name='sw_web_allowed_packaging_ids']");
+            this.el.querySelector("input[name='sw_web_allowed_packaging_ids']") ||
+            this.el.querySelector("input[name='sw_web_allowed_uom_ids_fallback']") ||
+            this.el.querySelector("input[name='sw_web_allowed_packaging_ids_fallback']");
         const raw = (input?.value || "").trim();
         if (!raw) return [];
         return raw
@@ -102,7 +104,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         });
 
         // Filtro exacto para tu HTML: <li class="o_variant_pills ..."><input type="radio" name="uom_id" value="..">
-        const uomPills = this.el.querySelectorAll("li.o_variant_pills input[type='radio'][name='uom_id']");
+        const uomPills = this.el.querySelectorAll("ul.js_add_cart_variants li.o_variant_pills input[type='radio'][name='uom_id']");
         uomPills.forEach((input) => {
             const id = parseInt(input.value || "0", 10);
             const li = input.closest("li.o_variant_pills");
@@ -121,10 +123,10 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         });
 
         // Garantizar selección válida visible
-        const checked = this.el.querySelector("li.o_variant_pills input[type='radio'][name='uom_id']:checked");
+        const checked = this.el.querySelector("ul.js_add_cart_variants li.o_variant_pills input[type='radio'][name='uom_id']:checked");
         if (!checked || !allowedIds.includes(parseInt(checked.value || "0", 10))) {
             const firstAllowed = this.el.querySelector(
-                "li.o_variant_pills:not(.d-none) input[type='radio'][name='uom_id']"
+                "ul.js_add_cart_variants li.o_variant_pills:not(.d-none) input[type='radio'][name='uom_id']"
             );
             if (firstAllowed) {
                 firstAllowed.checked = true;
