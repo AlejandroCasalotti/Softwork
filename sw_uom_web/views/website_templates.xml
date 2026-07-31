@@ -10,7 +10,7 @@
             <input
                 type="hidden"
                 name="sw_web_allowed_uom_ids"
-                t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"
+                t-att-value="','.join(str(p.id) for p in product.web_allowed_uom_ids)"
             />
         </xpath>
     </template>

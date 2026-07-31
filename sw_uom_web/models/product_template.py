@@ -17,6 +17,18 @@ class ProductTemplate(models.Model):
              "Si queda vacío, se mostrarán todos (comportamiento estándar).",
     )
 
+    web_allowed_uom_ids = fields.Many2many(
+        "uom.uom",
+        compute="_compute_web_allowed_uom_ids",
+        string="UoM permitidas en web (alias)",
+        help="Alias técnico para compatibilidad de templates/JS web.",
+    )
+
+    @api.depends("web_allowed_packaging_ids")
+    def _compute_web_allowed_uom_ids(self):
+        for rec in self:
+            rec.web_allowed_uom_ids = rec.web_allowed_packaging_ids
+
     @api.constrains("web_allowed_packaging_ids")
     def _check_web_allowed_packaging_ids(self):
         for rec in self:
