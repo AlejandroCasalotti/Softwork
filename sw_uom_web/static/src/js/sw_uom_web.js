@@ -194,24 +194,17 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         const enabled = (this.el.querySelector("input[name='sw_web_show_base_uom_price']")?.value || "0") === "1";
         const baseUomName = (this.el.querySelector("input[name='sw_web_base_uom_name']")?.value || "").trim();
+        const rawBaseListPrice = this.el.querySelector("input[name='sw_web_base_uom_list_price']")?.value || "";
+        const baseListPrice = parseFloat(String(rawBaseListPrice).replace(",", "."));
 
-        if (!enabled || !baseUomName) {
+        if (!enabled || !baseUomName || !Number.isFinite(baseListPrice)) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
             return;
         }
 
-        const { value: visiblePrice, text: visibleText } = this._extractVisiblePriceValue();
-        const ratio = this._getSelectedUomRatio();
-
-        if (!Number.isFinite(visiblePrice) || !(ratio > 0)) {
-            labelNode.classList.add("d-none");
-            labelNode.textContent = "";
-            return;
-        }
-
-        const basePrice = visiblePrice / ratio;
-        const formatted = this._formatCurrencyLikeVisible(basePrice, visibleText);
+        const { text: visibleText } = this._extractVisiblePriceValue();
+        const formatted = this._formatCurrencyLikeVisible(baseListPrice, visibleText || String(baseListPrice));
         if (!formatted) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
