@@ -188,20 +188,16 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         const enabled = (this.el.querySelector("input[name='sw_web_show_base_uom_price']")?.value || "0") === "1";
         const baseUomName = (this.el.querySelector("input[name='sw_web_base_uom_name']")?.value || "").trim();
-        if (!enabled || !baseUomName) {
+        const rawBaseListPrice = this.el.querySelector("input[name='sw_web_base_uom_list_price']")?.value || "";
+        const baseListPrice = parseFloat(String(rawBaseListPrice).replace(",", "."));
+
+        if (!enabled || !baseUomName || !Number.isFinite(baseListPrice)) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
             return;
         }
 
-        const { value: visiblePrice } = this._extractVisiblePriceValue();
-        const selectedRatio = this._getSelectedUomRatio();
-
-        // visiblePrice corresponde a la UoM base cuando la web refresca precio por combinación/UoM.
-        // Para mostrar "precio por UoM base" debemos usar ese valor directo, no dividir por ratio.
-        const basePrice = Number.isFinite(visiblePrice) ? visiblePrice : NaN;
-
-        const formatted = this._formatCurrencyLikeVisible(basePrice);
+        const formatted = this._formatCurrencyLikeVisible(baseListPrice);
         if (!formatted) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
