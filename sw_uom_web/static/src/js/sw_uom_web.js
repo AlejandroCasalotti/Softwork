@@ -42,14 +42,21 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         if (!this._reapplyFilterDebounced) {
             this._reapplyFilterDebounced = () => {
                 clearTimeout(this._reapplyTimer);
-                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 30);
+                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 90);
             };
         }
 
         if (this._observer) {
             this._observer.disconnect();
         }
-        this._observer = new MutationObserver(() => this._reapplyFilterDebounced());
+        this._observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+                if (m.type === "childList" && (m.addedNodes.length || m.removedNodes.length)) {
+                    this._reapplyFilterDebounced();
+                    break;
+                }
+            }
+        });
         this._observer.observe(this.el, { childList: true, subtree: true });
 
         this.el.addEventListener("change", (ev) => {
@@ -256,6 +263,15 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
     _applyPackagingFilter() {
         const allowedIds = this._getAllowedIds();
+        const selectedUom = this.el.querySelector("input[type='radio'][name='uom_id']:checked");
+        const stateKey = JSON.stringify({
+            allowedIds,
+            selectedUomId: selectedUom ? this._parseCandidateId(selectedUom) : 0,
+        });
+        if (this._lastStateKey === stateKey) {
+            return;
+        }
+        this._lastStateKey = stateKey;
         if (!allowedIds.length) {
             // Sin selección => comportamiento estándar (mostrar todos)
             this._restoreAllVisibility();
