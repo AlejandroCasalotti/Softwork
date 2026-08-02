@@ -40,8 +40,8 @@ class SaleOrder(models.Model):
                 if forced_uom_id:
                     uom_rec = self.env["uom.uom"].browse(forced_uom_id)
                     base_uom = tmpl.uom_id
-                    if uom_rec and base_uom and uom_rec.category_id == base_uom.category_id and base_uom.factor:
-                        forced_uom_ratio = uom_rec.factor / base_uom.factor
+                    if uom_rec and base_uom and uom_rec.category_id == base_uom.category_id and uom_rec.factor:
+                        forced_uom_ratio = base_uom.factor / uom_rec.factor
 
         if forced_uom_id:
             # Forzar todas las posibles keys usadas por website/cart
@@ -73,8 +73,9 @@ class SaleOrder(models.Model):
                 line = self.env["sale.order.line"].sudo().browse(int(line_id_res))
                 if line.exists():
                     vals = {"sw_web_uom_ratio": forced_uom_ratio}
-                    if line.product_uom.id != forced_uom_id:
-                        vals["product_uom"] = forced_uom_id
+                    current_uom = getattr(line, "product_uom_id", False)
+                    if current_uom and current_uom.id != forced_uom_id:
+                        vals["product_uom_id"] = forced_uom_id
                     line.write(vals)
 
         return res
