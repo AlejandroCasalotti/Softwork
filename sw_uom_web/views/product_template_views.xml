@@ -14,7 +14,7 @@
                             domain="[('id', 'in', uom_ids)]"
                             options="{'no_create_edit': True, 'no_create': True}"
                         />
-                        <label for="web_allowed_packaging_ids" string="Si no selecciona embalajes, en web se mostrarán todos (comportamiento estándar)." class="text-muted"/>
+                        <label for="web_allowed_packaging_ids" class="text-muted"/>
                         <field name="web_show_base_uom_price"/>
                     </group>
                 </page>

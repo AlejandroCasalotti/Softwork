@@ -4,7 +4,7 @@
         <xpath expr="//div[hasclass('d-none', 'd-md-block', 'mt-2')]" position="inside">
             <t t-if="line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price">
                 <div class="text-muted mt-1 small sw-web-base-uom-price" data-no-history="true">
-                    <t t-set="pdp_text" t-value="'El precio por %s es de %s' % ((line.product_id.uom_id.name or ''), (line.price_subtotal | monetary(website_sale_order.currency_id)))"/>
+                    <t t-set="pdp_text" t-value="'El precio por %s es de %s %.2f' % ((line.product_id.uom_id.name or ''), (website_sale_order.currency_id.symbol or ''), (line.price_subtotal or 0.0))"/>
                     <t t-esc="pdp_text"/>
                 </div>
             </t>
