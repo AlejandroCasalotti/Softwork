@@ -1,0 +1,44 @@
+# -*- coding: utf-8 -*-
+
+from odoo import api, fields, models
+
+
+class SaleOrderLine(models.Model):
+    _inherit = "sale.order.line"
+
+    sw_web_uom_ratio = fields.Float(
+        string="SW Web UoM Ratio",
+        digits=(16, 6),
+        default=1.0,
+        help="Ratio de la UoM seleccionada en web para calcular precio por UoM base en carrito.",
+    )
+
+    def _get_allowed_uom_for_product(self, product):
+        tmpl = product.product_tmpl_id
+        if getattr(tmpl, "web_uom_sale_mode", False) and getattr(tmpl, "web_sale_uom_id", False):
+            return tmpl.web_sale_uom_id
+        allowed = getattr(tmpl, "web_allowed_uom_ids", False) or getattr(tmpl, "web_allowed_packaging_ids", False)
+        return allowed[:1] if allowed else self.env["uom.uom"]
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        new_vals_list = []
+        for vals in vals_list:
+            product_id = vals.get("product_id")
+            if product_id:
+                product = self.env["product.product"].browse(product_id)
+                allowed_uom = self._get_allowed_uom_for_product(product)
+                if allowed_uom:
+                    vals["product_uom"] = allowed_uom.id
+            new_vals_list.append(vals)
+        return super().create(new_vals_list)
+
+    def write(self, vals):
+        res = super().write(vals)
+        for line in self:
+            if not line.product_id:
+                continue
+            allowed_uom = self._get_allowed_uom_for_product(line.product_id)
+            if allowed_uom and line.product_uom.id != allowed_uom.id:
+                super(SaleOrderLine, line).write({"product_uom": allowed_uom.id})
+        return res
