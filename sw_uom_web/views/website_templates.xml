@@ -2,18 +2,22 @@
 <odoo>
     <template id="sw_uom_web_allowed_packaging_data" inherit_id="website_sale.product" name="SW UoM Web Allowed Packaging Data">
         <xpath expr="//input[@name='product_template_id']" position="after">
-            <input type="hidden" name="sw_web_allowed_packaging_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"/>
-            <input type="hidden" name="sw_web_allowed_uom_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_uom_ids)"/>
-            <input type="hidden" name="sw_web_show_base_uom_price" t-att-value="'1' if product.web_show_base_uom_price else '0'"/>
-            <input type="hidden" name="sw_web_base_uom_name" t-att-value="product.uom_id.name or ''"/>
-            <input type="hidden" name="sw_web_base_uom_id" t-att-value="product.uom_id.id or 0"/>
-            <input type="hidden" name="sw_web_base_uom_list_price" t-att-value="product.list_price or 0.0"/>
+            <div id="sw_uom_web_meta" class="d-none" data-no-history="true">
+                <input type="hidden" name="sw_web_allowed_packaging_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"/>
+                <input type="hidden" name="sw_web_allowed_uom_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_uom_ids)"/>
+                <input type="hidden" name="sw_web_show_base_uom_price" t-att-value="'1' if product.web_show_base_uom_price else '0'"/>
+                <input type="hidden" name="sw_web_base_uom_name" t-att-value="product.uom_id.name or ''"/>
+                <input type="hidden" name="sw_web_base_uom_id" t-att-value="product.uom_id.id or 0"/>
+                <input type="hidden" name="sw_web_base_uom_list_price" t-att-value="combination_info['price'] if combination_info and 'price' in combination_info else (product.list_price or 0.0)"/>
+            </div>
         </xpath>
     </template>
 
     <template id="sw_uom_web_base_price_label" inherit_id="website_sale.product" name="SW UoM Web Base Price Label">
         <xpath expr="//input[@name='product_template_id']" position="after">
-            <span class="mt-2 text-muted small d-none" id="sw_web_base_uom_price_label"/>
+            <div id="sw_uom_web_ui" data-no-history="true">
+                <span class="mt-2 text-muted small d-none" id="sw_web_base_uom_price_label"/>
+            </div>
         </xpath>
     </template>
 </odoo>
