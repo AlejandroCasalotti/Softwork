@@ -7,7 +7,7 @@
                     <t t-esc="'El precio por %s es de %s %s' % (
                         line.product_id.uom_id.name or '',
                         (website_sale_order.currency_id.symbol or ''),
-                        ('%.2f' % (line.product_id.base_uom_price or 0.0))
+                        ('%.2f' % (line.product_id.product_tmpl_id.base_uom_price or 0.0))
                     )"/>
                 </small>
             </t>
