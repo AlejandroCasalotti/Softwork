@@ -187,7 +187,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
     _getSelectedUomRatio() {
         const selectedRadio = this.el.querySelector("input[type='radio'][name='uom_id']:checked");
-        if (!selectedRadio) return 1.0;
+        if (!selectedRadio) return NaN;
 
         const candidateNodes = [
             selectedRadio,
@@ -198,40 +198,16 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         ].filter(Boolean);
 
         for (const node of candidateNodes) {
-            const attrs = [
-                "data-sw-ratio",
-                "data-ratio",
-                "data-uom-ratio",
-                "data-factor",
-                "data-uom-factor",
-                "data-value_name",
-                "data-value-name",
-            ];
+            const attrs = ["data-sw-ratio", "data-ratio", "data-uom-ratio", "data-factor", "data-uom-factor"];
             for (const attr of attrs) {
                 const raw = node.getAttribute?.(attr);
                 if (!raw) continue;
-                const m = String(raw).match(/-?\d+(?:[.,]\d+)?/);
-                if (!m) continue;
-                const v = parseFloat(m[0].replace(",", "."));
+                const v = parseFloat(String(raw).replace(",", "."));
                 if (Number.isFinite(v) && v > 0) return v;
             }
         }
 
-        const textCandidates = candidateNodes
-            .map((n) => (n.textContent || "").trim())
-            .filter(Boolean);
-
-        for (const txt of textCandidates) {
-            const m = txt.match(/x\s*([0-9]+(?:[.,][0-9]+)?)/i) || txt.match(/([0-9]+(?:[.,][0-9]+)?)\s*(m2|m²|kg|lt|l)\b/i);
-            if (m) {
-                const rawNum = m[1];
-                const v = parseFloat(String(rawNum).replace(",", "."));
-                if (Number.isFinite(v) && v > 0) return v;
-            }
-        }
-
-        // fallback: si no hay ratio disponible, no romper cálculo
-        return 1.0;
+        return NaN;
     },
 
     _renderBaseUomPriceInfo() {
@@ -243,13 +219,22 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         const { value: visiblePrice } = this._extractVisiblePriceValue();
         const ratio = this._getSelectedUomRatio();
 
-        if (!enabled || !baseUomName || !Number.isFinite(visiblePrice) || !Number.isFinite(ratio) || ratio <= 0) {
+        let basePrice = NaN;
+        if (Number.isFinite(visiblePrice) && Number.isFinite(ratio) && ratio > 0) {
+            basePrice = visiblePrice / ratio;
+        } else {
+            const rawBaseListPrice = this.el.querySelector("input[name='sw_web_base_uom_list_price']")?.value || "";
+            const fallbackBase = parseFloat(String(rawBaseListPrice).replace(",", "."));
+            if (Number.isFinite(fallbackBase)) {
+                basePrice = fallbackBase;
+            }
+        }
+
+        if (!enabled || !baseUomName || !Number.isFinite(basePrice)) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
             return;
         }
-
-        const basePrice = visiblePrice / ratio;
         const formatted = this._formatCurrencyLikeVisible(basePrice);
         if (!formatted) {
             labelNode.classList.add("d-none");
