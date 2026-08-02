@@ -9,7 +9,7 @@
                 <t t-set="base_unit_price"
                    t-value="website.show_line_subtotals_tax_selection == 'tax_included' and tax_result.get('total_included', line.price_unit) or tax_result.get('total_excluded', line.price_unit)"/>
                 <small class="text-muted mt-1" style="white-space: nowrap;">
-                    <t t-esc="'Valor por %s %s' % (line.product_id.uom_id.name or '', format_amount(website.env, base_unit_price, currency))"/>
+                    <t t-esc="'Valor por %s %s' % (line.product_id.uom_id.name or '', ('%s %.2f' % ((currency.symbol or ''), base_unit_price)))"/>
                 </small>
             </t>
         </xpath>
