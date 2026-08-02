@@ -209,16 +209,17 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         const enabled = (this.el.querySelector("input[name='sw_web_show_base_uom_price']")?.value || "0") === "1";
         const baseUomName = (this.el.querySelector("input[name='sw_web_base_uom_name']")?.value || "").trim();
-        const rawBaseListPrice = this.el.querySelector("input[name='sw_web_base_uom_list_price']")?.value || "";
-        const baseListPrice = parseFloat(String(rawBaseListPrice).replace(",", "."));
+        const { value: visiblePrice } = this._extractVisiblePriceValue();
+        const ratio = this._getSelectedUomRatio();
 
-        if (!enabled || !baseUomName || !Number.isFinite(baseListPrice)) {
+        if (!enabled || !baseUomName || !Number.isFinite(visiblePrice) || !Number.isFinite(ratio) || ratio <= 0) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
             return;
         }
 
-        const formatted = this._formatCurrencyLikeVisible(baseListPrice);
+        const basePrice = visiblePrice / ratio;
+        const formatted = this._formatCurrencyLikeVisible(basePrice);
         if (!formatted) {
             labelNode.classList.add("d-none");
             labelNode.textContent = "";
