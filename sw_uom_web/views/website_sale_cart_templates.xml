@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="sw_uom_web_cart_base_uom_value" inherit_id="website_sale.cart_lines" name="SW UoM Web Cart Base UoM Value">
-        <xpath expr="//div[hasclass('d-none', 'd-md-block', 'mt-2')]" position="before">
-            <t t-if="line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price and line.product_uom_qty">
+        <xpath expr="//div[hasclass('d-none', 'd-md-block', 'mt-2')]" position="inside">
+            <t t-if="website_sale_order and line and line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price and line.product_uom_qty">
                 <t t-set="currency" t-value="website_sale_order.currency_id"/>
                 <t t-set="ratio" t-value="line.sw_web_uom_ratio or 1.0"/>
                 <t t-set="discounted_price_unit" t-value="line.price_unit * (1 - (line.discount or 0.0) / 100.0)"/>
@@ -10,13 +10,13 @@
                 <t t-set="tax_result" t-value="taxes.compute_all(discounted_price_unit, currency, 1.0, product=line.product_id, partner=website_sale_order.partner_shipping_id)"/>
                 <t t-set="line_unit_price" t-value="website.show_line_subtotals_tax_selection == 'tax_included' and tax_result.get('total_included', discounted_price_unit) or tax_result.get('total_excluded', discounted_price_unit)"/>
                 <t t-set="base_unit_price" t-value="line_unit_price / ratio"/>
-                <small class="text-muted mt-1" style="white-space: nowrap;">
+                <div class="text-muted mt-1 small sw-web-base-uom-price" data-no-history="true">
                     <t t-esc="'El precio por %s es de %s %s' % (
                         (line.product_id.uom_id.name or ''),
                         (currency.symbol or ''),
                         ('%.2f' % base_unit_price)
                     )"/>
-                </small>
+                </div>
             </t>
         </xpath>
     </template>
