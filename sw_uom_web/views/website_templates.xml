@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="sw_uom_web_allowed_packaging_data" inherit_id="website_sale.product" name="SW UoM Web Allowed Packaging Data">
-        <xpath expr="//div[@id='o_wsale_cta_wrapper']" position="inside">
+        <xpath expr="//input[@name='product_template_id']" position="after">
             <div id="sw_uom_web_meta" class="d-none" data-no-history="true">
                 <input type="hidden" name="sw_web_allowed_packaging_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_packaging_ids)"/>
                 <input type="hidden" name="sw_web_allowed_uom_ids" t-att-value="','.join(str(p.id) for p in product.web_allowed_uom_ids)"/>
@@ -14,7 +14,7 @@
     </template>
 
     <template id="sw_uom_web_base_price_label" inherit_id="website_sale.product" name="SW UoM Web Base Price Label">
-        <xpath expr="//div[@id='o_wsale_cta_wrapper']" position="inside">
+        <xpath expr="//input[@name='product_template_id']" position="after">
             <div id="sw_uom_web_ui" data-no-history="true">
                 <span class="mt-2 text-muted small d-none" id="sw_web_base_uom_price_label"/>
             </div>
