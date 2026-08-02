@@ -7,6 +7,27 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
     start() {
         const superDef = this._super(...arguments);
+
+        // Safe mode: no ejecutar lógica custom dentro del Website Builder/editor.
+        // Evita interferencias con el documento del iframe del editor.
+        const inIframe = (() => {
+            try {
+                return window.self !== window.top;
+            } catch (_e) {
+                return true;
+            }
+        })();
+
+        const isEditorContext =
+            inIframe ||
+            document.body.classList.contains("editor_enable") ||
+            document.documentElement.classList.contains("editor_enable") ||
+            !!document.querySelector(".o_editable, .o_we_website_top_actions, #oe_snippets, .o_website_preview");
+
+        if (isEditorContext) {
+            return superDef;
+        }
+
         this._applyPackagingFilter();
         this._bindReapplyHooks();
         return superDef;
