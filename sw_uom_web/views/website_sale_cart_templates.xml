@@ -6,7 +6,7 @@
                 <t t-set="currency" t-value="website_sale_order.currency_id"/>
                 <t t-set="ratio" t-value="line.sw_web_uom_ratio or 1.0"/>
                 <t t-set="discounted_price_unit" t-value="line.price_unit * (1 - (line.discount or 0.0) / 100.0)"/>
-                <t t-set="taxes" t-value="line.tax_id.filtered(lambda t: t.company_id == website_sale_order.company_id)"/>
+                <t t-set="taxes" t-value="line.tax_ids.filtered(lambda t: t.company_id == website_sale_order.company_id)"/>
                 <t t-set="tax_result" t-value="taxes.compute_all(discounted_price_unit, currency, 1.0, product=line.product_id, partner=website_sale_order.partner_shipping_id)"/>
                 <t t-set="line_unit_price" t-value="website.show_line_subtotals_tax_selection == 'tax_included' and tax_result.get('total_included', discounted_price_unit) or tax_result.get('total_excluded', discounted_price_unit)"/>
                 <t t-set="base_unit_price" t-value="line_unit_price / ratio"/>
