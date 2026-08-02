@@ -7,7 +7,7 @@
             <input type="hidden" name="sw_web_show_base_uom_price" t-att-value="'1' if product.web_show_base_uom_price else '0'"/>
             <input type="hidden" name="sw_web_base_uom_name" t-att-value="product.uom_id.name or ''"/>
             <input type="hidden" name="sw_web_base_uom_id" t-att-value="product.uom_id.id or 0"/>
-            <input type="hidden" name="sw_web_base_uom_list_price" t-att-value="combination_info['price'] if combination_info and 'price' in combination_info else (product.list_price or 0.0)"/>
+            <input type="hidden" name="sw_web_base_uom_list_price" t-att-value="product.list_price or 0.0"/>
         </xpath>
     </template>
 
