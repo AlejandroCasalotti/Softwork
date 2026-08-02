@@ -29,7 +29,7 @@ class SaleOrderLine(models.Model):
                 product = self.env["product.product"].browse(product_id)
                 allowed_uom = self._get_allowed_uom_for_product(product)
                 if allowed_uom:
-                    vals["product_uom"] = allowed_uom.id
+                    vals["product_uom_id"] = allowed_uom.id
             new_vals_list.append(vals)
         return super().create(new_vals_list)
 
@@ -39,6 +39,7 @@ class SaleOrderLine(models.Model):
             if not line.product_id:
                 continue
             allowed_uom = self._get_allowed_uom_for_product(line.product_id)
-            if allowed_uom and line.product_uom.id != allowed_uom.id:
-                super(SaleOrderLine, line).write({"product_uom": allowed_uom.id})
+            current_uom = getattr(line, "product_uom_id", False)
+            if allowed_uom and current_uom and current_uom.id != allowed_uom.id:
+                super(SaleOrderLine, line).write({"product_uom_id": allowed_uom.id})
         return res
