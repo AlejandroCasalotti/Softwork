@@ -186,16 +186,40 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             selectedRadio,
             selectedRadio.closest("li"),
             selectedRadio.closest("label"),
+            selectedRadio.closest(".js_attribute_value"),
+            selectedRadio.parentElement,
         ].filter(Boolean);
 
         for (const node of candidateNodes) {
-            const attrs = ["data-sw-ratio", "data-ratio", "data-uom-ratio", "data-factor"];
+            const attrs = [
+                "data-sw-ratio",
+                "data-ratio",
+                "data-uom-ratio",
+                "data-factor",
+                "data-uom-factor",
+                "data-value_name",
+                "data-value-name",
+            ];
             for (const attr of attrs) {
                 const raw = node.getAttribute?.(attr);
-                if (raw) {
-                    const v = parseFloat(String(raw).replace(",", "."));
-                    if (Number.isFinite(v) && v > 0) return v;
-                }
+                if (!raw) continue;
+                const m = String(raw).match(/-?\d+(?:[.,]\d+)?/);
+                if (!m) continue;
+                const v = parseFloat(m[0].replace(",", "."));
+                if (Number.isFinite(v) && v > 0) return v;
+            }
+        }
+
+        const textCandidates = candidateNodes
+            .map((n) => (n.textContent || "").trim())
+            .filter(Boolean);
+
+        for (const txt of textCandidates) {
+            const m = txt.match(/x\s*([0-9]+(?:[.,][0-9]+)?)/i) || txt.match(/([0-9]+(?:[.,][0-9]+)?)\s*(m2|m²|kg|lt|l)\b/i);
+            if (m) {
+                const rawNum = m[1];
+                const v = parseFloat(String(rawNum).replace(",", "."));
+                if (Number.isFinite(v) && v > 0) return v;
             }
         }
 
