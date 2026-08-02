@@ -4,10 +4,12 @@
         <xpath expr="//div[hasclass('d-none', 'd-md-block', 'mt-2')]" position="before">
             <t t-if="line.product_id and line.product_id.product_tmpl_id.web_show_base_uom_price and line.product_uom_qty">
                 <small class="text-muted mt-1" style="white-space: nowrap;">
+                    <t t-set="base_price" t-value="line.product_id.product_tmpl_id.list_price or 0.0"/>
+                    <t t-set="base_uom_name" t-value="line.product_id.uom_id.name or ''"/>
                     <t t-esc="'El precio por %s es de %s %s' % (
-                        line.product_id.uom_id.name or '',
+                        base_uom_name,
                         (website_sale_order.currency_id.symbol or ''),
-                        ('%.2f' % (line.product_id.product_tmpl_id.base_uom_price or 0.0))
+                        ('%.2f' % base_price)
                     )"/>
                 </small>
             </t>
