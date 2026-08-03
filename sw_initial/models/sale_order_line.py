@@ -12,16 +12,25 @@ class SaleOrderLine(models.Model):
         help="Margen porcentual sobre costo. Al modificarlo, recalcula automáticamente el precio unitario de venta.",
     )
 
+    def _convert_price_to_line_uom(self, amount):
+        self.ensure_one()
+        product_uom = self.product_id.uom_id
+        line_uom = self.product_uom_id or product_uom
+        if product_uom and line_uom:
+            return product_uom._compute_price(amount or 0.0, line_uom)
+        return amount or 0.0
+
     def _get_cost_in_line_uom(self):
         self.ensure_one()
         if not self.product_id:
             return 0.0
-        cost = self.product_id.standard_price or 0.0
-        product_uom = self.product_id.uom_id
-        line_uom = self.product_uom_id or product_uom
-        if product_uom and line_uom:
-            return product_uom._compute_price(cost, line_uom)
-        return cost
+        return self._convert_price_to_line_uom(self.product_id.standard_price or 0.0)
+
+    def _get_sale_base_price_in_line_uom(self):
+        self.ensure_one()
+        if not self.product_id:
+            return 0.0
+        return self._convert_price_to_line_uom(self.product_id.lst_price or 0.0)
 
     @api.onchange("sw_margin", "product_id", "product_uom_id")
     def _onchange_sw_margin(self):
@@ -47,8 +56,12 @@ class SaleOrderLine(models.Model):
         for line in self:
             if not line.product_id or not line.product_uom_id:
                 continue
+            line.price_unit = line._get_sale_base_price_in_line_uom()
             cost_in_uom = line._get_cost_in_line_uom()
-            line.price_unit = cost_in_uom * (1.0 + (line.sw_margin or 0.0) / 100.0)
+            if cost_in_uom:
+                line.sw_margin = ((line.price_unit - cost_in_uom) / cost_in_uom) * 100.0
+            else:
+                line.sw_margin = 0.0
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -58,6 +71,8 @@ class SaleOrderLine(models.Model):
                 cost_in_uom = line._get_cost_in_line_uom()
                 if cost_in_uom:
                     line.sw_margin = ((line.price_unit - cost_in_uom) / cost_in_uom) * 100.0
+                else:
+                    line.sw_margin = 0.0
         return records
 
     def write(self, vals):
