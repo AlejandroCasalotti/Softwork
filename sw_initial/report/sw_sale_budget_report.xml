@@ -44,13 +44,13 @@
                                     </td>
                                     <td class="text-end">
                                         <t t-set="price_tax_inc" t-value="(line.price_total / line.product_uom_qty) if line.product_uom_qty else line.price_total"/>
-                                        <span t-esc="formatLang(price_tax_inc, monetary=True, currency_obj=o.currency_id)"/>
+                                        <span t-esc="price_tax_inc" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                     </td>
                                     <td class="text-end">
                                         <span t-field="line.discount"/>
                                     </td>
                                     <td class="text-end">
-                                        <span t-esc="formatLang(line.price_total, monetary=True, currency_obj=o.currency_id)"/>
+                                        <span t-esc="line.price_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                     </td>
                                 </tr>
                             </tbody>
@@ -63,7 +63,7 @@
                                     <tr>
                                         <td><strong>Total</strong></td>
                                         <td class="text-end">
-                                            <strong t-esc="formatLang(o.amount_total, monetary=True, currency_obj=o.currency_id)"/>
+                                            <strong t-esc="o.amount_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                         </td>
                                     </tr>
                                 </table>
