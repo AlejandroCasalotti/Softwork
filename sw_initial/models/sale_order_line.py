@@ -19,7 +19,7 @@ class SaleOrderLine(models.Model):
         cost = self.product_id.standard_price or 0.0
         product_uom = self.product_id.uom_id
         line_uom = self.product_uom_id or product_uom
-        if product_uom and line_uom and product_uom.category_id == line_uom.category_id:
+        if product_uom and line_uom:
             return product_uom._compute_price(cost, line_uom)
         return cost
 
