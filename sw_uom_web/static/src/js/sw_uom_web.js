@@ -300,13 +300,8 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
                 const current = parseInt(field.value || "0", 10);
                 if (current && !allowedIds.includes(current)) {
-                    const firstAllowed = Array.from(field.options).find((opt) =>
-                        allowedIds.includes(parseInt(opt.value || "0", 10))
-                    );
-                    if (firstAllowed) {
-                        field.value = firstAllowed.value;
-                        field.dispatchEvent(new Event("change", { bubbles: true }));
-                    }
+                    // No forzar primera opción aquí: preservar selección de usuario y evitar
+                    // pisar embalaje elegido antes de add-to-cart.
                 }
             } else {
                 const id = parseInt(field.value || "0", 10);
@@ -349,14 +344,35 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             }
         });
 
-        // Garantizar selección válida visible
+        // Garantizar selección válida visible SOLO cuando no hay ninguna seleccionada.
+        // Si existe una selección de usuario, no pisarla automáticamente.
         const checked = this.el.querySelector("input[type='radio'][name='uom_id']:checked");
-        if (!checked || !this._isAllowed(this._parseCandidateId(checked), allowedIds)) {
+        if (!checked) {
             const firstAllowed = Array.from(this.el.querySelectorAll("input[type='radio'][name='uom_id']"))
                 .find((node) => this._isAllowed(this._parseCandidateId(node), allowedIds) && !node.disabled);
             if (firstAllowed) {
                 firstAllowed.checked = true;
                 firstAllowed.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+        }
+
+        // Sincronizar valor elegido hacia input hidden `uom_id` del form de add-to-cart
+        // para evitar que website_sale tome el primer valor por defecto.
+        const selectedUom = this.el.querySelector("input[type='radio'][name='uom_id']:checked");
+        if (selectedUom) {
+            const selectedId = this._parseCandidateId(selectedUom);
+            if (selectedId) {
+                const form = selectedUom.closest("form.oe_cart, form.js_main_product, form") || this.el.querySelector("form.js_main_product, form.oe_cart, form");
+                if (form) {
+                    let hidden = form.querySelector("input[type='hidden'][name='uom_id']");
+                    if (!hidden) {
+                        hidden = document.createElement("input");
+                        hidden.type = "hidden";
+                        hidden.name = "uom_id";
+                        form.appendChild(hidden);
+                    }
+                    hidden.value = String(selectedId);
+                }
             }
         }
 
