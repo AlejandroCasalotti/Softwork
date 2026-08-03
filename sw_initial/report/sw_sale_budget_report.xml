@@ -29,7 +29,8 @@
                                 <tr>
                                     <th>Producto</th>
                                     <th class="text-end">Cantidad</th>
-                                    <th class="text-end">Precio Unit. (c/imp.)</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th>UoM</th>
                                     <th class="text-end">Desc. %</th>
                                     <th class="text-end">Total</th>
                                 </tr>
@@ -45,6 +46,9 @@
                                     <td class="text-end">
                                         <t t-set="price_tax_inc" t-value="(line.price_total / line.product_uom_qty) if line.product_uom_qty else line.price_total"/>
                                         <span t-esc="price_tax_inc" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                    <td>
+                                        <span t-field="line.product_uom"/>
                                     </td>
                                     <td class="text-end">
                                         <span t-field="line.discount"/>
