@@ -28,11 +28,48 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
 
         // Hotfix: aplicar una sola vez al cargar para evitar tildes por ciclos de re-render.
         this._applyPackagingFilter();
+        this._bindSubmitSync();
         return superDef;
     },
 
     destroy() {
+        if (this._submitSyncHandler) {
+            this.el.removeEventListener("click", this._submitSyncHandler, true);
+            this._submitSyncHandler = null;
+        }
         return this._super(...arguments);
+    },
+
+    _bindSubmitSync() {
+        if (this._submitSyncHandler) return;
+
+        this._submitSyncHandler = (ev) => {
+            const btn = ev.target && ev.target.closest("a#a-submit, button#a-submit, .o_we_buy_now, .a-submit");
+            if (!btn) return;
+
+            const form = btn.closest("form.js_main_product, form.oe_cart, form") || this.el.querySelector("form.js_main_product, form.oe_cart, form");
+            if (!form) return;
+
+            const selectedUom =
+                form.querySelector("input[type='radio'][name='uom_id']:checked") ||
+                this.el.querySelector("input[type='radio'][name='uom_id']:checked");
+
+            if (!selectedUom) return;
+
+            const selectedId = this._parseCandidateId(selectedUom);
+            if (!selectedId) return;
+
+            let hidden = form.querySelector("input[type='hidden'][name='uom_id']");
+            if (!hidden) {
+                hidden = document.createElement("input");
+                hidden.type = "hidden";
+                hidden.name = "uom_id";
+                form.appendChild(hidden);
+            }
+            hidden.value = String(selectedId);
+        };
+
+        this.el.addEventListener("click", this._submitSyncHandler, true);
     },
 
     _getAllowedIds() {
