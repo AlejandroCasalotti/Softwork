@@ -18,12 +18,12 @@ class SaleOrderLine(models.Model):
             return 0.0
         cost = self.product_id.standard_price or 0.0
         product_uom = self.product_id.uom_id
-        line_uom = self.product_uom or product_uom
+        line_uom = self.product_uom_id or product_uom
         if product_uom and line_uom and product_uom.category_id == line_uom.category_id:
             return product_uom._compute_price(cost, line_uom)
         return cost
 
-    @api.onchange("sw_margin", "product_id", "product_uom")
+    @api.onchange("sw_margin", "product_id", "product_uom_id")
     def _onchange_sw_margin(self):
         for line in self:
             if not line.product_id:
@@ -31,7 +31,7 @@ class SaleOrderLine(models.Model):
             cost_in_uom = line._get_cost_in_line_uom()
             line.price_unit = cost_in_uom * (1.0 + (line.sw_margin or 0.0) / 100.0)
 
-    @api.onchange("price_unit", "product_id", "product_uom")
+    @api.onchange("price_unit", "product_id", "product_uom_id")
     def _onchange_price_unit_compute_sw_margin(self):
         for line in self:
             if not line.product_id:
@@ -42,10 +42,10 @@ class SaleOrderLine(models.Model):
             else:
                 line.sw_margin = 0.0
 
-    @api.onchange("product_uom", "product_id")
+    @api.onchange("product_uom_id", "product_id")
     def _onchange_product_uom_recompute_price_margin(self):
         for line in self:
-            if not line.product_id or not line.product_uom:
+            if not line.product_id or not line.product_uom_id:
                 continue
             cost_in_uom = line._get_cost_in_line_uom()
             line.price_unit = cost_in_uom * (1.0 + (line.sw_margin or 0.0) / 100.0)
@@ -62,7 +62,7 @@ class SaleOrderLine(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
-        tracked = {"price_unit", "product_id", "product_uom"}
+        tracked = {"price_unit", "product_id", "product_uom_id"}
         if tracked.intersection(vals.keys()):
             for line in self:
                 if not line.product_id:
