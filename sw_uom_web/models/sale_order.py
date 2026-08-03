@@ -30,11 +30,23 @@ class SaleOrder(models.Model):
             product = self.env["product.product"].browse(int(product_id))
             tmpl = product.product_tmpl_id
             if tmpl:
+                # UoM seleccionada por frontend (si viene)
+                incoming_uom_id = kwargs.get("uom_id") or kwargs.get("uom") or kwargs.get("product_uom")
+                try:
+                    incoming_uom_id = int(incoming_uom_id) if incoming_uom_id else False
+                except Exception:
+                    incoming_uom_id = False
+
                 if getattr(tmpl, "web_uom_sale_mode", False) and getattr(tmpl, "web_sale_uom_id", False):
+                    # Modo forzado explícito por template
                     forced_uom_id = tmpl.web_sale_uom_id.id
                 else:
+                    # Permitir selección del usuario si está dentro de permitidas
                     allowed = getattr(tmpl, "web_allowed_uom_ids", False) or getattr(tmpl, "web_allowed_packaging_ids", False)
-                    if allowed:
+                    allowed_ids = set(allowed.ids) if allowed else set()
+                    if incoming_uom_id and incoming_uom_id in allowed_ids:
+                        forced_uom_id = incoming_uom_id
+                    elif allowed:
                         forced_uom_id = allowed[0].id
 
                 if forced_uom_id:
