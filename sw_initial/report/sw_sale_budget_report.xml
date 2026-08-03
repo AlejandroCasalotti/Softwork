@@ -48,7 +48,7 @@
                                         <span t-esc="price_tax_inc" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
                                     </td>
                                     <td>
-                                        <span t-field="line.product_uom"/>
+                                        <span t-field="line.product_uom_id"/>
                                     </td>
                                     <td class="text-end">
                                         <span t-field="line.discount"/>
