@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="sw_initial_journal_sale_x" model="account.journal">
+        <field name="name">Factura X</field>
+        <field name="type">sale</field>
+        <field name="code">FX</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+
+    <record id="sw_initial_journal_purchase_x" model="account.journal">
+        <field name="name">Compra X</field>
+        <field name="type">purchase</field>
+        <field name="code">CX</field>
+        <field name="company_id" ref="base.main_company"/>
+    </record>
+</odoo>

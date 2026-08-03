@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_sw_sale_budget" model="ir.actions.report">
+        <field name="name">Presupuesto</field>
+        <field name="model">sale.order</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">sw_initial.report_saleorder_budget</field>
+        <field name="report_file">sw_initial.report_saleorder_budget</field>
+        <field name="print_report_name">'Presupuesto - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="sale.model_sale_order"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <template id="report_saleorder_budget">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Presupuesto <span t-field="o.name"/></h2>
+                        <p t-if="o.partner_id">
+                            <strong>Cliente:</strong> <span t-field="o.partner_id"/>
+                        </p>
+                        <p t-if="o.date_order">
+                            <strong>Fecha:</strong> <span t-field="o.date_order"/>
+                        </p>
+
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th class="text-end">Precio Unit. (c/imp.)</th>
+                                    <th class="text-end">Desc. %</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.order_line" t-as="line">
+                                    <td>
+                                        <span t-field="line.name"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-field="line.product_uom_qty"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <t t-set="price_tax_inc" t-value="(line.price_total / line.product_uom_qty) if line.product_uom_qty else line.price_total"/>
+                                        <span t-esc="formatLang(price_tax_inc, monetary=True, currency_obj=o.currency_id)"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-field="line.discount"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-esc="formatLang(line.price_total, monetary=True, currency_obj=o.currency_id)"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="row mt-3">
+                            <div class="col-6"/>
+                            <div class="col-6">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Total</strong></td>
+                                        <td class="text-end">
+                                            <strong t-esc="formatLang(o.amount_total, monetary=True, currency_obj=o.currency_id)"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div t-if="o.sw_note" class="mt-4">
+                            <strong>Notas:</strong>
+                            <div t-field="o.sw_note"/>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

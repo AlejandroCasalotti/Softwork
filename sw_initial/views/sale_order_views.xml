@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_sw_initial" model="ir.ui.view">
+        <field name="name">sale.order.form.sw.initial</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='order_line']/list/field[@name='price_unit']" position="after">
+                <field name="sw_margin" optional="show"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Notas">
+                    <group>
+                        <field name="sw_note" placeholder="Escriba aquí notas internas/comerciales de la orden..."/>
+                    </group>
+                </page>
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+                <button
+                    name="%(action_report_sw_sale_budget)d"
+                    type="action"
+                    string="PRESUPUESTO"
+                    class="btn-secondary"
+                    invisible="state not in ('draft','sent','sale')"
+                />
+            </xpath>
+        </field>
+    </record>
+</odoo>
