@@ -29,8 +29,19 @@ class SaleOrderLine(models.Model):
 
         return allowed[:1]
 
+    def _is_website_context(self):
+        return bool(
+            self.env.context.get("website_id")
+            or self.env.context.get("from_website")
+            or self.env.context.get("is_website")
+            or self.env.context.get("website_sale_order")
+        )
+
     @api.model_create_multi
     def create(self, vals_list):
+        if not self._is_website_context():
+            return super().create(vals_list)
+
         new_vals_list = []
         for vals in vals_list:
             product_id = vals.get("product_id")
@@ -45,6 +56,9 @@ class SaleOrderLine(models.Model):
 
     def write(self, vals):
         res = super().write(vals)
+        if not self._is_website_context():
+            return res
+
         for line in self:
             if not line.product_id:
                 continue
