@@ -42,7 +42,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         if (!this._reapplyFilterDebounced) {
             this._reapplyFilterDebounced = () => {
                 clearTimeout(this._reapplyTimer);
-                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 10);
+                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 60);
             };
         }
 
@@ -64,7 +64,6 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             if (!t) return;
             if (["uom_id", "uom", "packaging_id", "add_qty", "quantity", "product_id"].includes(t.name)) {
                 this._reapplyFilterDebounced();
-                this._applyPackagingFilter();
             }
         });
 
@@ -73,13 +72,11 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             if (!t) return;
             if (t.closest("input[type='radio'][name='uom_id'], .js_variant_change, .css_attribute_color, .o_variant_pills")) {
                 this._reapplyFilterDebounced();
-                this._applyPackagingFilter();
             }
         });
 
         this._variantChangedHandler = () => {
             this._reapplyFilterDebounced();
-            this._applyPackagingFilter();
         };
         document.addEventListener("variant_changed", this._variantChangedHandler);
     },
@@ -273,14 +270,16 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             allowedIds,
             selectedUomId: selectedUom ? this._parseCandidateId(selectedUom) : 0,
         });
-        if (this._lastStateKey === stateKey) {
+        if (this._isApplying) {
             return;
         }
-        this._lastStateKey = stateKey;
+        this._isApplying = true;
         if (!allowedIds.length) {
             // Sin selección => comportamiento estándar (mostrar todos)
             this._restoreAllVisibility();
             this._renderBaseUomPriceInfo();
+            this._lastStateKey = stateKey;
+            this._isApplying = false;
             return;
         }
 
@@ -377,5 +376,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         }
 
         this._renderBaseUomPriceInfo();
+        this._lastStateKey = stateKey;
+        this._isApplying = false;
     },
 });
