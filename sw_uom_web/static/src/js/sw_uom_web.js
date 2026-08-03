@@ -42,7 +42,7 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         if (!this._reapplyFilterDebounced) {
             this._reapplyFilterDebounced = () => {
                 clearTimeout(this._reapplyTimer);
-                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 90);
+                this._reapplyTimer = setTimeout(() => this._applyPackagingFilter(), 10);
             };
         }
 
@@ -62,10 +62,26 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
         this.el.addEventListener("change", (ev) => {
             const t = ev.target;
             if (!t) return;
-            if (["uom_id", "uom", "packaging_id", "add_qty", "quantity"].includes(t.name)) {
+            if (["uom_id", "uom", "packaging_id", "add_qty", "quantity", "product_id"].includes(t.name)) {
                 this._reapplyFilterDebounced();
+                this._applyPackagingFilter();
             }
         });
+
+        this.el.addEventListener("click", (ev) => {
+            const t = ev.target;
+            if (!t) return;
+            if (t.closest("input[type='radio'][name='uom_id'], .js_variant_change, .css_attribute_color, .o_variant_pills")) {
+                this._reapplyFilterDebounced();
+                this._applyPackagingFilter();
+            }
+        });
+
+        this._variantChangedHandler = () => {
+            this._reapplyFilterDebounced();
+            this._applyPackagingFilter();
+        };
+        document.addEventListener("variant_changed", this._variantChangedHandler);
     },
 
     destroy() {
@@ -74,6 +90,10 @@ publicWidget.registry.SwUomWebPackagingFilter = publicWidget.Widget.extend({
             this._observer = null;
         }
         clearTimeout(this._reapplyTimer);
+        if (this._variantChangedHandler) {
+            document.removeEventListener("variant_changed", this._variantChangedHandler);
+            this._variantChangedHandler = null;
+        }
         return this._super(...arguments);
     },
 

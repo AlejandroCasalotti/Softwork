@@ -14,7 +14,8 @@
                             domain="[('id', 'in', uom_ids)]"
                             options="{'no_create_edit': True, 'no_create': True}"
                         />
-                        <invisible for="web_allowed_packaging_ids" class="text-muted"/>
+                        <invisible for="web_allowed_packaging_ids" class="text-muted"
+                        />
                         <field name="web_show_base_uom_price"/>
                     </group>
                 </page>

@@ -15,7 +15,6 @@
     "data": [
         "views/product_template_views.xml",
         "views/website_templates.xml",
-        "views/website_sale_cart_templates.xml",
     ],
     "assets": {
         "web.assets_frontend": [
