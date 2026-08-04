@@ -28,9 +28,6 @@
         <xpath expr="//span[@t-field='line.price_subtotal']" position="replace">
             <span t-field="line.price_total"/>
         </xpath>
-        <xpath expr="//span[@t-field='line.display_subtotal']" position="replace">
-            <span t-out="line.display_total"/>
-        </xpath>
 
         <xpath expr="//t[@t-call='account.document_tax_totals']" position="replace"/>
 
