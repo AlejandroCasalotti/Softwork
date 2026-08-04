@@ -18,18 +18,4 @@
             <t t-set="display_taxes" t-value="False"/>
         </t>
     </template>
-
-    <template id="report_account_move_sale_print_hide_taxes" inherit_id="account.report_invoice_document">
-        <xpath expr="//th[@name='th_taxes']" position="replace"/>
-        <xpath expr="//span[@id='line_tax_ids']/.." position="replace"/>
-        <xpath expr="//span[@id='grouped_line_tax_ids']/.." position="replace"/>
-        <xpath expr="//t[@t-call='account.document_tax_totals']" position="replace"/>
-
-        <xpath expr="//th[@name='th_subtotal']/span" position="replace">
-            <span>Subtotal</span>
-        </xpath>
-        <xpath expr="//span[@t-field='line.price_subtotal']" position="replace">
-            <span t-field="line.price_total"/>
-        </xpath>
-    </template>
 </odoo>
