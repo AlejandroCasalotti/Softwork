@@ -16,6 +16,7 @@
         "security/ir.model.access.csv",
         "data/account_journal_data.xml",
         "report/sw_sale_budget_report.xml",
+        "report/sw_account_sale_print_report.xml",
         "views/sale_order_views.xml",
         "views/purchase_order_views.xml",
     ],

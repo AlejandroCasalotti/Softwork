@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_sw_account_sale_print" model="ir.actions.report">
+        <field name="name">Imp. Venta</field>
+        <field name="model">account.move</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">sw_initial.report_account_move_sale_print</field>
+        <field name="report_file">sw_initial.report_account_move_sale_print</field>
+        <field name="print_report_name">'Imp. Venta - %s' % (object.name or object.ref or object.id)</field>
+        <field name="binding_model_id" ref="account.model_account_move"/>
+        <field name="binding_type">report</field>
+        <field name="binding_view_types">form</field>
+    </record>
+
+    <template id="report_account_move_sale_print">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>
+                            <t t-if="o.move_type == 'out_refund'">Nota de Crédito</t>
+                            <t t-else="">Factura de Venta</t>
+                            <span t-if="o.name and o.name != '/'" t-field="o.name"/>
+                        </h2>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <p t-if="o.partner_id">
+                                    <strong>Cliente:</strong> <span t-field="o.partner_id"/>
+                                </p>
+                                <p t-if="o.partner_id.vat">
+                                    <strong>CUIT:</strong> <span t-field="o.partner_id.vat"/>
+                                </p>
+                            </div>
+                            <div class="col-6">
+                                <p t-if="o.invoice_date">
+                                    <strong>Fecha:</strong> <span t-field="o.invoice_date"/>
+                                </p>
+                                <p t-if="o.invoice_origin">
+                                    <strong>Origen:</strong> <span t-field="o.invoice_origin"/>
+                                </p>
+                                <p t-if="o.ref">
+                                    <strong>Referencia:</strong> <span t-field="o.ref"/>
+                                </p>
+                            </div>
+                        </div>
+
+                        <table class="table table-sm o_main_table">
+                            <thead>
+                                <tr>
+                                    <th>Descripción</th>
+                                    <th class="text-end">Cantidad</th>
+                                    <th>UoM</th>
+                                    <th class="text-end">Precio Unit.</th>
+                                    <th class="text-end">Desc. %</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="o.invoice_line_ids.filtered(lambda l: not l.display_type)" t-as="line">
+                                    <td><span t-field="line.name"/></td>
+                                    <td class="text-end"><span t-field="line.quantity"/></td>
+                                    <td><span t-field="line.product_uom_id"/></td>
+                                    <td class="text-end">
+                                        <t t-set="unit_tax_inc" t-value="(line.price_total / line.quantity) if line.quantity else line.price_total"/>
+                                        <span t-esc="unit_tax_inc" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                    <td class="text-end"><span t-field="line.discount"/></td>
+                                    <td class="text-end">
+                                        <span t-esc="line.price_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="row mt-3">
+                            <div class="col-6"/>
+                            <div class="col-6">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <td><strong>Total</strong></td>
+                                        <td class="text-end">
+                                            <strong t-esc="o.amount_total" t-options="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div t-if="o.narration" class="mt-4">
+                            <strong>Notas:</strong>
+                            <div t-field="o.narration"/>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
