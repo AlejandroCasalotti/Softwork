@@ -80,6 +80,12 @@ class MercadoLibreExternalProvider(IProvider):
     def search_categories(self, query, limit=20):
         return self._delegate.search_categories(query=query, limit=limit)
 
+    def get_category_attributes(self, category_id):
+        return self._delegate.get_category_attributes(category_id=category_id)
+
+    def get_category_required_fields(self, category_id):
+        return self._delegate.get_category_required_fields(category_id=category_id)
+
     def webhook(self, payload):
         return self._delegate.webhook(payload)
 

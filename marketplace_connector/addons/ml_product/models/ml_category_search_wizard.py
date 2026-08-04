@@ -21,6 +21,8 @@ class MlCategorySearchWizard(models.TransientModel):
     query = fields.Char(string="Buscar categoría", required=True)
     result_json = fields.Text(string="Resultados JSON", readonly=True)
     selected_category_id = fields.Char(string="Categoría seleccionada")
+    category_attributes_json = fields.Text(string="Atributos de categoría", readonly=True)
+    required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
 
     def action_search(self):
         self.ensure_one()
@@ -52,5 +54,64 @@ class MlCategorySearchWizard(models.TransientModel):
         category_id = (self.selected_category_id or "").strip()
         if not category_id:
             raise UserError("Selecciona o ingresa una categoría antes de aplicar.")
-        self.product_tmpl_id.write({"ml_category_id": category_id})
+
+        provider = ProviderFactory.get_provider(self.account_id)
+        attrs_res = provider.get_category_attributes(category_id=category_id)
+        req_res = provider.get_category_required_fields(category_id=category_id)
+
+        attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
+        required = req_res.get("items") if isinstance(req_res, dict) else []
+        if not isinstance(attrs, list):
+            attrs = []
+        if not isinstance(required, list):
+            required = []
+
+        current_attrs = []
+        raw_current = self.product_tmpl_id.ml_attributes_json or ""
+        if raw_current:
+            try:
+                parsed = json.loads(raw_current)
+                if isinstance(parsed, list):
+                    current_attrs = [a for a in parsed if isinstance(a, dict)]
+            except Exception:
+                current_attrs = []
+
+        req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
+        req_ids.discard("")
+        existing_by_id = {}
+        for a in current_attrs:
+            aid = (a.get("id") or "").strip()
+            if aid:
+                existing_by_id[aid] = a
+
+        merged = []
+        for aid in sorted(req_ids):
+            existing = existing_by_id.get(aid)
+            if existing:
+                merged.append(existing)
+            else:
+                merged.append({"id": aid, "value_name": ""})
+
+        vals = {
+            "ml_category_id": category_id,
+            "ml_attributes_json": json.dumps(merged, ensure_ascii=False),
+        }
+
+        def _extract_value(attr_id):
+            for item in merged:
+                if (item.get("id") or "").strip() == attr_id:
+                    return (item.get("value_name") or "").strip()
+            return ""
+
+        brand = _extract_value("BRAND")
+        model = _extract_value("MODEL")
+        if brand:
+            vals["ml_brand"] = brand
+        if model:
+            vals["ml_model"] = model
+
+        self.product_tmpl_id.write(vals)
+        self.category_attributes_json = json.dumps(attrs, ensure_ascii=False, indent=2)
+        self.required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
+
         return {"type": "ir.actions.act_window_close"}

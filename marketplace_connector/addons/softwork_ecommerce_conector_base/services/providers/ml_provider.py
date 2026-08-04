@@ -320,7 +320,7 @@ class MercadoLibreProvider(IProvider):
         query = (query or "").strip()
         if not query:
             raise UserError("Ingresa un texto para buscar categorías en MercadoLibre.")
-        limit = min(max(self._to_int(limit, 20), 1), 50)
+        limit = min(max(self._to_int(limit, 8), 1), 8)
         data = self._request(
             "GET",
             "/sites/MLA/domain_discovery/search",
@@ -343,6 +343,56 @@ class MercadoLibreProvider(IProvider):
                 }
             )
         return self._ok(action="search_categories", query=query, items=normalized, raw=data)
+
+    def get_category_attributes(self, category_id):
+        category_id = (category_id or "").strip()
+        if not category_id:
+            raise UserError("Falta category_id para consultar atributos de categoría.")
+        data = self._request("GET", f"/categories/{category_id}/attributes")
+        items = data if isinstance(data, list) else []
+        normalized = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            attr_id = (item.get("id") or "").strip()
+            if not attr_id:
+                continue
+            tags = item.get("tags") if isinstance(item.get("tags"), dict) else {}
+            values = item.get("values") if isinstance(item.get("values"), list) else []
+            normalized_values = []
+            for v in values:
+                if not isinstance(v, dict):
+                    continue
+                vid = v.get("id")
+                vname = v.get("name")
+                if vid is None and vname is None:
+                    continue
+                normalized_values.append({"id": vid, "name": vname})
+            normalized.append(
+                {
+                    "id": attr_id,
+                    "name": item.get("name") or attr_id,
+                    "value_type": item.get("value_type") or "string",
+                    "required": bool(tags.get("required")),
+                    "allow_variations": bool(tags.get("allow_variations")),
+                    "values": normalized_values,
+                }
+            )
+        return self._ok(action="get_category_attributes", category_id=category_id, items=normalized, raw=data)
+
+    def get_category_required_fields(self, category_id):
+        attrs_res = self.get_category_attributes(category_id)
+        attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
+        if not isinstance(attrs, list):
+            attrs = []
+        required = [a for a in attrs if isinstance(a, dict) and a.get("required")]
+        return self._ok(
+            action="get_category_required_fields",
+            category_id=(category_id or "").strip(),
+            items=required,
+            total_required=len(required),
+            raw=attrs_res.get("raw") if isinstance(attrs_res, dict) else {},
+        )
 
     def delete_product(self, payload):
         payload = payload or {}
