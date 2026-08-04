@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_product_template_form_ml_product" model="ir.ui.view">
+        <field name="name">product.template.form.ml.product</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="MercadoLibre">
+                    <group>
+                        <group string="MercadoLibre">
+                            <field name="ml_publish_enabled"/>
+                            <field name="ml_account_id"/>
+                            <field name="ml_title"/>
+                            <field name="ml_subtitle"/>
+                            <field name="ml_category_id"/>
+                            <field name="ml_condition"/>
+                            <field name="ml_brand"/>
+                            <field name="ml_model"/>
+                            <field name="ml_warranty"/>
+                            <field name="ml_listing_type"/>
+                            <field name="ml_price"/>
+                            <field name="ml_quantity"/>
+                            <field name="ml_video"/>
+                        </group>
+                        <group string="Publicación">
+                            <field name="ml_description_html"/>
+                            <field name="ml_attributes_json" widget="text"/>
+                            <field name="ml_status" readonly="1"/>
+                            <field name="ml_item_id" readonly="1"/>
+                            <field name="ml_permalink" readonly="1"/>
+                            <field name="ml_publish_date" readonly="1"/>
+                            <field name="ml_sync_date" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Acciones MercadoLibre" col="6">
+                        <button name="action_publish_ml" type="object" string="Publicar" class="btn-primary"
+                                invisible="ml_publish_enabled == False"/>
+                        <button name="action_update_ml" type="object" string="Actualizar" class="btn-secondary"
+                                invisible="ml_item_id == False"/>
+                        <button name="action_pause_ml" type="object" string="Pausar" class="btn-secondary"
+                                invisible="ml_item_id == False"/>
+                        <button name="action_reactivate_ml" type="object" string="Reactivar" class="btn-secondary"
+                                invisible="ml_item_id == False"/>
+                        <button name="action_close_ml" type="object" string="Finalizar" class="btn-danger"
+                                invisible="ml_item_id == False"/>
+                        <button name="action_sync_from_ml" type="object" string="Sync desde ML" class="btn-secondary"
+                                invisible="ml_item_id == False"/>
+                        <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link"
+                                invisible="ml_permalink == False"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
