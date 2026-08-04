@@ -77,6 +77,9 @@ class MercadoLibreExternalProvider(IProvider):
     def sync(self, params=None):
         return self._delegate.sync(params=params)
 
+    def search_categories(self, query, limit=20):
+        return self._delegate.search_categories(query=query, limit=limit)
+
     def webhook(self, payload):
         return self._delegate.webhook(payload)
 
