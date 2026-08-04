@@ -34,13 +34,8 @@
         <xpath expr="//th[@name='th_quantity']" position="after">
             <th name="th_uom" class="text-start"><span>UoM</span></th>
         </xpath>
-        <xpath expr="//td[@name='account_invoice_line_quantity']" position="after">
+        <xpath expr="//span[@t-field='line.quantity']/.." position="after">
             <td name="account_invoice_line_uom">
-                <span t-field="line.product_uom_id"/>
-            </td>
-        </xpath>
-        <xpath expr="//td[@name='account_invoice_line_grouped_quantity']" position="after">
-            <td name="account_invoice_line_grouped_uom">
                 <span t-field="line.product_uom_id"/>
             </td>
         </xpath>
