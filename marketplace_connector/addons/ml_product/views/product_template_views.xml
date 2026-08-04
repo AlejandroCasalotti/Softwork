@@ -15,6 +15,7 @@
                             <field name="ml_subtitle"/>
                             <field name="ml_category_id"/>
                             <button name="action_open_ml_category_search_wizard" type="object" string="Buscar Categoría" class="btn-secondary"/>
+                            <button name="action_open_ml_attribute_editor_wizard" type="object" string="Completar ficha ML" class="btn-secondary"/>
                             <field name="ml_condition"/>
                             <field name="ml_brand"/>
                             <field name="ml_model"/>
@@ -26,6 +27,7 @@
                         </group>
                         <group string="Publicación">
                             <field name="ml_description_html"/>
+                            <field name="ml_required_completion" readonly="1"/>
                             <field name="ml_attributes_json" widget="text"/>
                             <field name="ml_status" readonly="1"/>
                             <field name="ml_item_id" readonly="1"/>

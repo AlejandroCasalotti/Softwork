@@ -34,6 +34,11 @@ class ProductTemplate(models.Model):
     ml_video = fields.Char(string="Video")
     ml_description_html = fields.Html(string="Descripción HTML")
     ml_attributes_json = fields.Text(string="Atributos JSON")
+    ml_required_completion = fields.Float(
+        string="% Atributos requeridos",
+        compute="_compute_ml_required_completion",
+        digits=(16, 2),
+    )
 
     ml_status = fields.Char(string="Estado ML", readonly=True)
     ml_permalink = fields.Char(string="URL publicación", readonly=True)
@@ -184,6 +189,65 @@ class ProductTemplate(models.Model):
             "ml_publish_date": self.ml_publish_date or fields.Datetime.now(),
             "ml_sync_date": fields.Datetime.now(),
         })
+
+    def _compute_ml_required_completion(self):
+        for product in self:
+            product.ml_required_completion = 0.0
+            category_id = (product.ml_category_id or "").strip()
+            if not category_id:
+                continue
+            account = product.ml_account_id or product.env["sce.account"].search(
+                [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+                limit=1,
+            )
+            if not account:
+                continue
+            try:
+                provider = ProviderFactory.get_provider(account)
+                req_res = provider.get_category_required_fields(category_id=category_id)
+                required = req_res.get("items") if isinstance(req_res, dict) else []
+                if not isinstance(required, list):
+                    required = []
+                req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
+                req_ids.discard("")
+                total = len(req_ids)
+                if total == 0:
+                    product.ml_required_completion = 100.0
+                    continue
+                attrs = []
+                raw = product.ml_attributes_json or ""
+                if raw:
+                    try:
+                        parsed = json.loads(raw)
+                        if isinstance(parsed, list):
+                            attrs = [a for a in parsed if isinstance(a, dict)]
+                    except Exception:
+                        attrs = []
+                provided = set()
+                for a in attrs:
+                    aid = (a.get("id") or "").strip()
+                    if not aid:
+                        continue
+                    val = (a.get("value_name") or "").strip()
+                    if aid in req_ids and val:
+                        provided.add(aid)
+                product.ml_required_completion = (len(provided) * 100.0) / total
+            except Exception:
+                product.ml_required_completion = 0.0
+
+    def action_open_ml_attribute_editor_wizard(self):
+        self.ensure_one()
+        if not (self.ml_category_id or "").strip():
+            raise UserError("Primero define una categoría ML.")
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.attribute.editor.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_product_tmpl_id": self.id,
+            },
+        }
 
     def action_open_ml_category_search_wizard(self):
         self.ensure_one()

@@ -1,2 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 ml_product.access_ml_category_search_wizard,access_ml_category_search_wizard,model_ml_category_search_wizard,base.group_user,1,1,1,1
+ml_product.access_ml_attribute_editor_wizard,access_ml_attribute_editor_wizard,model_ml_attribute_editor_wizard,base.group_user,1,1,1,1
+ml_product.access_ml_attribute_editor_wizard_line,access_ml_attribute_editor_wizard_line,model_ml_attribute_editor_wizard_line,base.group_user,1,1,1,1
