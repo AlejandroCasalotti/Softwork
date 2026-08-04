@@ -8,7 +8,7 @@
     "license": "LGPL-3",
     "depends": ["product", "stock", "softwork_ecommerce_conector_base"],
     "data": [
-        "security/ir.model.access.csv",
+        "data/ir.model.access.csv",
         "views/product_template_views.xml",
         "views/ml_category_search_wizard_views.xml",
     ],
