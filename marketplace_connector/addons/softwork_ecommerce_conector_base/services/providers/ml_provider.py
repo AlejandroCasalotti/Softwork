@@ -316,6 +316,34 @@ class MercadoLibreProvider(IProvider):
         data = self._request("GET", f"/items/{external_id}")
         return self._ok(action="get_item", external_id=external_id, item=data, raw=data)
 
+    def search_categories(self, query, limit=20):
+        query = (query or "").strip()
+        if not query:
+            raise UserError("Ingresa un texto para buscar categorías en MercadoLibre.")
+        limit = min(max(self._to_int(limit, 20), 1), 50)
+        data = self._request(
+            "GET",
+            "/sites/MLA/domain_discovery/search",
+            params={"q": query, "limit": limit},
+        )
+        items = data if isinstance(data, list) else []
+        normalized = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            category_id = item.get("category_id")
+            if not category_id:
+                continue
+            normalized.append(
+                {
+                    "category_id": category_id,
+                    "category_name": item.get("category_name") or "",
+                    "domain_id": item.get("domain_id") or "",
+                    "domain_name": item.get("domain_name") or "",
+                }
+            )
+        return self._ok(action="search_categories", query=query, items=normalized, raw=data)
+
     def delete_product(self, payload):
         payload = payload or {}
         item_id = self._extract_item_id(payload)

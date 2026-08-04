@@ -8,7 +8,8 @@
     "license": "LGPL-3",
     "depends": ["product", "stock", "softwork_ecommerce_conector_base"],
     "data": [
-        "views/product_template_views.xml"
+        "views/product_template_views.xml",
+        "views/ml_category_search_wizard_views.xml",
     ],
     "installable": True,
     "application": False

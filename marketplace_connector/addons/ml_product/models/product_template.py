@@ -185,6 +185,63 @@ class ProductTemplate(models.Model):
             "ml_sync_date": fields.Datetime.now(),
         })
 
+    def action_open_ml_category_search_wizard(self):
+        self.ensure_one()
+        account = self._get_ml_account()
+        wizard = self.env["ml.category.search.wizard"].create(
+            {
+                "product_tmpl_id": self.id,
+                "account_id": account.id,
+                "query": self.ml_title or self.name or "",
+                "selected_category_id": self.ml_category_id or "",
+            }
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.category.search.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
+        }
+
+    def action_validate_ml_listing(self):
+        for product in self:
+            issues = []
+            title = (product.ml_title or product.name or "").strip()
+            if not title:
+                issues.append("Falta título.")
+            if not (product.ml_category_id or "").strip():
+                issues.append("Falta categoría ML.")
+            if product._effective_price() <= 0:
+                issues.append("El precio debe ser mayor a cero.")
+            if product._effective_qty() < 0:
+                issues.append("El stock no puede ser negativo.")
+            if not product.ml_account_id and not self.env["sce.account"].search(
+                [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+                limit=1,
+            ):
+                issues.append("No hay cuenta SCE MercadoLibre activa.")
+            if not product._collect_ml_pictures():
+                issues.append("No hay imágenes para publicar.")
+            if not (product.ml_brand or "").strip():
+                issues.append("Falta marca.")
+            if not (product.ml_model or "").strip():
+                issues.append("Falta modelo.")
+
+            if issues:
+                raise UserError("Validación de publicación ML:\n- " + "\n- ".join(issues))
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Validación MercadoLibre",
+                "message": "Validación OK. El producto está listo para publicar.",
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
     def action_publish_ml(self):
         for product in self:
             if not product.ml_publish_enabled:
