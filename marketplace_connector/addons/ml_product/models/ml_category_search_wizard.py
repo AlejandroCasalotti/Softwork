@@ -29,7 +29,7 @@ class MlCategorySearchWizard(models.TransientModel):
             raise UserError("Debes ingresar un texto para buscar categorías.")
 
         provider = ProviderFactory.get_provider(self.account_id)
-        result = provider.search_categories(query=query, limit=20)
+        result = provider.search_categories(query=query, limit=8)
         items = result.get("items") if isinstance(result, dict) else []
         if not isinstance(items, list):
             items = []
