@@ -11,7 +11,11 @@ class ProductTemplate(models.Model):
     _inherit = "product.template"
 
     ml_publish_enabled = fields.Boolean(string="Publicar en MercadoLibre", default=False)
-    ml_account_id = fields.Many2one("ml.account", string="Cuenta ML")
+    ml_account_id = fields.Many2one(
+        "sce.account",
+        string="Cuenta ML",
+        domain="[('provider_type', '=', 'mercadolibre')]",
+    )
 
     ml_title = fields.Char(string="Título ML")
     ml_subtitle = fields.Char(string="Subtítulo ML")
@@ -39,9 +43,12 @@ class ProductTemplate(models.Model):
 
     def _get_ml_account(self):
         self.ensure_one()
-        account = self.ml_account_id or self.env["ml.account"].search([("active", "=", True)], limit=1)
+        account = self.ml_account_id or self.env["sce.account"].search(
+            [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            limit=1,
+        )
         if not account:
-            raise UserError("No hay una cuenta MercadoLibre activa configurada.")
+            raise UserError("No hay una cuenta SCE MercadoLibre activa configurada.")
         return account
 
     def _effective_title(self):
@@ -158,19 +165,12 @@ class ProductTemplate(models.Model):
 
     def _get_ml_provider(self, account):
         self.ensure_one()
-        sce_account = self.env["sce.account"].search(
-            [
-                ("provider_type", "=", "mercadolibre"),
-                ("active", "=", True),
-            ],
-            limit=1,
-        )
-        if not sce_account:
+        if not account:
             raise UserError(
                 "No hay cuenta SCE MercadoLibre activa. "
                 "Configura una cuenta en el conector base para usar provider unificado."
             )
-        return ProviderFactory.get_provider(sce_account)
+        return ProviderFactory.get_provider(account)
 
     def _apply_ml_response(self, response, default_status=False):
         self.ensure_one()
