@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 import json
-import logging
 import re
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
-
-_logger = logging.getLogger(__name__)
 
 
 class ProductTemplate(models.Model):
@@ -629,91 +626,6 @@ class ProductTemplate(models.Model):
                 vals["ml_quantity"] = float(item.get("available_quantity"))
             product.with_context(ml_skip_bidirectional_sync=True).write(vals)
         return True
-
-    def action_diagnose_ml_connection(self):
-        self.ensure_one()
-        account = self._get_ml_account()
-        provider = self._get_ml_provider(account)
-
-        operation = "unknown"
-        payload_type = "none"
-        summary = "Conexión ML OK"
-
-        try:
-            if hasattr(provider, "get_listing_types"):
-                operation = "get_listing_types"
-                response = provider.get_listing_types()
-            elif hasattr(provider, "sync"):
-                operation = "sync:get_listing_types"
-                response = provider.sync({"operation": "get_listing_types", "payload": {}})
-            else:
-                raise UserError("El provider ML no implementa métodos de diagnóstico (get_listing_types/sync).")
-
-            payload_type = type(response).__name__
-
-            if isinstance(response, str):
-                low = response.lower()
-                if "<html" in low and "access denied" in low:
-                    raise UserError(
-                        "Diagnóstico ML: Access Denied detectado.\n"
-                        "Posible token inválido/expirado o autorización de app/callback incorrecta."
-                    )
-            elif isinstance(response, dict):
-                raw_text = json.dumps(response, ensure_ascii=False).lower()
-                if "access denied" in raw_text or "unauthorized" in raw_text or "forbidden" in raw_text:
-                    raise UserError(
-                        "Diagnóstico ML: respuesta no autorizada detectada (401/403/Access Denied).\n"
-                        "Reautorizá la cuenta ML y verificá callback/client_id/client_secret en esta rama."
-                    )
-
-                items = response.get("items")
-                if isinstance(items, list):
-                    summary = f"Conexión ML OK. Listing types recibidos: {len(items)}"
-                else:
-                    summary = "Conexión ML respondió, pero sin lista de tipos esperada."
-            else:
-                summary = f"Conexión ML respondió con tipo no esperado: {payload_type}"
-
-            _logger.info(
-                "Diagnóstico ML OK product_id=%s account_id=%s op=%s payload_type=%s summary=%s",
-                self.id,
-                account.id,
-                operation,
-                payload_type,
-                summary,
-            )
-
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": "Diagnóstico conexión ML",
-                    "message": (
-                        f"{summary}\n"
-                        f"Cuenta: {account.display_name} (id={account.id})\n"
-                        f"Operación: {operation}\n"
-                        f"Tipo respuesta: {payload_type}"
-                    ),
-                    "type": "success",
-                    "sticky": False,
-                },
-            }
-
-        except UserError:
-            raise
-        except Exception as e:
-            _logger.exception(
-                "Diagnóstico ML error product_id=%s account_id=%s op=%s",
-                self.id,
-                account.id if account else False,
-                operation,
-            )
-            raise UserError(
-                "Diagnóstico ML falló.\n"
-                f"Cuenta: {account.display_name} (id={account.id})\n"
-                f"Operación: {operation}\n"
-                f"Detalle: {str(e)}"
-            )
 
     def action_view_ml(self):
         self.ensure_one()

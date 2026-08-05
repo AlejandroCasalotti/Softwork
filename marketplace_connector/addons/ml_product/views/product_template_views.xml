@@ -9,7 +9,6 @@
                 <page string="MercadoLibre">
                     <group string="Acciones rápidas" col="6">
                         <button name="action_open_ml_publish_assistant_wizard" type="object" string="Asistente publicación ML" class="btn-primary"/>
-                        <button name="action_diagnose_ml_connection" type="object" string="Diagnosticar conexión ML" class="btn-secondary"/>
                         <button name="action_validate_ml_listing" type="object" string="Validar" class="btn-secondary"/>
                         <button name="action_publish_ml" type="object" string="Publicar" class="btn-primary" invisible="ml_publish_enabled == False"/>
                         <button name="action_update_ml" type="object" string="Actualizar" class="btn-secondary" invisible="ml_item_id == False"/>
