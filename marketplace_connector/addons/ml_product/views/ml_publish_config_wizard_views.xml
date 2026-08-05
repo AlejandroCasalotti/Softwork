@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_ml_publish_config_wizard_form" model="ir.ui.view">
+        <field name="name">ml.publish.config.wizard.form</field>
+        <field name="model">ml.publish.config.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Configurar publicación ML (UX)">
+                <group>
+                    <field name="product_tmpl_id" readonly="1"/>
+                    <field name="account_id" readonly="1"/>
+                </group>
+
+                <group string="Publicación">
+                    <field name="ml_listing_type"/>
+                    <field name="ml_condition"/>
+                    <field name="ml_warranty"/>
+                    <field name="ml_shipping_mode"/>
+                </group>
+
+                <group string="Precio y stock">
+                    <field name="ml_pricelist_id"/>
+                    <field name="ml_use_pricelist_price"/>
+                    <field name="ml_manual_price_override"/>
+                    <field name="ml_price" invisible="ml_manual_price_override == False"/>
+                    <field name="ml_stock_reserve_qty"/>
+                </group>
+
+                <footer>
+                    <button name="action_apply" type="object" string="Aplicar configuración" class="btn-primary"/>
+                    <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

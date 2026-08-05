@@ -29,6 +29,16 @@ class ProductTemplate(models.Model):
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
     ml_warranty = fields.Char(string="Garantía")
+    ml_shipping_mode = fields.Selection(
+        [("me2", "Mercado Envíos"), ("custom", "Acordar con comprador"), ("not_specified", "No especificado")],
+        string="Forma de envío",
+        default="me2",
+    )
+    ml_pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios ML")
+    ml_use_pricelist_price = fields.Boolean(string="Usar lista de precios", default=True)
+    ml_manual_price_override = fields.Boolean(string="Usar precio manual", default=False)
+    ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
+
     ml_price = fields.Float(string="Precio ML")
     ml_quantity = fields.Float(string="Cantidad ML")
     ml_video = fields.Char(string="Video")
@@ -62,12 +72,21 @@ class ProductTemplate(models.Model):
 
     def _effective_price(self):
         self.ensure_one()
+        if self.ml_manual_price_override and self.ml_price > 0:
+            return self.ml_price
+        if self.ml_use_pricelist_price and self.ml_pricelist_id:
+            try:
+                return self.ml_pricelist_id._get_product_price(self, 1.0)
+            except Exception:
+                return self.list_price
         return self.ml_price if self.ml_price > 0 else self.list_price
 
     def _effective_qty(self):
         self.ensure_one()
-        qty = self.ml_quantity if self.ml_quantity > 0 else self.qty_available
-        return int(max(0, qty))
+        reserve = max(0.0, self.ml_stock_reserve_qty or 0.0)
+        qty_source = self.qty_available
+        qty = max(0.0, qty_source - reserve)
+        return int(qty)
 
     def _parse_ml_attributes(self):
         self.ensure_one()
@@ -91,9 +110,12 @@ class ProductTemplate(models.Model):
         pictures = []
         if self.image_1920:
             pictures.append({"source": "data:image/jpeg;base64,%s" % self.image_1920.decode()})
-        for extra in self.product_template_image_ids:
-            if extra.image_1920:
-                pictures.append({"source": "data:image/jpeg;base64,%s" % extra.image_1920.decode()})
+
+        extra_images = getattr(self, "product_template_image_ids", False)
+        if extra_images:
+            for extra in extra_images:
+                if getattr(extra, "image_1920", False):
+                    pictures.append({"source": "data:image/jpeg;base64,%s" % extra.image_1920.decode()})
         return pictures
 
     def _build_variant_combinations(self):
@@ -142,9 +164,11 @@ class ProductTemplate(models.Model):
             "buying_mode": "buy_it_now",
             "condition": self.ml_condition or "new",
             "listing_type_id": listing_type,
+            "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": [],
             "pictures": self._collect_ml_pictures(),
             "attributes": self._parse_ml_attributes(),
+            "shipping": {"mode": self.ml_shipping_mode or "me2"},
         }
 
         if self.ml_warranty:
@@ -247,6 +271,16 @@ class ProductTemplate(models.Model):
             "context": {
                 "default_product_tmpl_id": self.id,
             },
+        }
+
+    def action_open_ml_publish_config_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.publish.config.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_product_tmpl_id": self.id},
         }
 
     def action_open_ml_category_search_wizard(self):

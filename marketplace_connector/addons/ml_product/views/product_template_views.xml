@@ -16,11 +16,17 @@
                             <field name="ml_category_id"/>
                             <button name="action_open_ml_category_search_wizard" type="object" string="Buscar Categoría" class="btn-secondary"/>
                             <button name="action_open_ml_attribute_editor_wizard" type="object" string="Completar ficha ML" class="btn-secondary"/>
+                            <button name="action_open_ml_publish_config_wizard" type="object" string="Configurar publicación ML" class="btn-secondary"/>
                             <field name="ml_condition"/>
                             <field name="ml_brand"/>
                             <field name="ml_model"/>
                             <field name="ml_warranty"/>
                             <field name="ml_listing_type"/>
+                            <field name="ml_shipping_mode"/>
+                            <field name="ml_pricelist_id"/>
+                            <field name="ml_use_pricelist_price"/>
+                            <field name="ml_manual_price_override"/>
+                            <field name="ml_stock_reserve_qty"/>
                             <field name="ml_price"/>
                             <field name="ml_quantity"/>
                             <field name="ml_video"/>
