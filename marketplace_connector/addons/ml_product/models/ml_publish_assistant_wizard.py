@@ -69,6 +69,20 @@ class MlPublishAssistantWizard(models.TransientModel):
     ml_variant_notes = fields.Text(string="Variantes/Fotos")
     validation_summary = fields.Text(string="Checklist", readonly=True)
 
+    def _raise_if_access_denied_response(self, payload, operation):
+        if isinstance(payload, str):
+            text = payload.lower()
+            if "<html" in text and "access denied" in text:
+                _logger.error(
+                    "Access Denied detectado en operación ML '%s' para account_id=%s",
+                    operation,
+                    self.account_id.id if self.account_id else False,
+                )
+                raise UserError(
+                    "Acceso denegado por el servicio remoto. "
+                    "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
+                )
+
     def _compute_suggested_price(self, product, pricelist):
         if not product:
             return 0.0
@@ -124,10 +138,28 @@ class MlPublishAssistantWizard(models.TransientModel):
         try:
             if hasattr(provider, "get_listing_types"):
                 listing_res = provider.get_listing_types()
-                listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
+                self._raise_if_access_denied_response(listing_res, "get_listing_types")
+                if isinstance(listing_res, dict):
+                    listing_items = listing_res.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en get_listing_types para account_id=%s: %s",
+                        account.id,
+                        type(listing_res).__name__,
+                    )
+                    listing_items = []
             elif hasattr(provider, "sync"):
                 sync_res = provider.sync({"operation": "get_listing_types", "payload": {}})
-                listing_items = sync_res.get("items") if isinstance(sync_res, dict) else []
+                self._raise_if_access_denied_response(sync_res, "sync:get_listing_types")
+                if isinstance(sync_res, dict):
+                    listing_items = sync_res.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en sync(get_listing_types) para account_id=%s: %s",
+                        account.id,
+                        type(sync_res).__name__,
+                    )
+                    listing_items = []
         except Exception:
             _logger.exception("Error cargando listing types para account_id=%s", account.id)
             listing_items = []
@@ -249,13 +281,27 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.env["ml.category"].refresh_for_account(self.account_id, query="")
         provider = ProviderFactory.get_provider(self.account_id)
         req_res = provider.get_category_required_fields(category_id=category_id)
+        self._raise_if_access_denied_response(req_res, "get_category_required_fields")
         required = req_res.get("items") if isinstance(req_res, dict) else []
         if not isinstance(required, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_required_fields account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                category_id,
+                type(req_res).__name__,
+            )
             required = []
 
         attrs_res = provider.get_category_attributes(category_id=category_id)
+        self._raise_if_access_denied_response(attrs_res, "get_category_attributes")
         attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
         if not isinstance(attrs, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_attributes account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                category_id,
+                type(attrs_res).__name__,
+            )
             attrs = []
 
         req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
