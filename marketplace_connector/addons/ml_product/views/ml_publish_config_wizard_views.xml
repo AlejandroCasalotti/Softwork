@@ -11,7 +11,7 @@
                 </group>
 
                 <group string="Publicación">
-                    <field name="ml_listing_type"/>
+                    <field name="ml_listing_type_id"/>
                     <field name="ml_condition"/>
                     <field name="ml_warranty"/>
                     <field name="ml_shipping_mode"/>

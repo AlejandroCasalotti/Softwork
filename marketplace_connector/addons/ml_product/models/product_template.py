@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import re
 
 from odoo import fields, models
 from odoo.exceptions import UserError
@@ -88,6 +89,17 @@ class ProductTemplate(models.Model):
         qty = max(0.0, qty_source - reserve)
         return int(qty)
 
+    def _normalize_ml_value(self, value):
+        text = (value or "").strip()
+        if not text:
+            return text
+        text = text.replace(",", ".")
+        text = re.sub(r"\bm2\b", "m²", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bcm2\b", "cm²", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bmm2\b", "mm²", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bin2\b", "in²", text, flags=re.IGNORECASE)
+        return text
+
     def _parse_ml_attributes(self):
         self.ensure_one()
         attrs = []
@@ -99,11 +111,24 @@ class ProductTemplate(models.Model):
                     attrs = [a for a in parsed if isinstance(a, dict)]
             except Exception:
                 attrs = []
+
+        normalized = []
+        for a in attrs:
+            aid = (a.get("id") or "").strip()
+            if not aid:
+                continue
+            item = {"id": aid}
+            if a.get("value_id"):
+                item["value_id"] = (a.get("value_id") or "").strip()
+            if a.get("value_name"):
+                item["value_name"] = self._normalize_ml_value(a.get("value_name"))
+            normalized.append(item)
+
         if self.ml_brand:
-            attrs.append({"id": "BRAND", "value_name": self.ml_brand})
+            normalized.append({"id": "BRAND", "value_name": self._normalize_ml_value(self.ml_brand)})
         if self.ml_model:
-            attrs.append({"id": "MODEL", "value_name": self.ml_model})
-        return attrs
+            normalized.append({"id": "MODEL", "value_name": self._normalize_ml_value(self.ml_model)})
+        return normalized
 
     def _collect_ml_pictures(self):
         self.ensure_one()
@@ -302,6 +327,38 @@ class ProductTemplate(models.Model):
             "target": "new",
         }
 
+    def _validate_ml_required_attributes(self, attrs):
+        self.ensure_one()
+        category_id = (self.ml_category_id or "").strip()
+        if not category_id:
+            return []
+
+        issues = []
+        account = self.ml_account_id or self.env["sce.account"].search(
+            [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            limit=1,
+        )
+        if not account:
+            return []
+
+        try:
+            provider = ProviderFactory.get_provider(account)
+            req_res = provider.get_category_required_fields(category_id=category_id)
+            required = req_res.get("items") if isinstance(req_res, dict) else []
+            if not isinstance(required, list):
+                required = []
+            req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
+            req_ids.discard("")
+            attr_map = {(a.get("id") or "").strip(): a for a in attrs if isinstance(a, dict)}
+            for rid in req_ids:
+                v = attr_map.get(rid, {})
+                has_value = bool((v.get("value_id") or "").strip() or (v.get("value_name") or "").strip())
+                if not has_value:
+                    issues.append(f"Falta atributo requerido ML: {rid}")
+        except Exception:
+            return issues
+        return issues
+
     def action_validate_ml_listing(self):
         for product in self:
             issues = []
@@ -325,6 +382,9 @@ class ProductTemplate(models.Model):
                 issues.append("Falta marca.")
             if not (product.ml_model or "").strip():
                 issues.append("Falta modelo.")
+
+            attrs = product._parse_ml_attributes()
+            issues.extend(product._validate_ml_required_attributes(attrs))
 
             if issues:
                 raise UserError("Validación de publicación ML:\n- " + "\n- ".join(issues))

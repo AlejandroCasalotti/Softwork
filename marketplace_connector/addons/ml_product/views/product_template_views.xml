@@ -7,34 +7,53 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="MercadoLibre">
+                    <group string="Acciones rápidas" col="6">
+                        <button name="action_open_ml_category_search_wizard" type="object" string="Buscar Categoría" class="btn-secondary"/>
+                        <button name="action_open_ml_attribute_editor_wizard" type="object" string="Completar ficha ML" class="btn-secondary"/>
+                        <button name="action_open_ml_publish_config_wizard" type="object" string="Configurar publicación ML" class="btn-secondary"/>
+                        <button name="action_validate_ml_listing" type="object" string="Validar" class="btn-secondary"/>
+                        <button name="action_publish_ml" type="object" string="Publicar" class="btn-primary" invisible="ml_publish_enabled == False"/>
+                        <button name="action_update_ml" type="object" string="Actualizar" class="btn-secondary" invisible="ml_item_id == False"/>
+                        <button name="action_pause_ml" type="object" string="Pausar" class="btn-secondary" invisible="ml_item_id == False"/>
+                        <button name="action_reactivate_ml" type="object" string="Reactivar" class="btn-secondary" invisible="ml_item_id == False"/>
+                        <button name="action_close_ml" type="object" string="Finalizar" class="btn-danger" invisible="ml_item_id == False"/>
+                        <button name="action_sync_from_ml" type="object" string="Sync desde ML" class="btn-secondary" invisible="ml_item_id == False"/>
+                        <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link" invisible="ml_permalink == False"/>
+                    </group>
+
                     <group>
-                        <group string="MercadoLibre">
+                        <group string="Configuración base">
                             <field name="ml_publish_enabled"/>
                             <field name="ml_account_id"/>
                             <field name="ml_title"/>
                             <field name="ml_subtitle"/>
                             <field name="ml_category_id"/>
-                            <button name="action_open_ml_category_search_wizard" type="object" string="Buscar Categoría" class="btn-secondary"/>
-                            <button name="action_open_ml_attribute_editor_wizard" type="object" string="Completar ficha ML" class="btn-secondary"/>
-                            <button name="action_open_ml_publish_config_wizard" type="object" string="Configurar publicación ML" class="btn-secondary"/>
+                            <field name="ml_listing_type" readonly="1"/>
                             <field name="ml_condition"/>
-                            <field name="ml_brand"/>
-                            <field name="ml_model"/>
-                            <field name="ml_warranty"/>
-                            <field name="ml_listing_type"/>
                             <field name="ml_shipping_mode"/>
+                            <field name="ml_warranty"/>
+                            <field name="ml_video"/>
+                        </group>
+
+                        <group string="Precio y stock">
                             <field name="ml_pricelist_id"/>
                             <field name="ml_use_pricelist_price"/>
                             <field name="ml_manual_price_override"/>
-                            <field name="ml_stock_reserve_qty"/>
                             <field name="ml_price"/>
+                            <field name="ml_stock_reserve_qty"/>
                             <field name="ml_quantity"/>
-                            <field name="ml_video"/>
                         </group>
-                        <group string="Publicación">
-                            <field name="ml_description_html"/>
+                    </group>
+
+                    <group>
+                        <group string="Atributos">
+                            <field name="ml_brand"/>
+                            <field name="ml_model"/>
                             <field name="ml_required_completion" readonly="1"/>
                             <field name="ml_attributes_json" widget="text"/>
+                        </group>
+
+                        <group string="Estado publicación">
                             <field name="ml_status" readonly="1"/>
                             <field name="ml_item_id" readonly="1"/>
                             <field name="ml_permalink" readonly="1"/>
@@ -42,22 +61,9 @@
                             <field name="ml_sync_date" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Acciones MercadoLibre" col="6">
-                        <button name="action_validate_ml_listing" type="object" string="Validar" class="btn-secondary"/>
-                        <button name="action_publish_ml" type="object" string="Publicar" class="btn-primary"
-                                invisible="ml_publish_enabled == False"/>
-                        <button name="action_update_ml" type="object" string="Actualizar" class="btn-secondary"
-                                invisible="ml_item_id == False"/>
-                        <button name="action_pause_ml" type="object" string="Pausar" class="btn-secondary"
-                                invisible="ml_item_id == False"/>
-                        <button name="action_reactivate_ml" type="object" string="Reactivar" class="btn-secondary"
-                                invisible="ml_item_id == False"/>
-                        <button name="action_close_ml" type="object" string="Finalizar" class="btn-danger"
-                                invisible="ml_item_id == False"/>
-                        <button name="action_sync_from_ml" type="object" string="Sync desde ML" class="btn-secondary"
-                                invisible="ml_item_id == False"/>
-                        <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link"
-                                invisible="ml_permalink == False"/>
+
+                    <group string="Descripción">
+                        <field name="ml_description_html"/>
                     </group>
                 </page>
             </xpath>

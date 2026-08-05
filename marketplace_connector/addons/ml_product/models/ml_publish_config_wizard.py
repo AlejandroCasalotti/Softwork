@@ -2,6 +2,8 @@
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
 
 class MlPublishConfigWizard(models.TransientModel):
     _name = "ml.publish.config.wizard"
@@ -10,7 +12,7 @@ class MlPublishConfigWizard(models.TransientModel):
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", readonly=True)
 
-    ml_listing_type = fields.Char(string="Tipo de publicación")
+    ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
         [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
         string="Condición",
@@ -46,11 +48,39 @@ class MlPublishConfigWizard(models.TransientModel):
         if not account:
             raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
 
+        provider = ProviderFactory.get_provider(account)
+        listing_res = provider.get_listing_types()
+        listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
+        if not isinstance(listing_items, list):
+            listing_items = []
+
+        existing_types = self.env["ml.listing.type"].search([("account_id", "=", account.id)])
+        existing_types.unlink()
+        for item in listing_items:
+            if not isinstance(item, dict):
+                continue
+            ltid = (item.get("id") or "").strip()
+            if not ltid:
+                continue
+            self.env["ml.listing.type"].create(
+                {
+                    "account_id": account.id,
+                    "listing_type_id": ltid,
+                    "name": (item.get("name") or ltid).strip(),
+                    "status": item.get("status") or "",
+                }
+            )
+
+        selected_listing = self.env["ml.listing.type"].search(
+            [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
+            limit=1,
+        )
+
         vals.update(
             {
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
-                "ml_listing_type": product.ml_listing_type,
+                "ml_listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_condition": product.ml_condition,
                 "ml_warranty": product.ml_warranty,
                 "ml_shipping_mode": product.ml_shipping_mode or "me2",
@@ -67,7 +97,7 @@ class MlPublishConfigWizard(models.TransientModel):
         self.ensure_one()
         self.product_tmpl_id.write(
             {
-                "ml_listing_type": self.ml_listing_type or "gold_special",
+                "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
                 "ml_condition": self.ml_condition or "new",
                 "ml_warranty": self.ml_warranty or False,
                 "ml_shipping_mode": self.ml_shipping_mode or "me2",

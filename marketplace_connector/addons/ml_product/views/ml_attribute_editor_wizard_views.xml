@@ -20,7 +20,10 @@
                         <field name="attribute_id" readonly="1"/>
                         <field name="attribute_name" readonly="1"/>
                         <field name="is_required" readonly="1"/>
-                        <field name="value_name"/>
+                        <field name="has_options" readonly="1"/>
+                        <field name="option_id" invisible="has_options == False"/>
+                        <field name="value_name" invisible="has_options == True"/>
+                        <field name="value_id" readonly="1" optional="hide"/>
                     </list>
                 </field>
 

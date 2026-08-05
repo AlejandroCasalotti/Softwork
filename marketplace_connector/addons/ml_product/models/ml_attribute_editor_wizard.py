@@ -83,6 +83,44 @@ class MlAttributeEditorWizard(models.TransientModel):
                 continue
             existing = current_map.get(attr_id, {})
             value_name = existing.get("value_name") or ""
+            value_id = existing.get("value_id") or ""
+
+            values = attr.get("values") if isinstance(attr.get("values"), list) else []
+            has_options = bool(values)
+
+            option_id = False
+            if has_options:
+                for val in values:
+                    if not isinstance(val, dict):
+                        continue
+                    self.env["ml.attribute.option"].sudo().search(
+                        [
+                            ("category_id", "=", self.category_id),
+                            ("attribute_id", "=", attr_id),
+                            ("value_id", "=", (val.get("id") or "").strip()),
+                            ("value_name", "=", (val.get("name") or "").strip() or (val.get("value_name") or "").strip()),
+                        ],
+                        limit=1,
+                    ) or self.env["ml.attribute.option"].sudo().create(
+                        {
+                            "category_id": self.category_id,
+                            "attribute_id": attr_id,
+                            "attribute_name": attr.get("name") or attr_id,
+                            "value_id": (val.get("id") or "").strip(),
+                            "value_name": (val.get("name") or "").strip() or (val.get("value_name") or "").strip(),
+                        }
+                    )
+                if value_id:
+                    option = self.env["ml.attribute.option"].search(
+                        [
+                            ("category_id", "=", self.category_id),
+                            ("attribute_id", "=", attr_id),
+                            ("value_id", "=", value_id),
+                        ],
+                        limit=1,
+                    )
+                    option_id = option.id if option else False
+
             commands.append(
                 (
                     0,
@@ -90,7 +128,10 @@ class MlAttributeEditorWizard(models.TransientModel):
                     {
                         "attribute_id": attr_id,
                         "attribute_name": attr.get("name") or attr_id,
+                        "option_id": option_id,
                         "value_name": value_name,
+                        "value_id": value_id,
+                        "has_options": has_options,
                         "is_required": True,
                     },
                 )
@@ -112,7 +153,12 @@ class MlAttributeEditorWizard(models.TransientModel):
             attr_id = (line.attribute_id or "").strip()
             if not attr_id:
                 continue
-            attrs.append({"id": attr_id, "value_name": (line.value_name or "").strip()})
+            item = {"id": attr_id}
+            if line.value_id:
+                item["value_id"] = line.value_id
+            if line.value_name:
+                item["value_name"] = (line.value_name or "").strip()
+            attrs.append(item)
 
         vals = {"ml_attributes_json": json.dumps(attrs, ensure_ascii=False)}
         for item in attrs:
@@ -129,7 +175,22 @@ class MlAttributeEditorWizardLine(models.TransientModel):
     _description = "Línea de atributo requerido MercadoLibre"
 
     wizard_id = fields.Many2one("ml.attribute.editor.wizard", required=True, ondelete="cascade")
+    category_id = fields.Char(related="wizard_id.category_id", store=False, readonly=True)
     attribute_id = fields.Char(string="ID atributo", required=True, readonly=True)
     attribute_name = fields.Char(string="Atributo", required=True, readonly=True)
+    option_id = fields.Many2one(
+        "ml.attribute.option",
+        string="Opción",
+        domain="[('category_id', '=', category_id), ('attribute_id', '=', attribute_id)]",
+    )
     value_name = fields.Char(string="Valor")
+    value_id = fields.Char(string="ID valor", readonly=True)
+    has_options = fields.Boolean(string="Tiene opciones", default=False, readonly=True)
     is_required = fields.Boolean(string="Requerido", default=True, readonly=True)
+
+    @api.onchange("option_id")
+    def _onchange_option_id(self):
+        for line in self:
+            if line.option_id:
+                line.value_id = line.option_id.value_id or ""
+                line.value_name = line.option_id.value_name or ""
