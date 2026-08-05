@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+
+_logger = logging.getLogger(__name__)
 
 
 class MlPublishConfigWizard(models.TransientModel):
@@ -30,6 +35,20 @@ class MlPublishConfigWizard(models.TransientModel):
     ml_price = fields.Float(string="Precio ML")
 
     ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
+
+    def _raise_if_access_denied_response(self, payload, operation):
+        if isinstance(payload, str):
+            text = payload.lower()
+            if "<html" in text and "access denied" in text:
+                _logger.error(
+                    "Access Denied detectado en operación ML '%s' para account_id=%s",
+                    operation,
+                    self.account_id.id if self.account_id else False,
+                )
+                raise UserError(
+                    "Acceso denegado por el servicio remoto. "
+                    "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
+                )
 
     def _compute_suggested_price(self, product, pricelist):
         if not product:
@@ -77,11 +96,30 @@ class MlPublishConfigWizard(models.TransientModel):
         try:
             if hasattr(provider, "get_listing_types"):
                 listing_res = provider.get_listing_types()
-                listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
+                self._raise_if_access_denied_response(listing_res, "get_listing_types")
+                if isinstance(listing_res, dict):
+                    listing_items = listing_res.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en get_listing_types para account_id=%s: %s",
+                        account.id,
+                        type(listing_res).__name__,
+                    )
+                    listing_items = []
             elif hasattr(provider, "sync"):
                 sync_res = provider.sync({"operation": "get_listing_types", "payload": {}})
-                listing_items = sync_res.get("items") if isinstance(sync_res, dict) else []
+                self._raise_if_access_denied_response(sync_res, "sync:get_listing_types")
+                if isinstance(sync_res, dict):
+                    listing_items = sync_res.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en sync(get_listing_types) para account_id=%s: %s",
+                        account.id,
+                        type(sync_res).__name__,
+                    )
+                    listing_items = []
         except Exception:
+            _logger.exception("Error cargando listing types para account_id=%s", account.id)
             listing_items = []
 
         if not isinstance(listing_items, list) or not listing_items:
@@ -90,22 +128,42 @@ class MlPublishConfigWizard(models.TransientModel):
                 {"id": "gold_pro", "name": "Premium", "status": "active"},
             ]
 
-        existing_types = self.env["ml.listing.type"].search([("account_id", "=", account.id)])
-        existing_types.unlink()
+        listing_type_model = self.env["ml.listing.type"]
+        existing_types = listing_type_model.search([("account_id", "=", account.id)])
+        existing_map = {rec.listing_type_id: rec for rec in existing_types}
+
         for item in listing_items:
             if not isinstance(item, dict):
                 continue
             ltid = (item.get("id") or "").strip()
             if not ltid:
                 continue
-            self.env["ml.listing.type"].create(
-                {
-                    "account_id": account.id,
-                    "listing_type_id": ltid,
-                    "name": (item.get("name") or ltid).strip(),
-                    "status": item.get("status") or "",
-                }
-            )
+            vals = {
+                "account_id": account.id,
+                "listing_type_id": ltid,
+                "name": (item.get("name") or ltid).strip(),
+                "status": item.get("status") or "",
+            }
+            rec = existing_map.get(ltid)
+            if rec:
+                rec.write({"name": vals["name"], "status": vals["status"]})
+            else:
+                try:
+                    listing_type_model.create(vals)
+                except Exception:
+                    _logger.warning(
+                        "Posible concurrencia/duplicado creando ml.listing.type account_id=%s listing_type_id=%s",
+                        account.id,
+                        ltid,
+                    )
+                    rec_retry = listing_type_model.search(
+                        [("account_id", "=", account.id), ("listing_type_id", "=", ltid)],
+                        limit=1,
+                    )
+                    if rec_retry:
+                        rec_retry.write({"name": vals["name"], "status": vals["status"]})
+                    else:
+                        raise
 
         selected_listing = self.env["ml.listing.type"].search(
             [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
