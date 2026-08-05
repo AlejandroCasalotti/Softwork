@@ -13,6 +13,7 @@
         "views/ml_category_search_wizard_views.xml",
         "views/ml_attribute_editor_wizard_views.xml",
         "views/ml_publish_config_wizard_views.xml",
+        "views/ml_publish_assistant_wizard_views.xml",
     ],
     "installable": True,
     "application": False

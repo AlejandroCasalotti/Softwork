@@ -1,0 +1,327 @@
+# -*- coding: utf-8 -*-
+import json
+
+from odoo import api, fields, models
+from odoo.exceptions import UserError
+
+from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+
+class MlPublishAssistantWizard(models.TransientModel):
+    _name = "ml.publish.assistant.wizard"
+    _description = "Asistente único de publicación MercadoLibre"
+
+    step = fields.Selection(
+        [
+            ("base", "Base"),
+            ("pricing_stock", "Precio y Stock"),
+            ("sale_format", "Formato de venta"),
+            ("attributes", "Atributos"),
+            ("variants_photos", "Variantes y fotos"),
+            ("review", "Revisión final"),
+        ],
+        default="base",
+        required=True,
+    )
+
+    product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
+    account_id = fields.Many2one("sce.account", string="Cuenta ML", readonly=True)
+
+    ml_category_id = fields.Char(string="Categoría ML")
+    ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
+    ml_condition = fields.Selection(
+        [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
+        string="Condición",
+    )
+
+    ml_pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios")
+    ml_use_pricelist_price = fields.Boolean(string="Usar precio desde lista", default=True)
+    ml_manual_price_override = fields.Boolean(string="Usar precio manual", default=False)
+    ml_price = fields.Float(string="Precio ML")
+    ml_stock_reserve_qty = fields.Float(string="Stock reservado", default=0.0)
+    ml_effective_qty = fields.Integer(string="Stock efectivo", readonly=True)
+
+    ml_sale_terms_json = fields.Text(string="Formato de venta (sale_terms JSON)")
+    ml_required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
+    ml_recommended_attributes_json = fields.Text(string="Atributos secundarios", readonly=True)
+
+    ml_variant_notes = fields.Text(string="Variantes/Fotos")
+    validation_summary = fields.Text(string="Checklist", readonly=True)
+
+    def _compute_suggested_price(self, product, pricelist):
+        if not product:
+            return 0.0
+        if pricelist:
+            try:
+                return float(pricelist._get_product_price(product, 1.0) or 0.0)
+            except Exception:
+                return float(product.list_price or 0.0)
+        return float(product.ml_price or product.list_price or 0.0)
+
+    def _compute_effective_qty(self, product, reserve_qty):
+        reserve = max(0.0, reserve_qty or 0.0)
+        qty_source = product.qty_available if product else 0.0
+        return int(max(0.0, qty_source - reserve))
+
+    @api.onchange("ml_pricelist_id", "ml_use_pricelist_price", "ml_manual_price_override", "ml_stock_reserve_qty")
+    def _onchange_pricing_stock(self):
+        for wizard in self:
+            product = wizard.product_tmpl_id
+            if not product:
+                continue
+
+            wizard.ml_effective_qty = wizard._compute_effective_qty(product, wizard.ml_stock_reserve_qty)
+
+            if wizard.ml_manual_price_override:
+                if not wizard.ml_price:
+                    wizard.ml_price = product.ml_price or product.list_price
+            elif wizard.ml_use_pricelist_price:
+                wizard.ml_price = wizard._compute_suggested_price(product, wizard.ml_pricelist_id)
+            else:
+                wizard.ml_price = product.ml_price or product.list_price
+
+    @api.model
+    def default_get(self, fields_list):
+        vals = super().default_get(fields_list)
+        product_id = self.env.context.get("default_product_tmpl_id")
+        if not product_id:
+            return vals
+        product = self.env["product.template"].browse(product_id).exists()
+        if not product:
+            return vals
+
+        account = product.ml_account_id or self.env["sce.account"].search(
+            [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            limit=1,
+        )
+        if not account:
+            raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
+
+        provider = ProviderFactory.get_provider(account)
+        listing_items = []
+        try:
+            if hasattr(provider, "get_listing_types"):
+                listing_res = provider.get_listing_types()
+                listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
+            elif hasattr(provider, "sync"):
+                sync_res = provider.sync({"operation": "get_listing_types", "payload": {}})
+                listing_items = sync_res.get("items") if isinstance(sync_res, dict) else []
+        except Exception:
+            listing_items = []
+
+        if not isinstance(listing_items, list) or not listing_items:
+            listing_items = [
+                {"id": "gold_special", "name": "Clásica", "status": "active"},
+                {"id": "gold_pro", "name": "Premium", "status": "active"},
+            ]
+
+        existing_types = self.env["ml.listing.type"].search([("account_id", "=", account.id)])
+        existing_types.unlink()
+        for item in listing_items:
+            if not isinstance(item, dict):
+                continue
+            ltid = (item.get("id") or "").strip()
+            if not ltid:
+                continue
+            self.env["ml.listing.type"].create(
+                {
+                    "account_id": account.id,
+                    "listing_type_id": ltid,
+                    "name": (item.get("name") or ltid).strip(),
+                    "status": item.get("status") or "",
+                }
+            )
+
+        selected_listing = self.env["ml.listing.type"].search(
+            [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
+            limit=1,
+        )
+
+        suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False)
+        effective_qty = self._compute_effective_qty(product, product.ml_stock_reserve_qty)
+
+        vals.update(
+            {
+                "product_tmpl_id": product.id,
+                "account_id": account.id,
+                "ml_category_id": product.ml_category_id,
+                "ml_listing_type_id": selected_listing.id if selected_listing else False,
+                "ml_condition": product.ml_condition or "new",
+                "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
+                "ml_use_pricelist_price": product.ml_use_pricelist_price,
+                "ml_manual_price_override": product.ml_manual_price_override,
+                "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
+                "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
+                "ml_effective_qty": effective_qty,
+                "ml_sale_terms_json": product.ml_sale_terms_json or "[]",
+                "ml_variant_notes": "",
+            }
+        )
+        return vals
+
+    def action_next(self):
+        self.ensure_one()
+        order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
+        idx = order.index(self.step)
+        if idx < len(order) - 1:
+            self.step = order[idx + 1]
+        return self._reload_self()
+
+    def action_prev(self):
+        self.ensure_one()
+        order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
+        idx = order.index(self.step)
+        if idx > 0:
+            self.step = order[idx - 1]
+        return self._reload_self()
+
+    def _reload_self(self):
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.publish.assistant.wizard",
+            "view_mode": "form",
+            "res_id": self.id,
+            "target": "new",
+        }
+
+    def action_load_ml_metadata(self):
+        self.ensure_one()
+        category_id = (self.ml_category_id or "").strip()
+        if not category_id:
+            raise UserError("Define categoría ML para cargar metadatos.")
+
+        provider = ProviderFactory.get_provider(self.account_id)
+        req_res = provider.get_category_required_fields(category_id=category_id)
+        required = req_res.get("items") if isinstance(req_res, dict) else []
+        if not isinstance(required, list):
+            required = []
+
+        attrs_res = provider.get_category_attributes(category_id=category_id)
+        attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
+        if not isinstance(attrs, list):
+            attrs = []
+
+        req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
+        req_ids.discard("")
+        recommended = []
+        for a in attrs:
+            if not isinstance(a, dict):
+                continue
+            aid = (a.get("id") or "").strip()
+            if aid and aid not in req_ids:
+                recommended.append(a)
+
+        self.ml_required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
+        self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
+        return self._reload_self()
+
+    def action_apply_to_product(self):
+        self.ensure_one()
+        product = self.product_tmpl_id
+
+        product.write(
+            {
+                "ml_category_id": (self.ml_category_id or "").strip(),
+                "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
+                "ml_condition": self.ml_condition or "new",
+                "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
+                "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
+                "ml_manual_price_override": bool(self.ml_manual_price_override),
+                "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
+                "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
+                "ml_sale_terms_json": self.ml_sale_terms_json or "[]",
+            }
+        )
+
+        return {"type": "ir.actions.act_window_close"}
+
+    def action_validate_checklist(self):
+        self.ensure_one()
+        product = self.product_tmpl_id
+        errors = []
+        warnings = []
+
+        base_errors = []
+        if not (self.ml_category_id or "").strip():
+            base_errors.append("Falta categoría ML.")
+        if not self.ml_listing_type_id:
+            base_errors.append("Falta tipo de publicación.")
+        if not (self.ml_condition or "").strip():
+            base_errors.append("Falta condición.")
+
+        pricing_errors = []
+        if self.ml_price <= 0:
+            pricing_errors.append("Precio ML inválido.")
+        if self.ml_effective_qty < 0:
+            pricing_errors.append("Stock efectivo inválido.")
+
+        image_errors = []
+        pictures = product._collect_ml_pictures()
+        if not pictures:
+            image_errors.append("Faltan imágenes públicas válidas.")
+        else:
+            for p in pictures:
+                src = (p.get("source") or "").strip()
+                if not src.startswith(("http://", "https://")) or len(src) > 1024:
+                    image_errors.append("Hay imágenes inválidas para ML.")
+                    break
+
+        attribute_errors = []
+        attrs = product._parse_ml_attributes()
+        attribute_errors.extend(product._validate_ml_required_attributes(attrs))
+
+        sale_terms_errors = []
+        raw_terms = (self.ml_sale_terms_json or "").strip()
+        if raw_terms:
+            try:
+                parsed_terms = json.loads(raw_terms)
+                if not isinstance(parsed_terms, list):
+                    sale_terms_errors.append("sale_terms debe ser una lista.")
+                elif any(not isinstance(t, dict) for t in parsed_terms):
+                    sale_terms_errors.append("sale_terms debe contener solo objetos.")
+            except Exception:
+                sale_terms_errors.append("sale_terms JSON inválido.")
+
+        if not (product.ml_brand or "").strip():
+            warnings.append("Recomendado: completar Marca.")
+        if not (product.ml_model or "").strip():
+            warnings.append("Recomendado: completar Modelo.")
+        if not raw_terms:
+            warnings.append("Recomendado: definir sale_terms para mejorar calidad de publicación.")
+
+        if base_errors:
+            errors.append("[Base]")
+            errors.extend([f"- {e}" for e in base_errors])
+        if pricing_errors:
+            errors.append("[Precio/Stock]")
+            errors.extend([f"- {e}" for e in pricing_errors])
+        if image_errors:
+            errors.append("[Imágenes]")
+            errors.extend([f"- {e}" for e in image_errors])
+        if attribute_errors:
+            errors.append("[Atributos]")
+            errors.extend([f"- {e}" for e in attribute_errors])
+        if sale_terms_errors:
+            errors.append("[Formato de venta / sale_terms]")
+            errors.extend([f"- {e}" for e in sale_terms_errors])
+
+        lines = []
+        if errors:
+            lines.append("Estado: CON OBSERVACIONES BLOQUEANTES")
+            lines.extend(errors)
+        else:
+            lines.append("Estado: OK (sin bloqueantes)")
+
+        if warnings:
+            lines.append("")
+            lines.append("Recomendaciones:")
+            lines.extend([f"- {w}" for w in warnings])
+
+        self.validation_summary = "\n".join(lines)
+        return self._reload_self()
+
+    def action_publish(self):
+        self.ensure_one()
+        self.action_apply_to_product()
+        self.product_tmpl_id.action_publish_ml()
+        return {"type": "ir.actions.act_window_close"}

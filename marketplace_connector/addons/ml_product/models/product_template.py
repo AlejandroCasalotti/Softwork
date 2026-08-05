@@ -2,7 +2,7 @@
 import json
 import re
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
@@ -45,6 +45,7 @@ class ProductTemplate(models.Model):
     ml_video = fields.Char(string="Video")
     ml_description_html = fields.Html(string="Descripción HTML")
     ml_attributes_json = fields.Text(string="Atributos JSON")
+    ml_sale_terms_json = fields.Text(string="Sale Terms JSON")
     ml_required_completion = fields.Float(
         string="% Atributos requeridos",
         compute="_compute_ml_required_completion",
@@ -176,6 +177,26 @@ class ProductTemplate(models.Model):
             })
         return combinations
 
+    def _validate_ml_sale_terms(self):
+        self.ensure_one()
+        raw = (self.ml_sale_terms_json or "").strip()
+        if not raw:
+            return []
+        try:
+            parsed = json.loads(raw)
+        except Exception:
+            raise UserError("Sale Terms JSON inválido: debe ser JSON válido.")
+
+        if not isinstance(parsed, list):
+            raise UserError("Sale Terms JSON inválido: debe ser una lista de objetos.")
+
+        terms = []
+        for term in parsed:
+            if not isinstance(term, dict):
+                raise UserError("Sale Terms JSON inválido: cada elemento debe ser un objeto.")
+            terms.append(term)
+        return terms
+
     def _build_ml_payload(self):
         self.ensure_one()
         title = self._effective_title()
@@ -189,6 +210,8 @@ class ProductTemplate(models.Model):
         category = self.ml_category_id or "MLA3530"
         listing_type = self.ml_listing_type or "gold_special"
 
+        sale_terms = self._validate_ml_sale_terms()
+
         payload = {
             "title": title,
             "category_id": category,
@@ -199,7 +222,7 @@ class ProductTemplate(models.Model):
             "condition": self.ml_condition or "new",
             "listing_type_id": listing_type,
             "seller_custom_field": (self.default_code or "").strip() or False,
-            "sale_terms": [],
+            "sale_terms": sale_terms,
             "pictures": self._collect_ml_pictures(),
             "attributes": self._parse_ml_attributes(),
             "shipping": {"mode": self.ml_shipping_mode or "me2"},
@@ -312,6 +335,16 @@ class ProductTemplate(models.Model):
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.publish.config.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_product_tmpl_id": self.id},
+        }
+
+    def action_open_ml_publish_assistant_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.publish.assistant.wizard",
             "view_mode": "form",
             "target": "new",
             "context": {"default_product_tmpl_id": self.id},
@@ -489,6 +522,67 @@ class ProductTemplate(models.Model):
             product.write({"ml_status": "closed", "ml_sync_date": fields.Datetime.now()})
         return True
 
+    def _sync_price_stock_to_ml(self):
+        for product in self:
+            if not product.ml_publish_enabled or not product.ml_item_id:
+                continue
+            try:
+                account = product._get_ml_account()
+                provider = product._get_ml_provider(account)
+                payload = {
+                    "item_id": product.ml_item_id,
+                    "price": product._effective_price(),
+                    "available_quantity": product._effective_qty(),
+                }
+                provider.update_product(payload)
+                product.with_context(ml_skip_bidirectional_sync=True).write({
+                    "ml_sync_date": fields.Datetime.now(),
+                })
+            except Exception:
+                continue
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        if not self.env.context.get("ml_skip_bidirectional_sync"):
+            sync_trigger_fields = {
+                "list_price",
+                "ml_price",
+                "ml_stock_reserve_qty",
+                "ml_use_pricelist_price",
+                "ml_manual_price_override",
+                "ml_pricelist_id",
+                "ml_publish_enabled",
+                "ml_item_id",
+            }
+            for rec, vals in zip(records, vals_list):
+                if any(field in vals for field in sync_trigger_fields):
+                    rec._sync_price_stock_to_ml()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        if self.env.context.get("ml_skip_bidirectional_sync"):
+            return res
+
+        sync_trigger_fields = {
+            "list_price",
+            "ml_price",
+            "ml_stock_reserve_qty",
+            "ml_use_pricelist_price",
+            "ml_manual_price_override",
+            "ml_pricelist_id",
+            "ml_publish_enabled",
+            "ml_item_id",
+        }
+        if any(field in vals for field in sync_trigger_fields):
+            self._sync_price_stock_to_ml()
+        return res
+
+    def action_sync_price_stock_ml(self):
+        self._sync_price_stock_to_ml()
+        return True
+
     def action_sync_from_ml(self):
         for product in self:
             if not product.ml_item_id:
@@ -512,7 +606,7 @@ class ProductTemplate(models.Model):
                 vals["ml_price"] = float(item.get("price"))
             if item.get("available_quantity") is not None:
                 vals["ml_quantity"] = float(item.get("available_quantity"))
-            product.write(vals)
+            product.with_context(ml_skip_bidirectional_sync=True).write(vals)
         return True
 
     def action_view_ml(self):
