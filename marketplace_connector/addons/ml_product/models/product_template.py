@@ -46,6 +46,7 @@ class ProductTemplate(models.Model):
     ml_description_html = fields.Html(string="Descripción HTML")
     ml_attributes_json = fields.Text(string="Atributos JSON")
     ml_sale_terms_json = fields.Text(string="Sale Terms JSON")
+    ml_pictures_json = fields.Text(string="Pictures JSON")
     ml_required_completion = fields.Float(
         string="% Atributos requeridos",
         compute="_compute_ml_required_completion",
@@ -139,6 +140,23 @@ class ProductTemplate(models.Model):
         def _valid_source(src):
             s = (src or "").strip()
             return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
+
+        raw_pictures = (self.ml_pictures_json or "").strip()
+        if raw_pictures:
+            try:
+                parsed = json.loads(raw_pictures)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if not isinstance(item, dict):
+                            continue
+                        source = (item.get("source") or "").strip()
+                        if _valid_source(source):
+                            pictures.append({"source": source})
+            except Exception:
+                pictures = []
+
+        if pictures:
+            return pictures
 
         image_url = ""
         if self.id and self.write_date:

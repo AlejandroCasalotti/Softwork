@@ -56,7 +56,13 @@ class MlPublishAssistantWizard(models.TransientModel):
     ml_sale_terms_json = fields.Text(string="Formato de venta (sale_terms JSON)")
     ml_required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
     ml_recommended_attributes_json = fields.Text(string="Atributos secundarios", readonly=True)
+    attribute_line_ids = fields.One2many(
+        "ml.publish.assistant.attribute.line", "wizard_id", string="Atributos a publicar"
+    )
 
+    picture_line_ids = fields.One2many(
+        "ml.publish.assistant.picture.line", "wizard_id", string="Imágenes adicionales"
+    )
     ml_variant_notes = fields.Text(string="Variantes/Fotos")
     validation_summary = fields.Text(string="Checklist", readonly=True)
 
@@ -109,6 +115,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         if not account:
             raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
 
+        self.env["ml.category"].refresh_for_account(account, query=product.ml_title or product.name or "")
         provider = ProviderFactory.get_provider(account)
         listing_items = []
         try:
@@ -177,6 +184,30 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_variant_notes": "",
             }
         )
+
+        picture_commands = []
+        raw_pictures = (product.ml_pictures_json or "").strip()
+        if raw_pictures:
+            try:
+                parsed = json.loads(raw_pictures)
+                if isinstance(parsed, list):
+                    seq = 10
+                    seen = set()
+                    for item in parsed:
+                        if not isinstance(item, dict):
+                            continue
+                        source = (item.get("source") or "").strip()
+                        if not source or source in seen:
+                            continue
+                        seen.add(source)
+                        picture_commands.append((0, 0, {"sequence": seq, "source": source}))
+                        seq += 10
+            except Exception:
+                picture_commands = []
+
+        if picture_commands:
+            vals["picture_line_ids"] = picture_commands
+
         return vals
 
     def action_next(self):
@@ -211,6 +242,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         if not category_id:
             raise UserError("Define categoría ML para cargar metadatos.")
 
+        self.env["ml.category"].refresh_for_account(self.account_id, query="")
         provider = ProviderFactory.get_provider(self.account_id)
         req_res = provider.get_category_required_fields(category_id=category_id)
         required = req_res.get("items") if isinstance(req_res, dict) else []
@@ -259,6 +291,33 @@ class MlPublishAssistantWizard(models.TransientModel):
                     }
                 )
 
+        self.attribute_line_ids.unlink()
+        commands = []
+        seq = 10
+        for attr in required + recommended:
+            if not isinstance(attr, dict):
+                continue
+            aid = (attr.get("id") or "").strip()
+            if not aid:
+                continue
+            commands.append(
+                (
+                    0,
+                    0,
+                    {
+                        "sequence": seq,
+                        "attribute_id": aid,
+                        "attribute_name": (attr.get("name") or aid).strip(),
+                        "required": aid in req_ids,
+                        "value_id": "",
+                        "value_name": "",
+                    },
+                )
+            )
+            seq += 10
+        if commands:
+            self.write({"attribute_line_ids": commands})
+
         self.ml_required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
@@ -279,6 +338,32 @@ class MlPublishAssistantWizard(models.TransientModel):
                 }
             )
 
+        attrs_payload = []
+        for line in self.attribute_line_ids.sorted("sequence"):
+            aid = (line.attribute_id or "").strip()
+            if not aid:
+                continue
+            item = {"id": aid}
+            if (line.value_id or "").strip():
+                item["value_id"] = line.value_id.strip()
+            if (line.value_name or "").strip():
+                item["value_name"] = line.value_name.strip()
+            if item.get("value_id") or item.get("value_name"):
+                attrs_payload.append(item)
+
+        pictures_payload = []
+        seen_sources = set()
+        for line in self.picture_line_ids.sorted("sequence"):
+            source = (line.source or "").strip()
+            if not source:
+                continue
+            if not source.startswith(("http://", "https://")) or len(source) > 1024:
+                continue
+            if source in seen_sources:
+                continue
+            seen_sources.add(source)
+            pictures_payload.append({"source": source})
+
         product.write(
             {
                 "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
@@ -290,6 +375,8 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
                 "ml_sale_terms_json": json.dumps(sale_terms, ensure_ascii=False) if sale_terms else (self.ml_sale_terms_json or "[]"),
+                "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
+                "ml_pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
             }
         )
 
@@ -316,7 +403,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             pricing_errors.append("Stock efectivo inválido.")
 
         image_errors = []
-        pictures = product._collect_ml_pictures()
+        wizard_pictures = [{"source": (l.source or "").strip()} for l in self.picture_line_ids if (l.source or "").strip()]
+        pictures = wizard_pictures or product._collect_ml_pictures()
         if not pictures:
             image_errors.append("Faltan imágenes públicas válidas.")
         else:
