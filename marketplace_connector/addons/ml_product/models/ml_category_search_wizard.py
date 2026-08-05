@@ -27,6 +27,20 @@ class MlCategorySearchWizard(models.TransientModel):
     category_attributes_json = fields.Text(string="Atributos de categoría", readonly=True)
     required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
 
+    def _raise_if_access_denied_response(self, payload, operation):
+        if isinstance(payload, str):
+            text = payload.lower()
+            if "<html" in text and "access denied" in text:
+                _logger.error(
+                    "Access Denied detectado en operación ML '%s' para account_id=%s",
+                    operation,
+                    self.account_id.id if self.account_id else False,
+                )
+                raise UserError(
+                    "Acceso denegado por el servicio remoto. "
+                    "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
+                )
+
     def action_search(self):
         self.ensure_one()
         query = (self.query or "").strip()
@@ -35,8 +49,15 @@ class MlCategorySearchWizard(models.TransientModel):
 
         provider = ProviderFactory.get_provider(self.account_id)
         result = provider.search_categories(query=query, limit=8)
+        self._raise_if_access_denied_response(result, "search_categories")
         items = result.get("items") if isinstance(result, dict) else []
         if not isinstance(items, list):
+            _logger.warning(
+                "Respuesta inesperada en search_categories account_id=%s query=%s: %s",
+                self.account_id.id,
+                query,
+                type(result).__name__,
+            )
             items = []
 
         self.result_json = json.dumps(items, ensure_ascii=False, indent=2)
@@ -62,11 +83,26 @@ class MlCategorySearchWizard(models.TransientModel):
         attrs_res = provider.get_category_attributes(category_id=category_id)
         req_res = provider.get_category_required_fields(category_id=category_id)
 
+        self._raise_if_access_denied_response(attrs_res, "get_category_attributes")
+        self._raise_if_access_denied_response(req_res, "get_category_required_fields")
+
         attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
         required = req_res.get("items") if isinstance(req_res, dict) else []
         if not isinstance(attrs, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_attributes account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                category_id,
+                type(attrs_res).__name__,
+            )
             attrs = []
         if not isinstance(required, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_required_fields account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                category_id,
+                type(req_res).__name__,
+            )
             required = []
 
         current_attrs = []

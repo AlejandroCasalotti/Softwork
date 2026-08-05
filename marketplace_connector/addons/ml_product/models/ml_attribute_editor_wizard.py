@@ -28,6 +28,20 @@ class MlAttributeEditorWizard(models.TransientModel):
         string="Atributos requeridos",
     )
 
+    def _raise_if_access_denied_response(self, payload, operation):
+        if isinstance(payload, str):
+            text = payload.lower()
+            if "<html" in text and "access denied" in text:
+                _logger.error(
+                    "Access Denied detectado en operación ML '%s' para account_id=%s",
+                    operation,
+                    self.account_id.id if self.account_id else False,
+                )
+                raise UserError(
+                    "Acceso denegado por el servicio remoto. "
+                    "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
+                )
+
     @api.model
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
@@ -61,8 +75,15 @@ class MlAttributeEditorWizard(models.TransientModel):
         self.ensure_one()
         provider = ProviderFactory.get_provider(self.account_id)
         req_res = provider.get_category_required_fields(category_id=self.category_id)
+        self._raise_if_access_denied_response(req_res, "get_category_required_fields")
         required = req_res.get("items") if isinstance(req_res, dict) else []
         if not isinstance(required, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_required_fields account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                self.category_id,
+                type(req_res).__name__,
+            )
             required = []
 
         current_attrs = []

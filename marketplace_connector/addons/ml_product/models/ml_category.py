@@ -31,6 +31,20 @@ class MlCategory(models.Model):
         return result
 
     @api.model
+    def _raise_if_access_denied_response(self, payload, account, operation):
+        if isinstance(payload, str):
+            text = payload.lower()
+            if "<html" in text and "access denied" in text:
+                _logger.error(
+                    "Access Denied detectado en operación ML '%s' para account_id=%s",
+                    operation,
+                    account.id if account else False,
+                )
+                raise UserError(
+                    "Acceso denegado por el servicio remoto. "
+                    "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
+                )
+
     def refresh_for_account(self, account, query=""):
         if not account:
             raise UserError("Cuenta ML inválida para refrescar categorías.")
@@ -39,12 +53,32 @@ class MlCategory(models.Model):
         try:
             if hasattr(provider, "search_categories"):
                 resp = provider.search_categories(query=query or "")
-                items = resp.get("items") if isinstance(resp, dict) else []
+                self._raise_if_access_denied_response(resp, account, "search_categories")
+                if isinstance(resp, dict):
+                    items = resp.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en search_categories para account_id=%s query=%s: %s",
+                        account.id,
+                        query or "",
+                        type(resp).__name__,
+                    )
+                    items = []
             elif hasattr(provider, "sync"):
                 resp = provider.sync(
                     {"operation": "search_categories", "payload": {"query": query or ""}}
                 )
-                items = resp.get("items") if isinstance(resp, dict) else []
+                self._raise_if_access_denied_response(resp, account, "sync:search_categories")
+                if isinstance(resp, dict):
+                    items = resp.get("items")
+                else:
+                    _logger.warning(
+                        "Respuesta inesperada en sync(search_categories) para account_id=%s query=%s: %s",
+                        account.id,
+                        query or "",
+                        type(resp).__name__,
+                    )
+                    items = []
         except Exception:
             _logger.exception("Error refrescando categorías ML para account_id=%s", account.id)
             items = []
