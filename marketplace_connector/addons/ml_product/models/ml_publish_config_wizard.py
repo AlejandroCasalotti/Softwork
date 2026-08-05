@@ -49,10 +49,23 @@ class MlPublishConfigWizard(models.TransientModel):
             raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
 
         provider = ProviderFactory.get_provider(account)
-        listing_res = provider.get_listing_types()
-        listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
-        if not isinstance(listing_items, list):
+        listing_items = []
+
+        try:
+            if hasattr(provider, "get_listing_types"):
+                listing_res = provider.get_listing_types()
+                listing_items = listing_res.get("items") if isinstance(listing_res, dict) else []
+            elif hasattr(provider, "sync"):
+                sync_res = provider.sync({"operation": "get_listing_types", "payload": {}})
+                listing_items = sync_res.get("items") if isinstance(sync_res, dict) else []
+        except Exception:
             listing_items = []
+
+        if not isinstance(listing_items, list) or not listing_items:
+            listing_items = [
+                {"id": "gold_special", "name": "Clásica", "status": "active"},
+                {"id": "gold_pro", "name": "Premium", "status": "active"},
+            ]
 
         existing_types = self.env["ml.listing.type"].search([("account_id", "=", account.id)])
         existing_types.unlink()
