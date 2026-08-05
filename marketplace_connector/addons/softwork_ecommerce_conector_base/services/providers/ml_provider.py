@@ -50,7 +50,29 @@ class MercadoLibreProvider(IProvider):
         except Exception:
             return default
 
-    def _request(self, method, endpoint, payload=None, params=None, with_auth=True, form_encoded=False):
+    def _persist_refreshed_tokens(self, refresh_res):
+        if not isinstance(refresh_res, dict):
+            return False
+        access_token = refresh_res.get("access_token")
+        refresh_token = refresh_res.get("refresh_token")
+        token_expires_at = refresh_res.get("token_expires_at")
+
+        vals = {}
+        if access_token:
+            vals["access_token"] = access_token
+        if refresh_token:
+            vals["refresh_token"] = refresh_token
+        if token_expires_at:
+            vals["token_expires_at"] = token_expires_at
+
+        if not vals:
+            return False
+
+        self.account.sudo().write(vals)
+        self.account.invalidate_recordset()
+        return True
+
+    def _request(self, method, endpoint, payload=None, params=None, with_auth=True, form_encoded=False, _retried=False):
         self._ensure_requests()
         headers = {"Content-Type": "application/json"}
         if form_encoded:
@@ -89,6 +111,37 @@ class MercadoLibreProvider(IProvider):
             raise UserError(f"Error de red con MercadoLibre: {err}")
 
         elapsed_ms = int((time.monotonic() - started_at) * 1000)
+
+        if response.status_code in (401, 403) and with_auth and not _retried and self.account.refresh_token:
+            _logger.warning(
+                "ML auth %s en %s %s para account_id=%s. Intentando refresh token y retry único.",
+                response.status_code,
+                method,
+                endpoint,
+                self.account.id,
+            )
+            try:
+                refresh_res = self.refresh_token()
+                persisted = self._persist_refreshed_tokens(refresh_res)
+                if persisted:
+                    _logger.info("ML refresh token exitoso para account_id=%s. Reintentando request.", self.account.id)
+                    return self._request(
+                        method,
+                        endpoint,
+                        payload=payload,
+                        params=params,
+                        with_auth=with_auth,
+                        form_encoded=form_encoded,
+                        _retried=True,
+                    )
+                _logger.warning("ML refresh sin tokens persistibles para account_id=%s", self.account.id)
+            except Exception as err:
+                _logger.exception("ML refresh token falló para account_id=%s", self.account.id)
+                raise UserError(
+                    "MercadoLibre devolvió no autorizado y el refresh token falló. "
+                    f"Detalle: {err}"
+                )
+
         if response.status_code >= 400:
             raise UserError(f"Error MercadoLibre {response.status_code}: {response.text}")
         if not response.text:
