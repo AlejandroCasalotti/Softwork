@@ -73,10 +73,11 @@ class MlPublishAssistantWizard(models.TransientModel):
         if isinstance(payload, str):
             text = payload.lower()
             if "<html" in text and "access denied" in text:
+                safe_account = self.account_id or self.product_tmpl_id.ml_account_id
                 _logger.error(
                     "Access Denied detectado en operación ML '%s' para account_id=%s",
                     operation,
-                    self.account_id.id if self.account_id else False,
+                    safe_account.id if safe_account else False,
                 )
                 raise UserError(
                     "Acceso denegado por el servicio remoto. "
@@ -343,9 +344,12 @@ class MlPublishAssistantWizard(models.TransientModel):
                 break
 
         if sales_unit_options:
-            self.env["ml.attribute.option"].search(
+            option_model = self.env["ml.attribute.option"]
+            existing_opts = option_model.search(
                 [("account_id", "=", self.account_id.id), ("attribute_id", "=", "SALES_UNIT")]
-            ).unlink()
+            )
+            existing_map = {rec.value_id: rec for rec in existing_opts if rec.value_id}
+            seen_value_ids = set()
             for opt in sales_unit_options:
                 if not isinstance(opt, dict):
                     continue
@@ -353,15 +357,41 @@ class MlPublishAssistantWizard(models.TransientModel):
                 value_name = (opt.get("name") or "").strip()
                 if not value_id:
                     continue
-                self.env["ml.attribute.option"].create(
-                    {
-                        "account_id": self.account_id.id,
-                        "attribute_id": "SALES_UNIT",
-                        "attribute_name": "Unidad de venta",
-                        "value_id": value_id,
-                        "value_name": value_name or value_id,
-                    }
-                )
+                seen_value_ids.add(value_id)
+                vals = {
+                    "account_id": self.account_id.id,
+                    "attribute_id": "SALES_UNIT",
+                    "attribute_name": "Unidad de venta",
+                    "value_id": value_id,
+                    "value_name": value_name or value_id,
+                }
+                existing = existing_map.get(value_id)
+                if existing:
+                    existing.write({"value_name": vals["value_name"], "attribute_name": vals["attribute_name"]})
+                else:
+                    try:
+                        option_model.create(vals)
+                    except Exception:
+                        _logger.warning(
+                            "Posible concurrencia/duplicado creando SALES_UNIT option account_id=%s value_id=%s",
+                            self.account_id.id,
+                            value_id,
+                        )
+                        retry = option_model.search(
+                            [
+                                ("account_id", "=", self.account_id.id),
+                                ("attribute_id", "=", "SALES_UNIT"),
+                                ("value_id", "=", value_id),
+                            ],
+                            limit=1,
+                        )
+                        if retry:
+                            retry.write({"value_name": vals["value_name"], "attribute_name": vals["attribute_name"]})
+                        else:
+                            raise
+            stale_opts = existing_opts.filtered(lambda r: r.value_id and r.value_id not in seen_value_ids)
+            if stale_opts:
+                stale_opts.unlink()
 
         self.attribute_line_ids.unlink()
         commands = []
@@ -542,6 +572,19 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_publish(self):
         self.ensure_one()
-        self.action_apply_to_product()
-        self.product_tmpl_id.action_publish_ml()
+        try:
+            self.action_apply_to_product()
+            self.product_tmpl_id.action_publish_ml()
+        except UserError:
+            raise
+        except Exception:
+            _logger.exception(
+                "Error publicando en ML para product_tmpl_id=%s account_id=%s",
+                self.product_tmpl_id.id if self.product_tmpl_id else False,
+                self.account_id.id if self.account_id else False,
+            )
+            raise UserError(
+                "No se pudo publicar en MercadoLibre. "
+                "Verifica credenciales/permisos de la cuenta y revisa los logs del servidor."
+            )
         return {"type": "ir.actions.act_window_close"}
