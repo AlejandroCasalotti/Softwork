@@ -121,23 +121,40 @@ class MlAttributeEditorWizard(models.TransientModel):
                 for val in values:
                     if not isinstance(val, dict):
                         continue
-                    self.env["ml.attribute.option"].sudo().search(
-                        [
-                            ("category_id", "=", self.category_id),
-                            ("attribute_id", "=", attr_id),
-                            ("value_id", "=", (val.get("id") or "").strip()),
-                            ("value_name", "=", (val.get("name") or "").strip() or (val.get("value_name") or "").strip()),
-                        ],
-                        limit=1,
-                    ) or self.env["ml.attribute.option"].sudo().create(
-                        {
-                            "category_id": self.category_id,
-                            "attribute_id": attr_id,
-                            "attribute_name": attr.get("name") or attr_id,
-                            "value_id": (val.get("id") or "").strip(),
-                            "value_name": (val.get("name") or "").strip() or (val.get("value_name") or "").strip(),
-                        }
-                    )
+                    value_id_candidate = (val.get("id") or "").strip()
+                    value_name_candidate = (val.get("name") or "").strip() or (val.get("value_name") or "").strip()
+                    option_model = self.env["ml.attribute.option"].sudo()
+                    option_domain = [
+                        ("category_id", "=", self.category_id),
+                        ("attribute_id", "=", attr_id),
+                        ("value_id", "=", value_id_candidate),
+                        ("value_name", "=", value_name_candidate),
+                    ]
+                    existing_opt = option_model.search(option_domain, limit=1)
+                    if not existing_opt:
+                        try:
+                            option_model.create(
+                                {
+                                    "account_id": self.account_id.id,
+                                    "category_id": self.category_id,
+                                    "attribute_id": attr_id,
+                                    "attribute_name": attr.get("name") or attr_id,
+                                    "value_id": value_id_candidate,
+                                    "value_name": value_name_candidate,
+                                }
+                            )
+                        except Exception:
+                            _logger.warning(
+                                "Posible concurrencia/duplicado creando ml.attribute.option "
+                                "account_id=%s category_id=%s attribute_id=%s value_id=%s",
+                                self.account_id.id,
+                                self.category_id,
+                                attr_id,
+                                value_id_candidate,
+                            )
+                            existing_opt = option_model.search(option_domain, limit=1)
+                            if not existing_opt:
+                                raise
                 if value_id:
                     option = self.env["ml.attribute.option"].search(
                         [

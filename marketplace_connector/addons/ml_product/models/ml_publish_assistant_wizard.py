@@ -170,22 +170,44 @@ class MlPublishAssistantWizard(models.TransientModel):
                 {"id": "gold_pro", "name": "Premium", "status": "active"},
             ]
 
-        existing_types = self.env["ml.listing.type"].search([("account_id", "=", account.id)])
-        existing_types.unlink()
+        listing_type_model = self.env["ml.listing.type"]
+        existing_types = listing_type_model.search([("account_id", "=", account.id)])
+        existing_map = {rec.listing_type_id: rec for rec in existing_types}
+        seen_listing_ids = set()
+
         for item in listing_items:
             if not isinstance(item, dict):
                 continue
             ltid = (item.get("id") or "").strip()
             if not ltid:
                 continue
-            self.env["ml.listing.type"].create(
-                {
-                    "account_id": account.id,
-                    "listing_type_id": ltid,
-                    "name": (item.get("name") or ltid).strip(),
-                    "status": item.get("status") or "",
-                }
-            )
+            seen_listing_ids.add(ltid)
+            vals = {
+                "account_id": account.id,
+                "listing_type_id": ltid,
+                "name": (item.get("name") or ltid).strip(),
+                "status": item.get("status") or "",
+            }
+            rec = existing_map.get(ltid)
+            if rec:
+                rec.write({"name": vals["name"], "status": vals["status"]})
+            else:
+                try:
+                    listing_type_model.create(vals)
+                except Exception:
+                    _logger.warning(
+                        "Posible concurrencia/duplicado creando ml.listing.type account_id=%s listing_type_id=%s",
+                        account.id,
+                        ltid,
+                    )
+                    rec_retry = listing_type_model.search(
+                        [("account_id", "=", account.id), ("listing_type_id", "=", ltid)],
+                        limit=1,
+                    )
+                    if rec_retry:
+                        rec_retry.write({"name": vals["name"], "status": vals["status"]})
+                    else:
+                        raise
 
         selected_listing = self.env["ml.listing.type"].search(
             [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
