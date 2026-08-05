@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+_logger = logging.getLogger(__name__)
 
 
 class MlCategory(models.Model):
@@ -14,10 +18,9 @@ class MlCategory(models.Model):
     category_id = fields.Char(required=True, index=True)
     category_name = fields.Char(required=True, index=True)
 
-    _ml_category_unique = models.Constraint(
-        "unique(account_id, category_id)",
-        "La categoría ML ya existe para esta cuenta.",
-    )
+    _sql_constraints = [
+        ("ml_category_unique", "unique(account_id, category_id)", "La categoría ML ya existe para esta cuenta."),
+    ]
 
     def name_get(self):
         result = []
@@ -42,6 +45,7 @@ class MlCategory(models.Model):
                 )
                 items = resp.get("items") if isinstance(resp, dict) else []
         except Exception:
+            _logger.exception("Error refrescando categorías ML para account_id=%s", account.id)
             items = []
 
         if not isinstance(items, list):
