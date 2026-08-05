@@ -27,7 +27,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", readonly=True)
 
-    ml_category_id = fields.Char(string="Categoría ML")
+    ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
     ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
         [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
@@ -41,6 +41,18 @@ class MlPublishAssistantWizard(models.TransientModel):
     ml_stock_reserve_qty = fields.Float(string="Stock reservado", default=0.0)
     ml_effective_qty = fields.Integer(string="Stock efectivo", readonly=True)
 
+    ml_sales_unit_value_id = fields.Many2one("ml.attribute.option", string="Unidad de venta")
+    ml_yield_value = fields.Float(string="Rendimiento")
+    ml_yield_unit = fields.Selection(
+        [
+            ("m2", "m²"),
+            ("m", "m"),
+            ("cm2", "cm²"),
+            ("un", "Unidad"),
+        ],
+        string="Unidad de rendimiento",
+        default="m2",
+    )
     ml_sale_terms_json = fields.Text(string="Formato de venta (sale_terms JSON)")
     ml_required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
     ml_recommended_attributes_json = fields.Text(string="Atributos secundarios", readonly=True)
@@ -140,11 +152,16 @@ class MlPublishAssistantWizard(models.TransientModel):
         suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False)
         effective_qty = self._compute_effective_qty(product, product.ml_stock_reserve_qty)
 
+        selected_category = self.env["ml.category"].search(
+            [("account_id", "=", account.id), ("category_id", "=", (product.ml_category_id or "").strip())],
+            limit=1,
+        )
+
         vals.update(
             {
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
-                "ml_category_id": product.ml_category_id,
+                "ml_category_ref_id": selected_category.id if selected_category else False,
                 "ml_listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
@@ -153,6 +170,9 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
                 "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
                 "ml_effective_qty": effective_qty,
+                "ml_sales_unit_value_id": False,
+                "ml_yield_value": 0.0,
+                "ml_yield_unit": "m2",
                 "ml_sale_terms_json": product.ml_sale_terms_json or "[]",
                 "ml_variant_notes": "",
             }
@@ -186,7 +206,8 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_load_ml_metadata(self):
         self.ensure_one()
-        category_id = (self.ml_category_id or "").strip()
+        category = self.ml_category_ref_id
+        category_id = (category.category_id or "").strip() if category else ""
         if not category_id:
             raise UserError("Define categoría ML para cargar metadatos.")
 
@@ -211,6 +232,33 @@ class MlPublishAssistantWizard(models.TransientModel):
             if aid and aid not in req_ids:
                 recommended.append(a)
 
+        sales_unit_options = []
+        for a in required:
+            if isinstance(a, dict) and (a.get("id") or "").strip() == "SALES_UNIT":
+                sales_unit_options = a.get("values") if isinstance(a.get("values"), list) else []
+                break
+
+        if sales_unit_options:
+            self.env["ml.attribute.option"].search(
+                [("account_id", "=", self.account_id.id), ("attribute_id", "=", "SALES_UNIT")]
+            ).unlink()
+            for opt in sales_unit_options:
+                if not isinstance(opt, dict):
+                    continue
+                value_id = (opt.get("id") or "").strip()
+                value_name = (opt.get("name") or "").strip()
+                if not value_id:
+                    continue
+                self.env["ml.attribute.option"].create(
+                    {
+                        "account_id": self.account_id.id,
+                        "attribute_id": "SALES_UNIT",
+                        "attribute_name": "Unidad de venta",
+                        "value_id": value_id,
+                        "value_name": value_name or value_id,
+                    }
+                )
+
         self.ml_required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
@@ -219,9 +267,21 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ensure_one()
         product = self.product_tmpl_id
 
+        sale_terms = []
+        if self.ml_sales_unit_value_id:
+            sale_terms.append({"id": "SALES_UNIT", "value_id": self.ml_sales_unit_value_id.value_id})
+        if self.ml_yield_value > 0:
+            sale_terms.append(
+                {
+                    "id": "YIELD_OF_SALES_UNIT",
+                    "value_name": str(self.ml_yield_value),
+                    "value_struct": {"number": self.ml_yield_value, "unit": self.ml_yield_unit or "m2"},
+                }
+            )
+
         product.write(
             {
-                "ml_category_id": (self.ml_category_id or "").strip(),
+                "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
                 "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
@@ -229,7 +289,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_manual_price_override": bool(self.ml_manual_price_override),
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
-                "ml_sale_terms_json": self.ml_sale_terms_json or "[]",
+                "ml_sale_terms_json": json.dumps(sale_terms, ensure_ascii=False) if sale_terms else (self.ml_sale_terms_json or "[]"),
             }
         )
 
@@ -242,7 +302,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         warnings = []
 
         base_errors = []
-        if not (self.ml_category_id or "").strip():
+        if not self.ml_category_ref_id:
             base_errors.append("Falta categoría ML.")
         if not self.ml_listing_type_id:
             base_errors.append("Falta tipo de publicación.")

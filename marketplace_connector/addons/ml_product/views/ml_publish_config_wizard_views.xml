@@ -1,32 +1,57 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_ml_publish_config_wizard_form" model="ir.ui.view">
-        <field name="name">ml.publish.config.wizard.form</field>
-        <field name="model">ml.publish.config.wizard</field>
+    <record id="view_ml_publish_assistant_wizard_form" model="ir.ui.view">
+        <field name="name">ml.publish.assistant.wizard.form</field>
+        <field name="model">ml.publish.assistant.wizard</field>
         <field name="arch" type="xml">
-            <form string="Configurar publicación ML (UX)">
+            <form string="Asistente Único Publicación ML">
                 <group>
+                    <field name="step" readonly="1"/>
                     <field name="product_tmpl_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
                 </group>
 
-                <group string="Publicación">
+                <group invisible="step != 'base'" string="Paso 1 - Base">
+                    <field name="ml_category_ref_id" options="{'no_create': True}"/>
                     <field name="ml_listing_type_id"/>
                     <field name="ml_condition"/>
-                    <field name="ml_warranty"/>
-                    <field name="ml_shipping_mode"/>
+                    <button name="action_load_ml_metadata" type="object" string="Cargar metadata ML" class="btn-secondary"/>
                 </group>
 
-                <group string="Precio y stock">
+                <group invisible="step != 'pricing_stock'" string="Paso 2 - Precio y Stock">
                     <field name="ml_pricelist_id"/>
                     <field name="ml_use_pricelist_price"/>
                     <field name="ml_manual_price_override"/>
                     <field name="ml_price" readonly="ml_manual_price_override == False"/>
                     <field name="ml_stock_reserve_qty"/>
+                    <field name="ml_effective_qty" readonly="1"/>
+                </group>
+
+                <group invisible="step != 'sale_format'" string="Paso 3 - Formato de venta">
+                    <field name="ml_sales_unit_value_id" domain="[('account_id', '=', account_id), ('attribute_id', '=', 'SALES_UNIT')]" options="{'no_create': True}"/>
+                    <field name="ml_yield_value"/>
+                    <field name="ml_yield_unit"/>
+                </group>
+
+                <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
+                    <field name="ml_required_attributes_json" widget="text" readonly="1"/>
+                    <field name="ml_recommended_attributes_json" widget="text" readonly="1"/>
+                </group>
+
+                <group invisible="step != 'variants_photos'" string="Paso 5 - Variantes y Fotos">
+                    <field name="ml_variant_notes" widget="text" placeholder="Definir variaciones (color/talle), SKU/GTIN y fotos por variante."/>
+                </group>
+
+                <group invisible="step != 'review'" string="Paso 6 - Revisión final">
+                    <button name="action_validate_checklist" type="object" string="Validar checklist" class="btn-secondary"/>
+                    <field name="validation_summary" widget="text" readonly="1"/>
                 </group>
 
                 <footer>
-                    <button name="action_apply" type="object" string="Aplicar configuración" class="btn-primary"/>
+                    <button name="action_prev" type="object" string="Anterior" class="btn-secondary"/>
+                    <button name="action_next" type="object" string="Siguiente" class="btn-secondary"/>
+                    <button name="action_apply_to_product" type="object" string="Guardar en producto" class="btn-secondary"/>
+                    <button name="action_publish" type="object" string="Publicar en ML" class="btn-primary"/>
                     <button string="Cancelar" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>
