@@ -18,9 +18,10 @@ class MlCategory(models.Model):
     category_id = fields.Char(required=True, index=True)
     category_name = fields.Char(required=True, index=True)
 
-    _sql_constraints = [
-        ("ml_category_unique", "unique(account_id, category_id)", "La categoría ML ya existe para esta cuenta."),
-    ]
+    _ml_category_unique = models.Constraint(
+        "UNIQUE(account_id, category_id)",
+        "La categoría ML ya existe para esta cuenta.",
+    )
 
     def name_get(self):
         result = []

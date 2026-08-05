@@ -12,10 +12,7 @@ class MlListingType(models.Model):
     name = fields.Char(required=True)
     status = fields.Char()
 
-    _sql_constraints = [
-        (
-            "ml_listing_type_unique",
-            "unique(account_id, listing_type_id)",
-            "El tipo de publicación ya existe para esta cuenta.",
-        ),
-    ]
+    _ml_listing_type_unique = models.Constraint(
+        "UNIQUE(account_id, listing_type_id)",
+        "El tipo de publicación ya existe para esta cuenta.",
+    )
