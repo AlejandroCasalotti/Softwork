@@ -21,7 +21,7 @@
                     <field name="ml_pricelist_id"/>
                     <field name="ml_use_pricelist_price"/>
                     <field name="ml_manual_price_override"/>
-                    <field name="ml_price" invisible="ml_manual_price_override == False"/>
+                    <field name="ml_price" readonly="ml_manual_price_override == False"/>
                     <field name="ml_stock_reserve_qty"/>
                 </group>
 

@@ -27,9 +27,32 @@ class MlPublishConfigWizard(models.TransientModel):
     ml_pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios")
     ml_use_pricelist_price = fields.Boolean(string="Usar precio desde lista", default=True)
     ml_manual_price_override = fields.Boolean(string="Usar precio manual", default=False)
-    ml_price = fields.Float(string="Precio manual ML")
+    ml_price = fields.Float(string="Precio ML")
 
     ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
+
+    def _compute_suggested_price(self, product, pricelist):
+        if not product:
+            return 0.0
+        if pricelist:
+            try:
+                return float(pricelist._get_product_price(product, 1.0) or 0.0)
+            except Exception:
+                return float(product.list_price or 0.0)
+        return float(product.ml_price or product.list_price or 0.0)
+
+    @api.onchange("ml_pricelist_id", "ml_use_pricelist_price", "ml_manual_price_override")
+    def _onchange_ml_price_behavior(self):
+        for wizard in self:
+            if not wizard.product_tmpl_id:
+                continue
+            if wizard.ml_manual_price_override:
+                if not wizard.ml_price:
+                    wizard.ml_price = wizard.product_tmpl_id.ml_price or wizard.product_tmpl_id.list_price
+            elif wizard.ml_use_pricelist_price:
+                wizard.ml_price = wizard._compute_suggested_price(wizard.product_tmpl_id, wizard.ml_pricelist_id)
+            else:
+                wizard.ml_price = wizard.product_tmpl_id.ml_price or wizard.product_tmpl_id.list_price
 
     @api.model
     def default_get(self, fields_list):
@@ -89,6 +112,8 @@ class MlPublishConfigWizard(models.TransientModel):
             limit=1,
         )
 
+        suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False)
+
         vals.update(
             {
                 "product_tmpl_id": product.id,
@@ -100,7 +125,7 @@ class MlPublishConfigWizard(models.TransientModel):
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
                 "ml_manual_price_override": product.ml_manual_price_override,
-                "ml_price": product.ml_price,
+                "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
                 "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
             }
         )

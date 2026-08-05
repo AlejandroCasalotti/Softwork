@@ -133,14 +133,23 @@ class ProductTemplate(models.Model):
     def _collect_ml_pictures(self):
         self.ensure_one()
         pictures = []
-        if self.image_1920:
-            pictures.append({"source": "data:image/jpeg;base64,%s" % self.image_1920.decode()})
 
-        extra_images = getattr(self, "product_template_image_ids", False)
-        if extra_images:
-            for extra in extra_images:
-                if getattr(extra, "image_1920", False):
-                    pictures.append({"source": "data:image/jpeg;base64,%s" % extra.image_1920.decode()})
+        # MercadoLibre exige source URL corta y pública (no data URI base64)
+        def _valid_source(src):
+            s = (src or "").strip()
+            return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
+
+        image_url = ""
+        if self.id and self.write_date:
+            image_url = (
+                f"/web/image/product.template/{self.id}/image_1920"
+                f"?unique={(self.write_date or fields.Datetime.now())}"
+            )
+
+        if _valid_source(image_url):
+            pictures.append({"source": image_url})
+
+        # No enviamos imágenes adicionales en base64 para evitar item.pictures.invalid_source
         return pictures
 
     def _build_variant_combinations(self):
@@ -376,8 +385,15 @@ class ProductTemplate(models.Model):
                 limit=1,
             ):
                 issues.append("No hay cuenta SCE MercadoLibre activa.")
-            if not product._collect_ml_pictures():
-                issues.append("No hay imágenes para publicar.")
+            pics = product._collect_ml_pictures()
+            if not pics:
+                issues.append("No hay imágenes públicas válidas para publicar (source debe ser URL http/https <= 1024).")
+            else:
+                for p in pics:
+                    src = (p.get("source") or "").strip()
+                    if not src.startswith(("http://", "https://")) or len(src) > 1024:
+                        issues.append("Hay imágenes con source inválido para MercadoLibre.")
+                        break
             if not (product.ml_brand or "").strip():
                 issues.append("Falta marca.")
             if not (product.ml_model or "").strip():
@@ -408,10 +424,24 @@ class ProductTemplate(models.Model):
             provider = product._get_ml_provider(account)
             payload = product._build_ml_payload()
 
-            if product.ml_item_id:
-                result = provider.update_product(payload)
-            else:
-                result = provider.publish_product(payload)
+            try:
+                if product.ml_item_id:
+                    result = provider.update_product(payload)
+                else:
+                    result = provider.publish_product(payload)
+            except UserError as e:
+                msg = str(e)
+                if (
+                    (product.ml_shipping_mode or "me2") == "me2"
+                    and ("shipping.lost_me2" in msg or "shipping.lost_me1" in msg)
+                ):
+                    payload["shipping"] = {"mode": "custom"}
+                    if product.ml_item_id:
+                        result = provider.update_product(payload)
+                    else:
+                        result = provider.publish_product(payload)
+                else:
+                    raise
 
             product._apply_ml_response(result)
 
