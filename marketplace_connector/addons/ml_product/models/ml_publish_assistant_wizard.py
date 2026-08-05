@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+_logger = logging.getLogger(__name__)
 
 
 class MlPublishAssistantWizard(models.TransientModel):
@@ -126,6 +129,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 sync_res = provider.sync({"operation": "get_listing_types", "payload": {}})
                 listing_items = sync_res.get("items") if isinstance(sync_res, dict) else []
         except Exception:
+            _logger.exception("Error cargando listing types para account_id=%s", account.id)
             listing_items = []
 
         if not isinstance(listing_items, list) or not listing_items:

@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+_logger = logging.getLogger(__name__)
 
 
 class MlAttributeEditorWizard(models.TransientModel):
@@ -70,6 +73,10 @@ class MlAttributeEditorWizard(models.TransientModel):
                 if isinstance(parsed, list):
                     current_attrs = [a for a in parsed if isinstance(a, dict)]
             except Exception:
+                _logger.exception(
+                    "Error parseando ml_attributes_json en editor de atributos para product_tmpl_id=%s",
+                    self.product_tmpl_id.id,
+                )
                 current_attrs = []
         current_map = {(a.get("id") or "").strip(): a for a in current_attrs if (a.get("id") or "").strip()}
 

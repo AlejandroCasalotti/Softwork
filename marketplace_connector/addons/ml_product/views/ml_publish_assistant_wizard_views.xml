@@ -28,7 +28,7 @@
                 </group>
 
                 <group invisible="step != 'sale_format'" string="Paso 3 - Formato de venta">
-                    <field name="ml_sales_unit_value_id" domain="[('attribute_id', '=', 'SALES_UNIT')]" options="{'no_create': True}"/>
+                    <field name="ml_sales_unit_value_id" domain="[('account_id', '=', account_id), ('attribute_id', '=', 'SALES_UNIT')]" options="{'no_create': True}"/>
                     <field name="ml_yield_value"/>
                     <field name="ml_yield_unit"/>
                 </group>

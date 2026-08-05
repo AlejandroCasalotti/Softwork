@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 
 from odoo import fields, models
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
+
+_logger = logging.getLogger(__name__)
 
 
 class MlCategorySearchWizard(models.TransientModel):
@@ -74,6 +77,10 @@ class MlCategorySearchWizard(models.TransientModel):
                 if isinstance(parsed, list):
                     current_attrs = [a for a in parsed if isinstance(a, dict)]
             except Exception:
+                _logger.exception(
+                    "Error parseando ml_attributes_json en category search wizard para product_tmpl_id=%s",
+                    self.product_tmpl_id.id,
+                )
                 current_attrs = []
 
         req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
