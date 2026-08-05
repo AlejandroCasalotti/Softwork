@@ -13,10 +13,7 @@ class MlAttributeOption(models.Model):
     value_id = fields.Char(index=True)
     value_name = fields.Char(required=True)
 
-    _sql_constraints = [
-        (
-            "ml_attr_option_unique",
-            "unique(category_id, attribute_id, value_id, value_name)",
-            "La opción de atributo ya existe para esta categoría.",
-        )
-    ]
+    _ml_attr_option_unique = models.Constraint(
+        "unique(category_id, attribute_id, value_id, value_name)",
+        "La opción de atributo ya existe para esta categoría.",
+    )
