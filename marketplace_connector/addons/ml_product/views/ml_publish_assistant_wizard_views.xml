@@ -9,6 +9,7 @@
                     <field name="step" readonly="1"/>
                     <field name="product_tmpl_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
+                    <button name="action_prev" type="object" string="Ir a Paso 1 (Base)" class="btn-secondary" invisible="step == 'base'"/>
                 </group>
 
                 <group invisible="step != 'base'" string="Paso 1 - Base">
@@ -43,14 +44,14 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
+                    <label string="Completá primero los atributos marcados como requeridos. Si el atributo tiene opción ML, usá value_id; si no, completá value_name."/>
                     <field name="attribute_line_ids">
                         <list editable="bottom">
                             <field name="sequence"/>
                             <field name="required" readonly="1"/>
-                            <field name="attribute_id" readonly="1"/>
                             <field name="attribute_name" readonly="1"/>
-                            <field name="value_id"/>
-                            <field name="value_name"/>
+                            <field name="value_id" placeholder="ID opción ML (si aplica)"/>
+                            <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
                         </list>
                     </field>
                 </group>

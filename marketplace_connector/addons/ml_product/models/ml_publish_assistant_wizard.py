@@ -483,14 +483,27 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
 
+    def _get_allowed_sale_term_ids(self):
+        self.ensure_one()
+        category_id = (self.ml_category_ref_id.category_id or "").strip() if self.ml_category_ref_id else ""
+        if not category_id:
+            return set()
+        provider = ProviderFactory.get_provider(self.account_id)
+        required_res = provider.get_category_required_fields(category_id=category_id)
+        required = required_res.get("items") if isinstance(required_res, dict) else []
+        if not isinstance(required, list):
+            required = []
+        return {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
+
     def action_apply_to_product(self):
         self.ensure_one()
         product = self.product_tmpl_id
 
+        allowed_sale_terms = self._get_allowed_sale_term_ids()
         sale_terms = []
-        if self.ml_sales_unit_value_id:
+        if self.ml_sales_unit_value_id and "SALES_UNIT" in allowed_sale_terms:
             sale_terms.append({"id": "SALES_UNIT", "value_id": self.ml_sales_unit_value_id.value_id})
-        if self.ml_yield_value > 0:
+        if self.ml_yield_value > 0 and "YIELD_OF_SALES_UNIT" in allowed_sale_terms:
             sale_terms.append(
                 {
                     "id": "YIELD_OF_SALES_UNIT",
@@ -578,8 +591,11 @@ class MlPublishAssistantWizard(models.TransientModel):
                     break
 
         attribute_errors = []
-        attrs = product._parse_ml_attributes()
-        attribute_errors.extend(product._validate_ml_required_attributes(attrs))
+        required_lines = self.attribute_line_ids.filtered(lambda l: l.required)
+        for line in required_lines:
+            has_value = bool((line.value_id or "").strip() or (line.value_name or "").strip())
+            if not has_value:
+                attribute_errors.append(f"Falta atributo requerido ML: {line.attribute_name or line.attribute_id}")
 
         sale_terms_errors = []
         raw_terms = (self.ml_sale_terms_json or "").strip()
@@ -633,6 +649,12 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_publish(self):
         self.ensure_one()
+        self.action_validate_checklist()
+        if "CON OBSERVACIONES BLOQUEANTES" in (self.validation_summary or ""):
+            raise UserError(
+                "No se puede publicar hasta resolver los bloqueantes del checklist.\n"
+                "Revisá Paso 4 (Atributos) y Paso 6 (Revisión final)."
+            )
         try:
             self.action_apply_to_product()
             self.product_tmpl_id.action_publish_ml()
