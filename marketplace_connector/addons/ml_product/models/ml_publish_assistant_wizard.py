@@ -555,10 +555,13 @@ class MlPublishAssistantWizard(models.TransientModel):
             if not aid:
                 continue
             item = {"id": aid}
-            if (line.value_id or "").strip():
-                item["value_id"] = line.value_id.strip()
-            if (line.value_name or "").strip():
-                item["value_name"] = line.value_name.strip()
+            opt = line.attribute_option_id
+            effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
+            effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
+            if effective_value_id:
+                item["value_id"] = effective_value_id
+            if effective_value_name:
+                item["value_name"] = effective_value_name
             if item.get("value_id") or item.get("value_name"):
                 attrs_payload.append(item)
 
@@ -628,11 +631,49 @@ class MlPublishAssistantWizard(models.TransientModel):
                     break
 
         attribute_errors = []
+        warnings_by_attr = []
+        required_map = {}
+        try:
+            required_raw = json.loads(self.ml_required_attributes_json or "[]")
+            if isinstance(required_raw, list):
+                for a in required_raw:
+                    if isinstance(a, dict):
+                        rid = (a.get("id") or "").strip()
+                        if rid:
+                            required_map[rid] = (a.get("name") or rid).strip()
+        except Exception:
+            required_map = {}
+
         required_lines = self.attribute_line_ids.filtered(lambda l: l.required)
         for line in required_lines:
-            has_value = bool((line.value_id or "").strip() or (line.value_name or "").strip())
+            opt = line.attribute_option_id
+            effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
+            effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
+            has_value = bool(effective_value_id or effective_value_name)
             if not has_value:
-                attribute_errors.append(f"Falta atributo requerido ML: {line.attribute_name or line.attribute_id}")
+                pretty = required_map.get((line.attribute_id or "").strip(), line.attribute_name or line.attribute_id)
+                attribute_errors.append(f"Falta atributo requerido ML: {pretty}")
+
+        for line in self.attribute_line_ids:
+            aid = (line.attribute_id or "").strip()
+            if not aid:
+                continue
+            if line.attribute_option_id:
+                continue
+            has_manual = bool((line.value_id or "").strip() or (line.value_name or "").strip())
+            if has_manual:
+                continue
+            opt_count = self.env["ml.attribute.option"].search_count(
+                [
+                    ("account_id", "=", self.account_id.id),
+                    ("category_id", "=", self.ml_category_ref_id.category_id if self.ml_category_ref_id else ""),
+                    ("attribute_id", "=", aid),
+                ]
+            )
+            if opt_count:
+                warnings_by_attr.append(
+                    f"Atributo '{line.attribute_name or aid}' tiene opciones sugeridas. Elegí una en la columna 'Opción sugerida'."
+                )
 
         sale_terms_errors = []
         raw_terms = (self.ml_sale_terms_json or "").strip()
@@ -652,6 +693,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             warnings.append("Recomendado: completar Modelo.")
         if not raw_terms:
             warnings.append("Recomendado: definir sale_terms para mejorar calidad de publicación.")
+        warnings.extend(warnings_by_attr)
 
         if base_errors:
             errors.append("[Base]")
@@ -733,3 +775,12 @@ class MlPublishAssistantAttributeLine(models.TransientModel):
             if line.attribute_option_id:
                 line.value_id = line.attribute_option_id.value_id or ""
                 line.value_name = line.attribute_option_id.value_name or ""
+
+
+class MlPublishAssistantPictureLine(models.TransientModel):
+    _name = "ml.publish.assistant.picture.line"
+    _description = "Línea de imágenes del asistente ML"
+
+    wizard_id = fields.Many2one("ml.publish.assistant.wizard", required=True, ondelete="cascade")
+    sequence = fields.Integer(default=10)
+    source = fields.Char(required=True)
