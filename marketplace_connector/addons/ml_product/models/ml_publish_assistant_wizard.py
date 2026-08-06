@@ -184,7 +184,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             seen_listing_ids.add(ltid)
             vals = {
                 "account_id": account.id,
-                "ml_listing_type_id": ltid,
+                "listing_type_id": ltid,
                 "name": (item.get("name") or ltid).strip(),
                 "status": item.get("status") or "",
             }
