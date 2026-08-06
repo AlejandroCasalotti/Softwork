@@ -12,10 +12,19 @@
                 </group>
 
                 <group invisible="step != 'base'" string="Paso 1 - Base">
-                    <field name="ml_category_ref_id" options="{'no_create': True}"/>
-                    <field name="listing_type_id"/>
-                    <field name="ml_condition"/>
-                    <button name="action_load_ml_metadata" type="object" string="Cargar metadata ML" class="btn-secondary"/>
+                    <group>
+                        <field name="ml_category_ref_id" options="{'no_create': True}"/>
+                        <button name="action_open_category_search" type="object" string="Buscar categoría ML" class="btn-primary"/>
+                    </group>
+                    <group>
+                        <field name="listing_type_id"/>
+                        <field name="ml_condition"/>
+                    </group>
+                    <group string="Datos clave del producto">
+                        <field name="ml_brand" placeholder="Ej: Cerámica Alberdi"/>
+                        <field name="ml_model" placeholder="Ej: Porcelanato 60x120"/>
+                    </group>
+                    <button name="action_load_ml_metadata" type="object" string="Cargar metadata de la categoría" class="btn-secondary"/>
                 </group>
 
                 <group invisible="step != 'pricing_stock'" string="Paso 2 - Precio y Stock">

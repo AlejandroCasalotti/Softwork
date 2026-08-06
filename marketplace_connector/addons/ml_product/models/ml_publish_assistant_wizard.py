@@ -32,6 +32,8 @@ class MlPublishAssistantWizard(models.TransientModel):
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
+    ml_brand = fields.Char(string="Marca")
+    ml_model = fields.Char(string="Modelo")
     listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
         [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
@@ -234,6 +236,8 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "account_id": account.id,
                 "ml_category_ref_id": selected_category.id if selected_category else False,
                 "listing_type_id": selected_listing.id if selected_listing else False,
+                "ml_brand": product.ml_brand or "",
+                "ml_model": product.ml_model or "",
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
@@ -290,6 +294,30 @@ class MlPublishAssistantWizard(models.TransientModel):
                     safe_vals.pop(key, None)
             sanitized_list.append(safe_vals)
         return super().create(sanitized_list)
+
+    def action_open_category_search(self):
+        self.ensure_one()
+        product = self.product_tmpl_id
+        wizard = self.env["ml.category.search.wizard"].create(
+            {
+                "product_tmpl_id": product.id,
+                "account_id": self.account_id.id,
+                "query": product.ml_title or product.name or "",
+                "selected_category_id": (
+                    self.ml_category_ref_id.category_id if self.ml_category_ref_id else (product.ml_category_id or "")
+                ),
+            }
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.category.search.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
+            "context": {
+                "default_product_tmpl_id": product.id,
+            },
+        }
 
     def action_next(self):
         self.ensure_one()
@@ -498,6 +526,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             {
                 "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
                 "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
+                "ml_brand": (self.ml_brand or "").strip(),
+                "ml_model": (self.ml_model or "").strip(),
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
                 "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
