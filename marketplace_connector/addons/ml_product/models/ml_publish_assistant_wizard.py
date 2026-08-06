@@ -26,6 +26,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         default="base",
     )
 
+    name = fields.Char(string="Nombre", default="Asistente publicación ML")
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
@@ -118,6 +119,8 @@ class MlPublishAssistantWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
+        if "name" in fields_list and not vals.get("name"):
+            vals["name"] = "Asistente publicación ML"
         product_id = self.env.context.get("default_product_tmpl_id")
         if not product_id:
             return vals
