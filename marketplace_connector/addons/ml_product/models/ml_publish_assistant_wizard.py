@@ -27,6 +27,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     )
 
     name = fields.Char(string="Nombre", default="Asistente publicación ML")
+    status = fields.Char(string="Estado")
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
@@ -121,6 +122,8 @@ class MlPublishAssistantWizard(models.TransientModel):
         vals = super().default_get(fields_list)
         if "name" in fields_list and not vals.get("name"):
             vals["name"] = "Asistente publicación ML"
+        if "status" in fields_list and "status" not in vals:
+            vals["status"] = ""
         product_id = self.env.context.get("default_product_tmpl_id")
         if not product_id:
             return vals
@@ -270,6 +273,23 @@ class MlPublishAssistantWizard(models.TransientModel):
             vals["picture_line_ids"] = picture_commands
 
         return vals
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        sanitized_list = []
+        allowed_fields = set(self._fields.keys())
+        for vals in vals_list:
+            safe_vals = dict(vals or {})
+            unknown_keys = [k for k in safe_vals.keys() if k not in allowed_fields]
+            if unknown_keys:
+                _logger.warning(
+                    "ml.publish.assistant.wizard.create: ignorando campos desconocidos: %s",
+                    ",".join(sorted(unknown_keys)),
+                )
+                for key in unknown_keys:
+                    safe_vals.pop(key, None)
+            sanitized_list.append(safe_vals)
+        return super().create(sanitized_list)
 
     def action_next(self):
         self.ensure_one()
