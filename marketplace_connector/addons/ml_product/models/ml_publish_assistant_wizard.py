@@ -28,7 +28,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     )
 
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
-    account_id = fields.Many2one("sce.account", string="Cuenta ML", readonly=True)
+    account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
     ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
