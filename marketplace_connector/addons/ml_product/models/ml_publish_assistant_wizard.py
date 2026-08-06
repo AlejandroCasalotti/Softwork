@@ -24,7 +24,6 @@ class MlPublishAssistantWizard(models.TransientModel):
             ("review", "Revisión final"),
         ],
         default="base",
-        required=True,
     )
 
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
