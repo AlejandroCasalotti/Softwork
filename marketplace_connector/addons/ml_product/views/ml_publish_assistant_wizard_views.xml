@@ -44,7 +44,7 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
-                    <label string="Completá primero los atributos marcados como requeridos. Si el atributo tiene opción ML, usá value_id; si no, completá value_name."/>
+                    <div class="o_form_label">Completá primero los atributos marcados como requeridos. Si el atributo tiene opción ML, usá value_id; si no, completá value_name.</div>
                     <field name="attribute_line_ids">
                         <list editable="bottom">
                             <field name="sequence"/>
