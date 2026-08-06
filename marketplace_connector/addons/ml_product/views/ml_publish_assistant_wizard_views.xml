@@ -13,7 +13,7 @@
 
                 <group invisible="step != 'base'" string="Paso 1 - Base">
                     <field name="ml_category_ref_id" options="{'no_create': True}"/>
-                    <field name="ml_listing_type_id"/>
+                    <field name="listing_type_id"/>
                     <field name="ml_condition"/>
                     <button name="action_load_ml_metadata" type="object" string="Cargar metadata ML" class="btn-secondary"/>
                 </group>

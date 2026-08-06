@@ -30,7 +30,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
-    ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
+    listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
         [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
         string="Condición",
@@ -227,7 +227,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
                 "ml_category_ref_id": selected_category.id if selected_category else False,
-                "ml_listing_type_id": selected_listing.id if selected_listing else False,
+                "listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
@@ -468,7 +468,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         product.write(
             {
                 "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
-                "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
+                "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
                 "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
@@ -492,7 +492,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         base_errors = []
         if not self.ml_category_ref_id:
             base_errors.append("Falta categoría ML.")
-        if not self.ml_listing_type_id:
+        if not self.listing_type_id:
             base_errors.append("Falta tipo de publicación.")
         if not (self.ml_condition or "").strip():
             base_errors.append("Falta condición.")
