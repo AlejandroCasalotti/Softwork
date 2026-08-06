@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_ml_publish_assistant_wizard_form" model="ir.ui.view">
-        <field name="name">ml.publish.assistant.wizard.form</field>
-        <field name="model">ml.publish.assistant.wizard</field>
+    <record id="view_ml_publish_config_wizard_form" model="ir.ui.view">
+        <field name="name">ml.publish.config.wizard.form</field>
+        <field name="model">ml.publish.config.wizard</field>
         <field name="arch" type="xml">
-            <form string="Asistente Único Publicación ML">
+            <form string="Configuración de publicación ML">
                 <group>
                     <field name="step" readonly="1"/>
                     <field name="product_tmpl_id" readonly="1"/>
