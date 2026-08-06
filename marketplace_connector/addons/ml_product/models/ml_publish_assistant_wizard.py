@@ -555,7 +555,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             if not aid:
                 continue
             item = {"id": aid}
-            opt = line.attribute_option_id
+            opt = getattr(line, "attribute_option_id", False)
             effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
             effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
             if effective_value_id:
@@ -646,7 +646,7 @@ class MlPublishAssistantWizard(models.TransientModel):
 
         required_lines = self.attribute_line_ids.filtered(lambda l: l.required)
         for line in required_lines:
-            opt = line.attribute_option_id
+            opt = getattr(line, "attribute_option_id", False)
             effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
             effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
             has_value = bool(effective_value_id or effective_value_name)
@@ -658,7 +658,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             aid = (line.attribute_id or "").strip()
             if not aid:
                 continue
-            if line.attribute_option_id:
+            if getattr(line, "attribute_option_id", False):
                 continue
             has_manual = bool((line.value_id or "").strip() or (line.value_name or "").strip())
             if has_manual:
