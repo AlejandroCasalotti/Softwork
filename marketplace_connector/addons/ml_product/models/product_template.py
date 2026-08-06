@@ -232,6 +232,18 @@ class ProductTemplate(models.Model):
         listing_type = self.ml_listing_type or "gold_special"
 
         sale_terms = self._validate_ml_sale_terms()
+        try:
+            account = self._get_ml_account()
+            provider = ProviderFactory.get_provider(account)
+            req_res = provider.get_category_required_fields(category_id=category)
+            required = req_res.get("items") if isinstance(req_res, dict) else []
+            if not isinstance(required, list):
+                required = []
+            allowed_sale_terms = {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
+            allowed_sale_terms.discard("")
+            sale_terms = [t for t in sale_terms if (t.get("id") or "").strip() in allowed_sale_terms]
+        except Exception:
+            _logger.exception("No se pudo filtrar sale_terms por categoría ML; se conserva payload original.")
 
         payload = {
             "title": title,
