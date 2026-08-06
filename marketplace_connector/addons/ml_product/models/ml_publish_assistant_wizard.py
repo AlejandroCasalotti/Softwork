@@ -294,7 +294,10 @@ class MlPublishAssistantWizard(models.TransientModel):
     def action_next(self):
         self.ensure_one()
         order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
-        idx = order.index(self.step)
+        current_step = self.step if self.step in order else "base"
+        if not self.step:
+            self.step = current_step
+        idx = order.index(current_step)
         if idx < len(order) - 1:
             self.step = order[idx + 1]
         return self._reload_self()
@@ -302,7 +305,10 @@ class MlPublishAssistantWizard(models.TransientModel):
     def action_prev(self):
         self.ensure_one()
         order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
-        idx = order.index(self.step)
+        current_step = self.step if self.step in order else "base"
+        if not self.step:
+            self.step = current_step
+        idx = order.index(current_step)
         if idx > 0:
             self.step = order[idx - 1]
         return self._reload_self()
