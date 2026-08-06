@@ -479,6 +479,43 @@ class MlPublishAssistantWizard(models.TransientModel):
         if commands:
             self.write({"attribute_line_ids": commands})
 
+        option_model = self.env["ml.attribute.option"]
+        for attr in required + recommended:
+            if not isinstance(attr, dict):
+                continue
+            aid = (attr.get("id") or "").strip()
+            if not aid:
+                continue
+            values = attr.get("values") if isinstance(attr.get("values"), list) else []
+            for opt in values:
+                if not isinstance(opt, dict):
+                    continue
+                value_id = (opt.get("id") or "").strip()
+                value_name = (opt.get("name") or value_id).strip()
+                if not value_id and not value_name:
+                    continue
+                existing = option_model.search(
+                    [
+                        ("account_id", "=", self.account_id.id),
+                        ("category_id", "=", category_id),
+                        ("attribute_id", "=", aid),
+                        ("value_id", "=", value_id),
+                    ],
+                    limit=1,
+                )
+                vals_opt = {
+                    "account_id": self.account_id.id,
+                    "category_id": category_id,
+                    "attribute_id": aid,
+                    "attribute_name": (attr.get("name") or aid).strip(),
+                    "value_id": value_id,
+                    "value_name": value_name,
+                }
+                if existing:
+                    existing.write({"value_name": vals_opt["value_name"], "attribute_name": vals_opt["attribute_name"]})
+                else:
+                    option_model.create(vals_opt)
+
         self.ml_required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
@@ -671,3 +708,28 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "Verifica credenciales/permisos de la cuenta y revisa los logs del servidor."
             )
         return {"type": "ir.actions.act_window_close"}
+
+
+class MlPublishAssistantAttributeLine(models.TransientModel):
+    _name = "ml.publish.assistant.attribute.line"
+    _description = "Línea de atributos del asistente ML"
+
+    wizard_id = fields.Many2one("ml.publish.assistant.wizard", required=True, ondelete="cascade")
+    sequence = fields.Integer(default=10)
+    attribute_id = fields.Char(required=True)
+    attribute_name = fields.Char()
+    required = fields.Boolean(default=False)
+    attribute_option_id = fields.Many2one(
+        "ml.attribute.option",
+        string="Opción sugerida",
+        domain="[('account_id','=', wizard_id.account_id), ('category_id','=', wizard_id.ml_category_ref_id.category_id), ('attribute_id','=', attribute_id)]",
+    )
+    value_id = fields.Char()
+    value_name = fields.Char()
+
+    @api.onchange("attribute_option_id")
+    def _onchange_attribute_option_id(self):
+        for line in self:
+            if line.attribute_option_id:
+                line.value_id = line.attribute_option_id.value_id or ""
+                line.value_name = line.attribute_option_id.value_name or ""
