@@ -122,6 +122,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
+        vals["step"] = "base"
         if "name" in fields_list and not vals.get("name"):
             vals["name"] = "Asistente publicación ML"
         if "status" in fields_list and "status" not in vals:
@@ -416,6 +417,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 seen_value_ids.add(value_id)
                 vals = {
                     "account_id": self.account_id.id,
+                    "category_id": category_id,
                     "attribute_id": "SALES_UNIT",
                     "attribute_name": "Unidad de venta",
                     "value_id": value_id,
@@ -436,6 +438,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                         retry = option_model.search(
                             [
                                 ("account_id", "=", self.account_id.id),
+                                ("category_id", "=", category_id),
                                 ("attribute_id", "=", "SALES_UNIT"),
                                 ("value_id", "=", value_id),
                             ],
