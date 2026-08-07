@@ -50,7 +50,7 @@
                             <field name="sequence"/>
                             <field name="required" readonly="1"/>
                             <field name="attribute_name" readonly="1"/>
-                            <button name="action_open_attribute_option_picker" type="object" string="Seleccionar opción" context="{'line_id': id}" class="btn-link"/>
+                            <button name="action_open_attribute_option_picker" type="object" string="Seleccionar opción" context="{'line_id': id}" class="btn-link" model="ml.publish.assistant.wizard"/>
                             <field name="value_id" placeholder="ID opción ML (si aplica)"/>
                             <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
                         </list>
