@@ -215,8 +215,44 @@ class ProductTemplate(models.Model):
         for term in parsed:
             if not isinstance(term, dict):
                 raise UserError("Sale Terms JSON inválido: cada elemento debe ser un objeto.")
-            terms.append(term)
+            term_id = (term.get("id") or "").strip()
+            if not term_id:
+                continue
+            clean = {"id": term_id}
+            if (term.get("value_id") or "").strip():
+                clean["value_id"] = (term.get("value_id") or "").strip()
+            if (term.get("value_name") or "").strip():
+                clean["value_name"] = (term.get("value_name") or "").strip()
+            if isinstance(term.get("value_struct"), dict):
+                clean["value_struct"] = term.get("value_struct")
+            terms.append(clean)
         return terms
+
+    def _filter_ml_attributes_by_category(self, category_id, attrs):
+        self.ensure_one()
+        if not category_id:
+            return attrs
+        account = self._get_ml_account()
+        try:
+            provider = ProviderFactory.get_provider(account)
+            req_res = provider.get_category_required_fields(category_id=category_id)
+            required = req_res.get("items") if isinstance(req_res, dict) else []
+            if not isinstance(required, list):
+                required = []
+            allowed_ids = {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
+            allowed_ids.discard("")
+            if not allowed_ids:
+                return attrs
+            filtered = [a for a in attrs if (a.get("id") or "").strip() in allowed_ids]
+            required_ids = {rid for rid in allowed_ids}
+            present_ids = {(a.get("id") or "").strip() for a in filtered}
+            missing = sorted(required_ids - present_ids)
+            if missing:
+                _logger.info("Atributos requeridos ML no presentes para %s: %s", category_id, ", ".join(missing))
+            return filtered
+        except Exception:
+            _logger.exception("No se pudo filtrar atributos por categoría ML")
+            return attrs
 
     def _build_ml_payload(self):
         self.ensure_one()
@@ -232,6 +268,7 @@ class ProductTemplate(models.Model):
         listing_type = self.ml_listing_type or "gold_special"
 
         sale_terms = self._validate_ml_sale_terms()
+        attrs = self._parse_ml_attributes()
         try:
             account = self._get_ml_account()
             provider = ProviderFactory.get_provider(account)
@@ -242,8 +279,9 @@ class ProductTemplate(models.Model):
             allowed_sale_terms = {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
             allowed_sale_terms.discard("")
             sale_terms = [t for t in sale_terms if (t.get("id") or "").strip() in allowed_sale_terms]
+            attrs = self._filter_ml_attributes_by_category(category, attrs)
         except Exception:
-            _logger.exception("No se pudo filtrar sale_terms por categoría ML; se conserva payload original.")
+            _logger.exception("No se pudo filtrar sale_terms/attributes por categoría ML; se conserva payload original.")
 
         payload = {
             "title": title,
@@ -257,7 +295,7 @@ class ProductTemplate(models.Model):
             "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": sale_terms,
             "pictures": self._collect_ml_pictures(),
-            "attributes": self._parse_ml_attributes(),
+            "attributes": attrs,
             "shipping": {"mode": self.ml_shipping_mode or "me2"},
         }
 

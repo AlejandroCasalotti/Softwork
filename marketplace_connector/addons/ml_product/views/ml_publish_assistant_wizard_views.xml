@@ -44,12 +44,13 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
-                    <div class="o_form_label">Completá primero los atributos marcados como requeridos. Si el atributo tiene opción ML, usá value_id; si no, completá value_name.</div>
+                    <div class="o_form_label">Completá primero los requeridos. Podés escribir manualmente o usar el selector rápido por línea.</div>
                     <field name="attribute_line_ids">
                         <list editable="bottom">
                             <field name="sequence"/>
                             <field name="required" readonly="1"/>
                             <field name="attribute_name" readonly="1"/>
+                            <button name="action_open_attribute_option_picker" type="object" string="Seleccionar opción" context="{'line_id': id}" class="btn-link"/>
                             <field name="value_id" placeholder="ID opción ML (si aplica)"/>
                             <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
                         </list>

@@ -4,20 +4,20 @@
         <field name="name">ml.publish.config.wizard.form</field>
         <field name="model">ml.publish.config.wizard</field>
         <field name="arch" type="xml">
-            <form string="Configurar publicación ML (UX)">
+            <form string="Configuración rápida ML">
                 <group>
                     <field name="product_tmpl_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
                 </group>
 
-                <group string="Publicación">
+                <group string="Paso 1 - Publicación">
                     <field name="ml_listing_type_id"/>
                     <field name="ml_condition"/>
                     <field name="ml_warranty"/>
                     <field name="ml_shipping_mode"/>
                 </group>
 
-                <group string="Precio y stock">
+                <group string="Paso 2 - Precio y stock">
                     <field name="ml_pricelist_id"/>
                     <field name="ml_use_pricelist_price"/>
                     <field name="ml_manual_price_override"/>
@@ -26,7 +26,7 @@
                 </group>
 
                 <footer>
-                    <button name="action_apply" type="object" string="Aplicar configuración" class="btn-primary"/>
+                    <button name="action_apply" type="object" string="Guardar y continuar" class="btn-primary"/>
                     <button string="Cancelar" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

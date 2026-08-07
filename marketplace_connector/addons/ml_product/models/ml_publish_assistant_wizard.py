@@ -298,6 +298,7 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_open_category_search(self):
         self.ensure_one()
+        self.action_apply_to_product()
         product = self.product_tmpl_id
         wizard = self.env["ml.category.search.wizard"].create(
             {
@@ -318,6 +319,31 @@ class MlPublishAssistantWizard(models.TransientModel):
             "context": {
                 "default_product_tmpl_id": product.id,
             },
+        }
+
+    def action_open_attribute_option_picker(self):
+        self.ensure_one()
+        line_id = self.env.context.get("line_id")
+        line = self.env["ml.publish.assistant.attribute.line"].browse(line_id).exists()
+        if not line or line.wizard_id.id != self.id:
+            raise UserError("No se encontró la línea de atributo para seleccionar opción.")
+        if not self.ml_category_ref_id:
+            raise UserError("Primero define categoría ML en el Paso 1.")
+        wizard = self.env["ml.attribute.option.picker.wizard"].create(
+            {
+                "wizard_id": self.id,
+                "line_id": line.id,
+                "category_id": self.ml_category_ref_id.category_id or "",
+                "attribute_id": line.attribute_id or "",
+                "attribute_name": line.attribute_name or "",
+            }
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.attribute.option.picker.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
         }
 
     def action_next(self):

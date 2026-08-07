@@ -10,3 +10,4 @@ from . import ml_publish_config_wizard
 from . import ml_publish_assistant_wizard
 from . import ml_publish_assistant_attribute_line
 from . import ml_publish_assistant_picture_line
+from . import ml_attribute_option_picker_wizard
