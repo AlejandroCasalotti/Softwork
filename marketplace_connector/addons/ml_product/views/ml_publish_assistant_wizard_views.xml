@@ -50,7 +50,6 @@
                             <field name="sequence"/>
                             <field name="required" readonly="1"/>
                             <field name="attribute_name" readonly="1"/>
-                            <field name="attribute_option_id" options="{'no_create': True}"/>
                             <field name="value_id" placeholder="ID opción ML (si aplica)"/>
                             <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
                         </list>
