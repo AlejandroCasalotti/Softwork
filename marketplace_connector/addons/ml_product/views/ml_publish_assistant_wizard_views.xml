@@ -44,16 +44,21 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
-                    <div class="o_form_label">Completá primero los requeridos. Podés escribir manualmente o usar el selector rápido por línea.</div>
+                    <div class="o_form_label">Completá primero los requeridos. También podés usar selector rápido (lupa): elegí una línea y abrí el mini wizard.</div>
                     <field name="attribute_line_ids">
                         <list editable="bottom">
                             <field name="sequence"/>
                             <field name="required" readonly="1"/>
                             <field name="attribute_name" readonly="1"/>
+                            <field name="attribute_option_id" options="{'no_create': True}"/>
                             <field name="value_id" placeholder="ID opción ML (si aplica)"/>
                             <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
                         </list>
                     </field>
+                    <group string="Selector rápido (lupa)">
+                        <field name="selected_attribute_line_id" options="{'no_create': True}"/>
+                        <button name="action_open_attribute_option_picker_from_selected" type="object" string="Seleccionar opción (lupa)" class="btn-secondary"/>
+                    </group>
                 </group>
 
                 <group invisible="step != 'variants_photos'" string="Paso 5 - Variantes y Fotos">

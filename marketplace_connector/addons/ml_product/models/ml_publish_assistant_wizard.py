@@ -65,6 +65,11 @@ class MlPublishAssistantWizard(models.TransientModel):
     attribute_line_ids = fields.One2many(
         "ml.publish.assistant.attribute.line", "wizard_id", string="Atributos a publicar"
     )
+    selected_attribute_line_id = fields.Many2one(
+        "ml.publish.assistant.attribute.line",
+        string="Línea para selector rápido",
+        domain="[('wizard_id', '=', id)]",
+    )
 
     picture_line_ids = fields.One2many(
         "ml.publish.assistant.picture.line", "wizard_id", string="Imágenes adicionales"
@@ -321,10 +326,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             },
         }
 
-    def action_open_attribute_option_picker(self):
+    def _open_attribute_picker_for_line(self, line):
         self.ensure_one()
-        line_id = self.env.context.get("line_id")
-        line = self.env["ml.publish.assistant.attribute.line"].browse(line_id).exists()
         if not line or line.wizard_id.id != self.id:
             raise UserError("No se encontró la línea de atributo para seleccionar opción.")
         if not self.ml_category_ref_id:
@@ -345,6 +348,19 @@ class MlPublishAssistantWizard(models.TransientModel):
             "res_id": wizard.id,
             "target": "new",
         }
+
+    def action_open_attribute_option_picker(self):
+        self.ensure_one()
+        line_id = self.env.context.get("line_id")
+        line = self.env["ml.publish.assistant.attribute.line"].browse(line_id).exists()
+        return self._open_attribute_picker_for_line(line)
+
+    def action_open_attribute_option_picker_from_selected(self):
+        self.ensure_one()
+        line = self.selected_attribute_line_id
+        if not line:
+            raise UserError("Selecciona una línea de atributo antes de abrir el selector.")
+        return self._open_attribute_picker_for_line(line)
 
     def action_next(self):
         self.ensure_one()
