@@ -15,9 +15,6 @@ class MlCategorySearchResult(models.TransientModel):
 
     @api.onchange("selected")
     def _onchange_selected(self):
-        """Garantizar selección única por wizard sin JavaScript: si se marca
-        esta línea, desmarcar las demás líneas seleccionadas del mismo wizard.
-        """
         if not self.wizard_id:
             return
         if self.selected:

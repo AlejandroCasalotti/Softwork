@@ -23,6 +23,9 @@ class MlCategorySearchWizard(models.TransientModel):
     )
     query = fields.Char(string="Buscar categoría", required=True)
     result_json = fields.Text(string="Resultados JSON", readonly=True)
+    result_line_ids = fields.One2many(
+        "ml.category.search.result", "wizard_id", string="Resultados"
+    )
     selected_category_id = fields.Char(string="Categoría seleccionada")
     category_attributes_json = fields.Text(string="Atributos de categoría", readonly=True)
     required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
@@ -62,8 +65,40 @@ class MlCategorySearchWizard(models.TransientModel):
 
         self.result_json = json.dumps(items, ensure_ascii=False, indent=2)
 
+        # Limpiar resultados anteriores y crear líneas temporales
+        try:
+            self.result_line_ids.unlink()
+        except Exception:
+            # ignore unlink issues on transient records
+            pass
+
+        Result = self.env["ml.category.search.result"]
+        for it in items:
+            cid = (it.get("category_id") or it.get("id") or "").strip()
+            cname = (
+                it.get("category_name") or it.get("name") or it.get("title") or ""
+            ).strip()
+            if not cid:
+                continue
+            Result.create(
+                {
+                    "wizard_id": self.id,
+                    "category_id": cid,
+                    "category_name": cname or cid,
+                    "selected": False,
+                }
+            )
+
         if len(items) == 1 and items[0].get("category_id"):
             self.selected_category_id = items[0]["category_id"]
+            try:
+                single = self.result_line_ids.filtered(
+                    lambda r: (r.category_id or "") == (self.selected_category_id or "")
+                )
+                if single:
+                    single[0].selected = True
+            except Exception:
+                pass
 
         return {
             "type": "ir.actions.act_window",
@@ -75,9 +110,16 @@ class MlCategorySearchWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
+        selected_lines = self.result_line_ids.filtered("selected")
+        if not selected_lines:
+            raise UserError("Selecciona una categoría antes de aplicar.")
+        if len(selected_lines) > 1:
+            raise UserError("Debes seleccionar una sola categoría.")
+        self.selected_category_id = (selected_lines[0].category_id or "").strip()
+
         category_id = (self.selected_category_id or "").strip()
         if not category_id:
-            raise UserError("Selecciona o ingresa una categoría antes de aplicar.")
+            raise UserError("Selecciona una categoría antes de aplicar.")
 
         provider = ProviderFactory.get_provider(self.account_id)
         attrs_res = provider.get_category_attributes(category_id=category_id)
