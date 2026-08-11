@@ -6,17 +6,26 @@
         <field name="arch" type="xml">
             <form string="Buscar Categoría MercadoLibre">
                 <group>
-                    <field name="product_tmpl_id" readonly="1"/>
+                    <field name="product_tmpl_id" invisible="1"/>
                     <field name="account_id"/>
                 </group>
                 <group>
                     <field name="query"/>
                     <button name="action_search" type="object" string="Buscar" class="btn-primary"/>
                 </group>
-                <group string="Seleccionar categoría">
-                    <field name="selected_category_id" placeholder="Ej: MLA1652"/>
-                    <field name="result_json" widget="text" readonly="1"/>
+
+                <group string="Resultados">
+                    <field name="result_line_ids">
+                        <tree editable="top">
+                            <field name="selected"/>
+                            <field name="category_name"/>
+                            <field name="category_id"/>
+                        </tree>
+                    </field>
+                    <field name="result_json" invisible="1"/>
+                    <field name="selected_category_id" invisible="1"/>
                 </group>
+
                 <footer>
                     <button name="action_apply" type="object" string="Aplicar categoría" class="btn-primary"/>
                     <button string="Cancelar" special="cancel" class="btn-secondary"/>

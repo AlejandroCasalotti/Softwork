@@ -12,19 +12,19 @@
                 </group>
 
                 <group>
-                    <button name="action_load_required" type="object" string="Cargar atributos requeridos" class="btn-secondary"/>
+                    <button name="action_load_required" type="object" string="Cargar atributos" class="btn-secondary"/>
                 </group>
 
                 <field name="line_ids">
-                    <list editable="bottom">
-                        <field name="attribute_id" readonly="1"/>
+                    <tree editable="bottom">
+                        <field name="attribute_id" readonly="1" invisible="1"/>
+                        <field name="has_options" readonly="1" invisible="1"/>
+                        <field name="value_id" readonly="1" invisible="1"/>
                         <field name="attribute_name" readonly="1"/>
                         <field name="is_required" readonly="1"/>
-                        <field name="has_options" readonly="1"/>
-                        <field name="option_id" invisible="has_options == False"/>
-                        <field name="value_name" invisible="has_options == True"/>
-                        <field name="value_id" readonly="1" optional="hide"/>
-                    </list>
+                        <field name="option_id" options="{'no_create': True, 'no_open': True}" attrs="{'invisible': [('has_options', '=', False)]}"/>
+                        <field name="value_name" attrs="{'invisible': [('has_options', '=', True)]}"/>
+                    </tree>
                 </field>
 
                 <footer>
