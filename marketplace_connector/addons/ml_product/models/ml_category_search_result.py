@@ -11,4 +11,4 @@ class MlCategorySearchResult(models.TransientModel):
     )
     category_id = fields.Char(string="ID categoría", required=True)
     category_name = fields.Char(string="Categoría", required=True)
-    selected = fields.Boolean(string="Seleccionar", default=False)
+    selected_category_id = fields.Boolean(string="Seleccionar", default=False)
