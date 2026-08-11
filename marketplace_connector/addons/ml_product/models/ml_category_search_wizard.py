@@ -74,30 +74,25 @@ class MlCategorySearchWizard(models.TransientModel):
 
         Result = self.env["ml.category.search.result"]
         for it in items:
+            # Proveedores pueden devolver distintas keys; buscar las más probables
             cid = (it.get("category_id") or it.get("id") or "").strip()
             cname = (
                 it.get("category_name") or it.get("name") or it.get("title") or ""
             ).strip()
             if not cid:
                 continue
-            Result.create(
-                {
-                    "wizard_id": self.id,
-                    "category_id": cid,
-                    "category_name": cname or cid,
-                    "selected": False,
-                }
-            )
+            Result.create({"wizard_id": self.id, "category_id": cid, "category_name": cname or cid})
 
+        # Compatibilidad: si hay un solo resultado, asignarlo como seleccionado por defecto
         if len(items) == 1 and items[0].get("category_id"):
             self.selected_category_id = items[0]["category_id"]
+            # marcar la línea creada como seleccionada si existe
             try:
-                single = self.result_line_ids.filtered(
-                    lambda r: (r.category_id or "") == (self.selected_category_id or "")
-                )
+                single = self.result_line_ids.filtered(lambda r: (r.category_id or "") == (self.selected_category_id or ""))
                 if single:
                     single[0].selected = True
             except Exception:
+                # no bloquear si ocurre un problema marcando la línea
                 pass
 
         return {
@@ -110,12 +105,12 @@ class MlCategorySearchWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
+        # Preferir la línea seleccionada en los resultados temporales
         selected_lines = self.result_line_ids.filtered("selected")
-        if not selected_lines:
-            raise UserError("Selecciona una categoría antes de aplicar.")
-        if len(selected_lines) > 1:
-            raise UserError("Debes seleccionar una sola categoría.")
-        self.selected_category_id = (selected_lines[0].category_id or "").strip()
+        if selected_lines:
+            if len(selected_lines) > 1:
+                raise UserError("Debes seleccionar una sola categoría.")
+            self.selected_category_id = (selected_lines[0].category_id or "").strip()
 
         category_id = (self.selected_category_id or "").strip()
         if not category_id:
