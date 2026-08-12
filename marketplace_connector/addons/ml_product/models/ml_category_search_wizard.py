@@ -10,18 +10,6 @@ from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory impo
 _logger = logging.getLogger(__name__)
 
 
-class MlCategorySearchResult(models.TransientModel):
-    _name = "ml.category.search.result"
-    _description = "Línea resultado búsqueda categoría ML"
-
-    wizard_id = fields.Many2one(
-        "ml.category.search.wizard", required=True, ondelete="cascade"
-    )
-    selected = fields.Boolean(string="Seleccionado")
-    category_name = fields.Char(string="Categoría")
-    category_id = fields.Char(string="ID categoría")
-
-
 class MlCategorySearchWizard(models.TransientModel):
     _name = "ml.category.search.wizard"
     _description = "Wizard de búsqueda de categoría MercadoLibre"
