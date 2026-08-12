@@ -1,0 +1,4 @@
+[submodule "AlejandroCasalotti/Softwork"]
+	path = AlejandroCasalotti/Softwork
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_product_pricing_base
