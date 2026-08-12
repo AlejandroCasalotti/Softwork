@@ -1,4 +1,28 @@
 # -*- coding: utf-8 -*-
+from odoo import api, fields, models
+
+
+class MlCategorySearchWizard(models.TransientModel):
+    _name = "ml.category.search.wizard"
+    _description = "Wizard búsqueda de categoría MercadoLibre"
+
+    name = fields.Char(string="Nombre")
+    result_line_ids = fields.One2many(
+        "ml.category.search.wizard.line", "wizard_id", string="Resultados"
+    )
+
+
+class MlCategorySearchWizardLine(models.TransientModel):
+    _name = "ml.category.search.wizard.line"
+    _description = "Línea resultado búsqueda categoría ML"
+
+    wizard_id = fields.Many2one(
+        "ml.category.search.wizard", required=True, ondelete="cascade"
+    )
+    selected = fields.Boolean(string="Seleccionado")
+    category_name = fields.Char(string="Categoría")
+    category_id = fields.Char(string="ID categoría")
+# -*- coding: utf-8 -*-
 import json
 import logging
 
