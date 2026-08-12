@@ -26,6 +26,7 @@ class MlCategorySearchWizard(models.TransientModel):
     result_line_ids = fields.One2many(
         "ml.category.search.result", "wizard_id", string="Resultados"
     )
+    selected = fields.Boolean(string="Seleccionado")
     selected_category_id = fields.Char(string="Categoría seleccionada")
     category_attributes_json = fields.Text(string="Atributos de categoría", readonly=True)
     required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
