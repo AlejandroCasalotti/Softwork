@@ -10,6 +10,18 @@ from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory impo
 _logger = logging.getLogger(__name__)
 
 
+class MlCategorySearchResult(models.TransientModel):
+    _name = "ml.category.search.result"
+    _description = "Línea resultado búsqueda categoría ML"
+
+    wizard_id = fields.Many2one(
+        "ml.category.search.wizard", required=True, ondelete="cascade"
+    )
+    selected = fields.Boolean(string="Seleccionado")
+    category_name = fields.Char(string="Categoría")
+    category_id = fields.Char(string="ID categoría")
+
+
 class MlCategorySearchWizard(models.TransientModel):
     _name = "ml.category.search.wizard"
     _description = "Wizard de búsqueda de categoría MercadoLibre"
@@ -69,30 +81,33 @@ class MlCategorySearchWizard(models.TransientModel):
         try:
             self.result_line_ids.unlink()
         except Exception:
-            # ignore unlink issues on transient records
             pass
 
         Result = self.env["ml.category.search.result"]
         for it in items:
-            # Proveedores pueden devolver distintas keys; buscar las más probables
             cid = (it.get("category_id") or it.get("id") or "").strip()
             cname = (
                 it.get("category_name") or it.get("name") or it.get("title") or ""
             ).strip()
             if not cid:
                 continue
-            Result.create({"wizard_id": self.id, "category_id": cid, "category_name": cname or cid})
+            Result.create(
+                {
+                    "wizard_id": self.id,
+                    "category_id": cid,
+                    "category_name": cname or cid,
+                }
+            )
 
-        # Compatibilidad: si hay un solo resultado, asignarlo como seleccionado por defecto
         if len(items) == 1 and items[0].get("category_id"):
             self.selected_category_id = items[0]["category_id"]
-            # marcar la línea creada como seleccionada si existe
             try:
-                single = self.result_line_ids.filtered(lambda r: (r.category_id or "") == (self.selected_category_id or ""))
+                single = self.result_line_ids.filtered(
+                    lambda r: (r.category_id or "") == (self.selected_category_id or "")
+                )
                 if single:
                     single[0].selected = True
             except Exception:
-                # no bloquear si ocurre un problema marcando la línea
                 pass
 
         return {
@@ -105,7 +120,6 @@ class MlCategorySearchWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        # Preferir la línea seleccionada en los resultados temporales
         selected_lines = self.result_line_ids.filtered("selected")
         if selected_lines:
             if len(selected_lines) > 1:
