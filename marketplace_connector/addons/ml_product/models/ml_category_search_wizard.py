@@ -66,7 +66,6 @@ class MlCategorySearchWizard(models.TransientModel):
 
         self.result_json = json.dumps(items, ensure_ascii=False, indent=2)
 
-        # Limpiar resultados anteriores y crear líneas temporales
         try:
             self.result_line_ids.unlink()
         except Exception:
