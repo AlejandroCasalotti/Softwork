@@ -2,3 +2,8 @@
 	path = AlejandroCasalotti/Softwork
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = sw_product_pricing_base
+
+[submodule "sw_uom_web"]
+	path = sw_uom_web
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_uom_web
