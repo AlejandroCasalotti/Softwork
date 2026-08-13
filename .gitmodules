@@ -7,3 +7,8 @@
 	path = sw_uom_web
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = sw_uom_web
+
+[submodule "sw_increase_price_supplier"]
+	path = sw_increase_price_supplier
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_increase_price_supplier
