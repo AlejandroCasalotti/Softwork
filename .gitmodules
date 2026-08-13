@@ -12,3 +12,8 @@
 	path = sw_increase_price_supplier
 	url = git@github.com:AlejandroCasalotti/Softwork.git
 	branch = sw_increase_price_supplier
+
+[submodule "sw_automatic_calculation_sale_web"]
+	path = sw_automatic_calculation_sale_web
+	url = git@github.com:AlejandroCasalotti/Softwork.git
+	branch = sw_automatic_calcuation_sale_web
