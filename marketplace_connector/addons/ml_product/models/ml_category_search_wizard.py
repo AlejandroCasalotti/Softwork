@@ -27,6 +27,8 @@ class MlCategorySearchWizard(models.TransientModel):
         "ml.category.search.result", "wizard_id", string="Resultados"
     )
     selected = fields.Boolean(string="Seleccionado")
+    category_id = fields.Char(string="ID de categoría")
+    category_name = fields.Char(string="Nombre de categoría")
     selected_category_id = fields.Char(string="Categoría seleccionada")
     category_attributes_json = fields.Text(string="Atributos de categoría", readonly=True)
     required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
@@ -89,6 +91,8 @@ class MlCategorySearchWizard(models.TransientModel):
 
         if len(items) == 1 and items[0].get("category_id"):
             self.selected_category_id = items[0]["category_id"]
+            self.category_id = self.selected_category_id
+            self.category_name = items[0].get("category_name") or items[0].get("name") or items[0].get("title") or self.selected_category_id
             try:
                 single = self.result_line_ids.filtered(
                     lambda r: (r.category_id or "") == (self.selected_category_id or "")
@@ -113,6 +117,8 @@ class MlCategorySearchWizard(models.TransientModel):
             if len(selected_lines) > 1:
                 raise UserError("Debes seleccionar una sola categoría.")
             self.selected_category_id = (selected_lines[0].category_id or "").strip()
+            self.category_id = self.selected_category_id
+            self.category_name = (selected_lines[0].category_name or "").strip() or self.category_id
 
         category_id = (self.selected_category_id or "").strip()
         if not category_id:
