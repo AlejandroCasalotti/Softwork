@@ -167,6 +167,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         vals = super().default_get(fields_list)
+        # Forzar que siempre comience en el paso "base"
         vals["step"] = "base"
         if "name" in fields_list and not vals.get("name"):
             vals["name"] = "Asistente publicación ML"
@@ -353,6 +354,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "selected_category_id": (
                     self.ml_category_ref_id.category_id if self.ml_category_ref_id else (product.ml_category_id or "")
                 ),
+                "publish_wizard_id": self.id,
             }
         )
         return {

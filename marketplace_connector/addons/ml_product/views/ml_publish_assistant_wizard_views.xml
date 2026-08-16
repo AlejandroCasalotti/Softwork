@@ -18,7 +18,7 @@
                     <group>
                         <div class="o_form_label">Categoría ML</div>
                         <div>
-                            <field name="ml_category_ref_id" options="{'no_create': True}" nolabel="1"/>
+                            <field name="ml_category_ref_id" options="{'no_create': True}" nolabel="1" domain="[('account_id', '=', account_id)]"/>
                             <button name="action_open_category_search" type="object" string="Buscar categoría ML" class="btn-primary btn-sm"/>
                         </div>
                     </group>

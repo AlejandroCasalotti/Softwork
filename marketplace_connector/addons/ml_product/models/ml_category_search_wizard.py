@@ -21,6 +21,7 @@ class MlCategorySearchWizard(models.TransientModel):
         domain="[('provider_type', '=', 'mercadolibre')]",
         required=True,
     )
+    publish_wizard_id = fields.Many2one("ml.publish.assistant.wizard", string="Asistente publicación", ondelete="cascade")
     query = fields.Char(string="Buscar categoría", required=True)
     result_json = fields.Text(string="Resultados JSON", readonly=True)
     result_line_ids = fields.One2many(
@@ -202,4 +203,14 @@ class MlCategorySearchWizard(models.TransientModel):
         self.category_attributes_json = json.dumps(attrs, ensure_ascii=False, indent=2)
         self.required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
 
-        return {"type": "ir.actions.act_window_close"}
+        # Si hay wizard de publicación padre, volver a él. Si no, cerrar.
+        if self.publish_wizard_id:
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "ml.publish.assistant.wizard",
+                "view_mode": "form",
+                "res_id": self.publish_wizard_id.id,
+                "target": "new",
+            }
+        else:
+            return {"type": "ir.actions.act_window_close"}
