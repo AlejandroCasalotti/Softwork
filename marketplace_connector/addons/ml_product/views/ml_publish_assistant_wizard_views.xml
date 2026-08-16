@@ -14,9 +14,9 @@
                 </group>
 
                 <group invisible="step != 'base'" string="Paso 1: Base - Configuración inicial">
-                    <div class="alert alert-info">Define la categoría donde publicarás y el tipo de publicación. Esto carga automáticamente los atributos requeridos.</div>
+                    <div class="alert alert-info" role="alert">Define la categoría donde publicarás y el tipo de publicación. Esto carga automáticamente los atributos requeridos.</div>
                     <group>
-                        <label string="Categoría ML" class="text-bold"/>
+                        <div class="o_form_label">Categoría ML</div>
                         <div>
                             <field name="ml_category_ref_id" options="{'no_create': True}" nolabel="1"/>
                             <button name="action_open_category_search" type="object" string="Buscar categoría ML" class="btn-primary btn-sm"/>
@@ -34,7 +34,7 @@
                 </group>
 
                 <group invisible="step != 'pricing_stock'" string="Paso 2: Precio y Stock - Define valores económicos">
-                    <div class="alert alert-info">Configura el precio de venta y el stock disponible. El stock efectivo se calcula restando la reserva del disponible.</div>
+                    <div class="alert alert-info" role="alert">Configura el precio de venta y el stock disponible. El stock efectivo se calcula restando la reserva del disponible.</div>
                     <group string="Precio" col="2">
                         <field name="ml_pricelist_id" string="Lista de precios"/>
                         <field name="ml_use_pricelist_price" string="Usar precio de lista"/>
@@ -50,7 +50,7 @@
                 </group>
 
                 <group invisible="step != 'sale_format'" string="Paso 3: Formato de venta - Unidades y rendimiento">
-                    <div class="alert alert-info">Define cómo se vende el producto: por unidad, m², o con rendimiento específico.</div>
+                    <div class="alert alert-info" role="alert">Define cómo se vende el producto: por unidad, m², o con rendimiento específico.</div>
                     <group string="Unidad de venta" col="2">
                         <field name="ml_sales_unit_value_id" domain="[('account_id', '=', account_id), ('attribute_id', '=', 'SALES_UNIT')]" options="{'no_create': True}"/>
                     </group>
@@ -61,7 +61,7 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4: Atributos - Especificaciones del producto">
-                    <div class="alert alert-warning">
+                    <div class="alert alert-warning" role="alert">
                         <strong>Obligatorios:</strong> Las filas marcadas como "Oblig." deben completarse.
                         <br/><strong>Con opciones:</strong> Usa la lupa para seleccionar de las opciones disponibles.
                         <br/><strong>Libres:</strong> Escribe el valor directamente.
@@ -80,7 +80,7 @@
                 </group>
 
                 <group invisible="step != 'variants_photos'" string="Paso 5: Imágenes - Fotos del producto">
-                    <div class="alert alert-info">Carga fotos adicionales. Odoo cargará automáticamente las imágenes del producto si las hay.</div>
+                    <div class="alert alert-info" role="alert">Carga fotos adicionales. Odoo cargará automáticamente las imágenes del producto si las hay.</div>
                     <field name="picture_line_ids" nolabel="1">
                         <list editable="bottom">
                             <field name="sequence" string="O."/>
@@ -91,7 +91,7 @@
                 </group>
 
                 <group invisible="step != 'review'" string="Paso 6: Revisión - Checklist final">
-                    <div class="alert alert-primary">
+                    <div class="alert alert-info" role="alert">
                         <strong>¡Casi listo!</strong> Revisa que todo sea correcto antes de publicar.
                     </div>
                     <button name="action_validate_checklist" type="object" string="✓ Validar checklist" class="btn-secondary btn-block"/>
