@@ -22,6 +22,17 @@ class MlAttributeEditorWizard(models.TransientModel):
         required=True,
     )
     category_id = fields.Char(string="Categoría ML", required=True, readonly=True)
+    attribute_id = fields.Char(string="ID atributo")
+    attribute_name = fields.Char(string="Atributo")
+    option_id = fields.Many2one(
+        "ml.attribute.option",
+        string="Opción",
+        domain="[('category_id', '=', category_id), ('attribute_id', '=', attribute_id)]",
+    )
+    value_name = fields.Char(string="Valor")
+    value_id = fields.Char(string="ID valor")
+    has_options = fields.Boolean(string="Tiene opciones", default=False)
+    is_required = fields.Boolean(string="Requerido", default=True)
     line_ids = fields.One2many(
         "ml.attribute.editor.wizard.line",
         "wizard_id",
