@@ -71,10 +71,10 @@
                             <field name="sequence" string="O." width="30px"/>
                             <field name="required" readonly="1" string="Oblig." width="50px"/>
                             <field name="attribute_name" readonly="1" string="Atributo"/>
-                            <field name="attribute_option_id" options="{'no_create': True, 'no_open': True}" string="Opción" invisible="has_options == false" width="250px"/>
-                            <field name="value_id" placeholder="ID opción ML" invisible="has_options == true" width="100px"/>
-                            <field name="value_name" placeholder="Valor libre" invisible="has_options == true" width="150px"/>
-                            <button name="action_open_attribute_option_picker" type="object" icon="fa-search" string="" title="Buscar opción para esta línea" class="btn btn-sm btn-secondary o_icon_button" invisible="has_options == false"/>
+                            <field name="attribute_option_id" options="{'no_create': True, 'no_open': True}" string="Opción" invisible="has_options == False" width="250px"/>
+                            <field name="value_id" placeholder="ID opción ML" invisible="has_options == True" width="100px"/>
+                            <field name="value_name" placeholder="Valor libre" invisible="has_options == True" width="150px"/>
+                            <button name="action_open_attribute_option_picker" type="object" icon="fa-search" string="" title="Buscar opción para esta línea" class="btn btn-sm btn-secondary o_icon_button" invisible="has_options == False"/>
                         </list>
                     </field>
                 </group>
