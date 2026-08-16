@@ -811,6 +811,30 @@ class MlPublishAssistantAttributeLine(models.TransientModel):
     value_id = fields.Char()
     value_name = fields.Char()
 
+    def action_open_attribute_option_picker(self):
+        self.ensure_one()
+        wizard = self.wizard_id
+        if not wizard:
+            raise UserError("La línea no tiene wizard asociado.")
+        if not wizard.ml_category_ref_id:
+            raise UserError("Primero define categoría ML en el Paso 1.")
+        picker = self.env["ml.attribute.option.picker.wizard"].create(
+            {
+                "wizard_id": wizard.id,
+                "line_id": self.id,
+                "category_id": wizard.ml_category_ref_id.category_id or "",
+                "attribute_id": self.attribute_id or "",
+                "attribute_name": self.attribute_name or "",
+            }
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "ml.attribute.option.picker.wizard",
+            "view_mode": "form",
+            "res_id": picker.id,
+            "target": "new",
+        }
+
     @api.onchange("attribute_option_id")
     def _onchange_attribute_option_id(self):
         for line in self:
