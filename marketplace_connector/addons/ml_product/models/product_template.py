@@ -252,6 +252,13 @@ class ProductTemplate(models.Model):
             missing = sorted(required_ids - present_ids)
             if missing:
                 _logger.info("Atributos requeridos ML no presentes para %s: %s", category_id, ", ".join(missing))
+            # Permitir atributos especiales que MercadoLibre requiere pero no son "categoría attributes"
+            special_attrs = {"family_name", "BRAND", "MODEL"}
+            for attr in attrs:
+                aid = (attr.get("id") or "").strip()
+                if aid in special_attrs and aid not in present_ids:
+                    filtered.append(attr)
+
             return filtered
         except Exception:
             _logger.exception("No se pudo filtrar atributos por categoría ML")
