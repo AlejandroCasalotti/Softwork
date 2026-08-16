@@ -34,6 +34,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
+    ml_family_name = fields.Char(string="Familia/Línea de Producto", help="Atributo requerido por MercadoLibre. Ej: Porcelanato, Cerámica, etc.")
     listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
         [("new", "Nuevo"), ("used", "Usado"), ("not_specified", "No especificado")],
@@ -285,6 +286,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_brand": product.ml_brand or "",
                 "ml_model": product.ml_model or "",
+                "ml_family_name": product.ml_family_name or "",
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
@@ -663,6 +665,10 @@ class MlPublishAssistantWizard(models.TransientModel):
                 item["value_name"] = effective_value_name
             if item.get("value_id") or item.get("value_name"):
                 attrs_payload.append(item)
+        
+        # Agregar family_name si está completo (MercadoLibre requiere este atributo)
+        if (self.ml_family_name or "").strip():
+            attrs_payload.append({"id": "family_name", "value_name": (self.ml_family_name or "").strip()})
 
         pictures_payload = []
         seen_sources = set()
@@ -683,6 +689,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
                 "ml_brand": (self.ml_brand or "").strip(),
                 "ml_model": (self.ml_model or "").strip(),
+                "ml_family_name": (self.ml_family_name or "").strip(),
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
                 "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
@@ -790,6 +797,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             warnings.append("Recomendado: completar Marca.")
         if not (product.ml_model or "").strip():
             warnings.append("Recomendado: completar Modelo.")
+        if not (self.ml_family_name or "").strip():
+            warnings.append("Importante: MercadoLibre requiere 'Familia/Línea' para muchas categorías. Completa este campo en Paso 1 para evitar errores de publicación.")
         if not raw_terms:
             warnings.append("Recomendado: definir sale_terms para mejorar calidad de publicación.")
         warnings.extend(warnings_by_attr)

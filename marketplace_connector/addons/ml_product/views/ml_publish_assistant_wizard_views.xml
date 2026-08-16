@@ -29,6 +29,7 @@
                     <group string="Datos clave del producto (opcional)" col="2">
                         <field name="ml_brand" placeholder="Ej: Cerámica Alberdi"/>
                         <field name="ml_model" placeholder="Ej: Porcelanato 60x120"/>
+                        <field name="ml_family_name" placeholder="Ej: Porcelanato, Azulejo, Sanitario"/>
                     </group>
                     <button name="action_load_ml_metadata" type="object" string="↓ Cargar atributos de la categoría" class="btn-info btn-block" visible="ml_category_ref_id"/>
                 </group>

@@ -32,6 +32,7 @@ class ProductTemplate(models.Model):
     )
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
+    ml_family_name = fields.Char(string="Familia/Línea de Producto", help="Requerido por MercadoLibre para muchas categorías")
     ml_warranty = fields.Char(string="Garantía")
     ml_shipping_mode = fields.Selection(
         [("me2", "Mercado Envíos"), ("custom", "Acordar con comprador"), ("not_specified", "No especificado")],
@@ -133,6 +134,8 @@ class ProductTemplate(models.Model):
             normalized.append({"id": "BRAND", "value_name": self._normalize_ml_value(self.ml_brand)})
         if self.ml_model:
             normalized.append({"id": "MODEL", "value_name": self._normalize_ml_value(self.ml_model)})
+        if self.ml_family_name:
+            normalized.append({"id": "family_name", "value_name": self._normalize_ml_value(self.ml_family_name)})
         return normalized
 
     def _collect_ml_pictures(self):
