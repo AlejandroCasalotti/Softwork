@@ -16,11 +16,11 @@
 
                 <group string="Resultados">
                     <field name="result_line_ids">
-                        <tree editable="top">
+                        <list editable="top">
                             <field name="selected"/>
                             <field name="category_name"/>
                             <field name="category_id"/>
-                        </tree>
+                        </list>
                     </field>
                     <field name="result_json" invisible="1"/>
                     <field name="selected_category_id" invisible="1"/>

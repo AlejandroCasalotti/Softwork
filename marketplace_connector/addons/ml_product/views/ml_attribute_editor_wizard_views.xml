@@ -16,7 +16,7 @@
                 </group>
 
                 <field name="line_ids">
-                    <tree editable="bottom">
+                    <list editable="bottom">
                         <field name="attribute_id" readonly="1" invisible="1"/>
                         <field name="has_options" readonly="1" invisible="1"/>
                         <field name="value_id" readonly="1" invisible="1"/>
@@ -24,7 +24,7 @@
                         <field name="is_required" readonly="1"/>
                         <field name="option_id" options="{'no_create': True, 'no_open': True}" invisible="not has_options"/>
                         <field name="value_name" invisible="has_options"/>
-                    </tree>
+                    </list>
                 </field>
 
                 <footer>
