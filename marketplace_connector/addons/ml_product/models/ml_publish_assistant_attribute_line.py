@@ -15,7 +15,7 @@ class MlPublishAssistantAttributeLine(models.TransientModel):
     attribute_option_id = fields.Many2one(
         "ml.attribute.option",
         string="Opción sugerida",
-        domain="[('account_id','=', wizard_id.account_id), ('category_id','=', wizard_id.ml_category_ref_id.category_id), ('attribute_id','=', attribute_id)]",
+        domain="[('account_id','=', parent.account_id), ('category_id','=', parent.ml_category_ref_id.category_id), ('attribute_id','=', attribute_id)]",
     )
     value_id = fields.Char(string="ID valor")
     value_name = fields.Char(string="Valor")
