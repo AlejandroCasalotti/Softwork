@@ -44,7 +44,7 @@
                 </group>
 
                 <group invisible="step != 'attributes'" string="Paso 4 - Atributos">
-                    <div class="o_form_label">Completá primero los requeridos. En cada fila podés abrir la lupa para buscar la opción específica de ese atributo.</div>
+                    <div class="o_form_label">Completá primero los requeridos. Cada fila tiene su lupa para buscar la opción correcta de ese atributo.</div>
                     <field name="attribute_line_ids">
                         <list editable="bottom">
                             <field name="sequence"/>
@@ -53,7 +53,7 @@
                             <field name="attribute_option_id" options="{'no_create': True, 'no_open': True}" string="Opción"/>
                             <field name="value_id" placeholder="ID opción ML (si aplica)"/>
                             <field name="value_name" placeholder="Valor texto (si no hay opción)"/>
-                            <button name="action_open_attribute_option_picker" type="object" icon="fa-search" string="" title="Buscar opción para esta línea" class="btn-link"/>
+                            <button name="action_open_attribute_option_picker" type="object" icon="fa-search" string="" title="Buscar opción para esta línea" class="btn btn-sm btn-secondary o_icon_button"/>
                         </list>
                     </field>
                 </group>
