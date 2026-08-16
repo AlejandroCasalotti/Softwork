@@ -4,7 +4,7 @@
         <field name="name">ml.attribute.editor.wizard.form</field>
         <field name="model">ml.attribute.editor.wizard</field>
         <field name="arch" type="xml">
-            <form string="Completar ficha dinámica MercadoLibre">
+            <form string="Atributos MercadoLibre">
                 <group>
                     <field name="product_tmpl_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
@@ -12,18 +12,18 @@
                 </group>
 
                 <group>
-                    <button name="action_load_required" type="object" string="Cargar atributos" class="btn-secondary"/>
+                    <button name="action_load_required" type="object" string="Cargar atributos requeridos" class="btn-primary"/>
                 </group>
 
-                <field name="line_ids">
+                <field name="line_ids" nolabel="1">
                     <list editable="bottom">
                         <field name="attribute_id" readonly="1" invisible="1"/>
                         <field name="has_options" readonly="1" invisible="1"/>
                         <field name="value_id" readonly="1" invisible="1"/>
-                        <field name="attribute_name" readonly="1"/>
-                        <field name="is_required" readonly="1"/>
-                        <field name="option_id" options="{'no_create': True, 'no_open': True}" invisible="not has_options"/>
-                        <field name="value_name" invisible="has_options"/>
+                        <field name="attribute_name" readonly="1" string="Atributo"/>
+                        <field name="is_required" readonly="1" string="Oblig."/>
+                        <field name="option_id" options="{'no_create': True, 'no_open': True}" string="Opción" invisible="not has_options"/>
+                        <field name="value_name" string="Valor" invisible="has_options"/>
                     </list>
                 </field>
 

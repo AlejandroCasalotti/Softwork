@@ -76,6 +76,37 @@ class MlPublishAssistantWizard(models.TransientModel):
     )
     ml_variant_notes = fields.Text(string="Variantes/Fotos")
     validation_summary = fields.Text(string="Checklist", readonly=True)
+    progress_indicator = fields.Char(string="Progreso", readonly=True, compute="_compute_progress_indicator")
+
+    @api.depends("step")
+    def _compute_progress_indicator(self):
+        step_order = [
+            ("base", "Base"),
+            ("pricing_stock", "Precio y Stock"),
+            ("sale_format", "Formato de venta"),
+            ("attributes", "Atributos"),
+            ("variants_photos", "Variantes y fotos"),
+            ("review", "Revisión final"),
+        ]
+        for wizard in self:
+            current_idx = next(
+                (i for i, (k, _) in enumerate(step_order, 1) if k == wizard.step),
+                1
+            )
+            wizard.progress_indicator = f"Paso {current_idx} de {len(step_order)}"
+
+    def _get_step_status(self):
+        """Retorna dict con estado de cada paso: {'base': True, 'pricing_stock': True, ...}"""
+        self.ensure_one()
+        status = {
+            "base": bool(self.ml_category_ref_id and self.listing_type_id),
+            "pricing_stock": bool(self.ml_price > 0 and self.ml_effective_qty >= 0),
+            "sale_format": True,  # No bloqueante
+            "attributes": True,  # Validado en review
+            "variants_photos": bool(self.picture_line_ids),
+            "review": False,  # Calculado dinámicamente
+        }
+        return status
 
     def _raise_if_access_denied_response(self, payload, operation):
         if isinstance(payload, str):
@@ -106,6 +137,15 @@ class MlPublishAssistantWizard(models.TransientModel):
         reserve = max(0.0, reserve_qty or 0.0)
         qty_source = product.qty_available if product else 0.0
         return int(max(0.0, qty_source - reserve))
+
+    @api.onchange("ml_category_ref_id")
+    def _onchange_category_ref(self):
+        """Auto-load metadata cuando se selecciona categoría"""
+        for wizard in self:
+            if wizard.ml_category_ref_id and wizard.step == "base":
+                # No ejecutamos directamente aquí; el usuario debe hacer clic
+                # para cargar, pero podemos dejar preparado el mensaje
+                pass
 
     @api.onchange("ml_pricelist_id", "ml_use_pricelist_price", "ml_manual_price_override", "ml_stock_reserve_qty")
     def _onchange_pricing_stock(self):
@@ -368,13 +408,26 @@ class MlPublishAssistantWizard(models.TransientModel):
         current_step = self.step if self.step in order else "base"
         if not self.step:
             self.step = current_step
+        
+        # Guardamos cambios antes de pasar al siguiente paso
+        self.action_apply_to_product()
+        
         idx = order.index(current_step)
         if idx < len(order) - 1:
-            self.step = order[idx + 1]
+            next_step = order[idx + 1]
+            # Auto-trigger metadata load al llegar a attributes
+            if next_step == "attributes" and self.ml_category_ref_id and not self.attribute_line_ids:
+                self.step = next_step
+                self.action_load_ml_metadata()
+                return
+            self.step = next_step
         return self._reload_self()
 
     def action_prev(self):
         self.ensure_one()
+        # Guardar cambios antes de retroceder
+        self.action_apply_to_product()
+        
         order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
         current_step = self.step if self.step in order else "base"
         if not self.step:
@@ -503,6 +556,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             aid = (attr.get("id") or "").strip()
             if not aid:
                 continue
+            values = attr.get("values") if isinstance(attr.get("values"), list) else []
             commands.append(
                 (
                     0,
@@ -512,6 +566,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                         "attribute_id": aid,
                         "attribute_name": (attr.get("name") or aid).strip(),
                         "required": aid in req_ids,
+                        "has_options": bool(values),
                         "value_id": "",
                         "value_name": "",
                     },
@@ -755,10 +810,10 @@ class MlPublishAssistantWizard(models.TransientModel):
 
         lines = []
         if errors:
-            lines.append("Estado: CON OBSERVACIONES BLOQUEANTES")
+            lines.append("Estado: necesita corrección")
             lines.extend(errors)
         else:
-            lines.append("Estado: OK (sin bloqueantes)")
+            lines.append("Estado: listo para publicar")
 
         if warnings:
             lines.append("")

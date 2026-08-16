@@ -4,22 +4,23 @@
         <field name="name">ml.category.search.wizard.form</field>
         <field name="model">ml.category.search.wizard</field>
         <field name="arch" type="xml">
-            <form string="Buscar Categoría MercadoLibre">
+            <form string="Buscar categoría MercadoLibre">
                 <group>
                     <field name="product_tmpl_id" invisible="1"/>
                     <field name="account_id"/>
                 </group>
+
                 <group>
-                    <field name="query"/>
-                    <button name="action_search" type="object" string="Buscar" class="btn-primary"/>
+                    <field name="query" placeholder="Ej: Lavarropas, muebles, etc."/>
+                    <button name="action_search" type="object" string="Buscar categorías" class="btn-primary"/>
                 </group>
 
-                <group string="Resultados">
-                    <field name="result_line_ids">
+                <group string="Resultados sugeridos">
+                    <field name="result_line_ids" nolabel="1">
                         <list editable="top">
-                            <field name="selected"/>
-                            <field name="category_name"/>
-                            <field name="category_id"/>
+                            <field name="selected" string="Sel."/>
+                            <field name="category_name" string="Categoría"/>
+                            <field name="category_id" string="ID"/>
                         </list>
                     </field>
                     <field name="result_json" invisible="1"/>

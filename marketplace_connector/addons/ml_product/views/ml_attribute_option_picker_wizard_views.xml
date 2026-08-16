@@ -4,17 +4,13 @@
         <field name="name">ml.attribute.option.picker.wizard.form</field>
         <field name="model">ml.attribute.option.picker.wizard</field>
         <field name="arch" type="xml">
-            <form string="Seleccionar opción ML">
-                <group>
-                    <field name="wizard_id" readonly="1"/>
-                    <field name="line_id" readonly="1"/>
-                </group>
-                <group string="Contexto">
+            <form string="Elegir opción de atributo">
+                <group string="Selección actual">
+                    <field name="attribute_name" readonly="1"/>
                     <field name="category_id" readonly="1"/>
                     <field name="attribute_id" readonly="1"/>
-                    <field name="attribute_name" readonly="1"/>
                 </group>
-                <group string="Opción">
+                <group string="Opción disponible">
                     <field name="option_id" options="{'no_create': True, 'no_open': True}"/>
                 </group>
                 <footer>

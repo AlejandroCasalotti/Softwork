@@ -4,20 +4,20 @@
         <field name="name">ml.publish.config.wizard.form</field>
         <field name="model">ml.publish.config.wizard</field>
         <field name="arch" type="xml">
-            <form string="Configuración rápida ML">
+            <form string="Configuración pública MercadoLibre">
                 <group>
                     <field name="product_tmpl_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
                 </group>
 
-                <group string="Paso 1 - Publicación">
+                <group string="Publicación">
                     <field name="ml_listing_type_id"/>
                     <field name="ml_condition"/>
                     <field name="ml_warranty"/>
                     <field name="ml_shipping_mode"/>
                 </group>
 
-                <group string="Paso 2 - Precio y stock">
+                <group string="Precio y stock">
                     <field name="ml_pricelist_id"/>
                     <field name="ml_use_pricelist_price"/>
                     <field name="ml_manual_price_override"/>

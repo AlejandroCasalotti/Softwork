@@ -19,6 +19,7 @@ class MlPublishAssistantAttributeLine(models.TransientModel):
     )
     value_id = fields.Char(string="ID valor")
     value_name = fields.Char(string="Valor")
+    has_options = fields.Boolean(string="Tiene opciones", default=False, readonly=True)
 
     def action_open_attribute_option_picker(self):
         self.ensure_one()
