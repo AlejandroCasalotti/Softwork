@@ -22,8 +22,8 @@
                         <field name="value_id" readonly="1" invisible="1"/>
                         <field name="attribute_name" readonly="1"/>
                         <field name="is_required" readonly="1"/>
-                        <field name="option_id" options="{'no_create': True, 'no_open': True}" attrs="{'invisible': [('has_options', '=', False)]}"/>
-                        <field name="value_name" attrs="{'invisible': [('has_options', '=', True)]}"/>
+                        <field name="option_id" options="{'no_create': True, 'no_open': True}" invisible="not has_options"/>
+                        <field name="value_name" invisible="has_options"/>
                     </tree>
                 </field>
 
