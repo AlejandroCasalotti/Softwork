@@ -134,8 +134,6 @@ class ProductTemplate(models.Model):
             normalized.append({"id": "BRAND", "value_name": self._normalize_ml_value(self.ml_brand)})
         if self.ml_model:
             normalized.append({"id": "MODEL", "value_name": self._normalize_ml_value(self.ml_model)})
-        if self.ml_family_name:
-            normalized.append({"id": "family_name", "value_name": self._normalize_ml_value(self.ml_family_name)})
         return normalized
 
     def _collect_ml_pictures(self):
@@ -252,8 +250,8 @@ class ProductTemplate(models.Model):
             missing = sorted(required_ids - present_ids)
             if missing:
                 _logger.info("Atributos requeridos ML no presentes para %s: %s", category_id, ", ".join(missing))
-            # Permitir atributos especiales que MercadoLibre requiere pero no son "categoría attributes"
-            special_attrs = {"family_name", "BRAND", "MODEL"}
+            # BRAND y MODEL pueden no venir en los metadatos de categoría.
+            special_attrs = {"BRAND", "MODEL"}
             for attr in attrs:
                 aid = (attr.get("id") or "").strip()
                 if aid in special_attrs and aid not in present_ids:

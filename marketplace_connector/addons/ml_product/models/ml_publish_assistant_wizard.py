@@ -621,34 +621,9 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
 
-    def _get_allowed_sale_term_ids(self):
-        self.ensure_one()
-        category_id = (self.ml_category_ref_id.category_id or "").strip() if self.ml_category_ref_id else ""
-        if not category_id:
-            return set()
-        provider = ProviderFactory.get_provider(self.account_id)
-        required_res = provider.get_category_required_fields(category_id=category_id)
-        required = required_res.get("items") if isinstance(required_res, dict) else []
-        if not isinstance(required, list):
-            required = []
-        return {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
-
     def action_apply_to_product(self):
         self.ensure_one()
         product = self.product_tmpl_id
-
-        allowed_sale_terms = self._get_allowed_sale_term_ids()
-        sale_terms = []
-        if self.ml_sales_unit_value_id and "SALES_UNIT" in allowed_sale_terms:
-            sale_terms.append({"id": "SALES_UNIT", "value_id": self.ml_sales_unit_value_id.value_id})
-        if self.ml_yield_value > 0 and "YIELD_OF_SALES_UNIT" in allowed_sale_terms:
-            sale_terms.append(
-                {
-                    "id": "YIELD_OF_SALES_UNIT",
-                    "value_name": str(self.ml_yield_value),
-                    "value_struct": {"number": self.ml_yield_value, "unit": self.ml_yield_unit or "m2"},
-                }
-            )
 
         attrs_payload = []
         for line in self.attribute_line_ids.sorted("sequence"):
@@ -665,10 +640,27 @@ class MlPublishAssistantWizard(models.TransientModel):
                 item["value_name"] = effective_value_name
             if item.get("value_id") or item.get("value_name"):
                 attrs_payload.append(item)
-        
-        # Agregar family_name si está completo (MercadoLibre requiere este atributo)
-        if (self.ml_family_name or "").strip():
-            attrs_payload.append({"id": "family_name", "value_name": (self.ml_family_name or "").strip()})
+
+            unit_labels = {"m2": "m²", "m": "m", "cm2": "cm²", "un": "Unidad"}
+            yield_unit = unit_labels.get(self.ml_yield_unit, self.ml_yield_unit or "m²")
+            for item in attrs_payload:
+                if item.get("id") != "YIELD_OF_SALES_UNIT":
+                    continue
+                raw_value = (item.get("value_name") or "").strip()
+                try:
+                    yield_value = self.ml_yield_value if self.ml_yield_value > 0 else float(raw_value)
+                except (TypeError, ValueError):
+                    continue
+                item.pop("value_id", None)
+                item["value_name"] = f"{yield_value:.2f} {yield_unit}"
+
+            attribute_ids = {(item.get("id") or "").strip() for item in attrs_payload}
+            if self.ml_sales_unit_value_id and "SALES_UNIT" not in attribute_ids:
+                attrs_payload.append({"id": "SALES_UNIT", "value_id": self.ml_sales_unit_value_id.value_id})
+            if self.ml_yield_value > 0 and "YIELD_OF_SALES_UNIT" not in attribute_ids:
+                attrs_payload.append(
+                    {"id": "YIELD_OF_SALES_UNIT", "value_name": f"{self.ml_yield_value:.2f} {yield_unit}"}
+                )
 
         pictures_payload = []
         seen_sources = set()
@@ -696,7 +688,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_manual_price_override": bool(self.ml_manual_price_override),
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
-                "ml_sale_terms_json": json.dumps(sale_terms, ensure_ascii=False) if sale_terms else (self.ml_sale_terms_json or "[]"),
+                    "ml_sale_terms_json": "[]",
                 "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
                 "ml_pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
             }
