@@ -143,7 +143,20 @@ class MercadoLibreProvider(IProvider):
                 )
 
         if response.status_code >= 400:
-            raise UserError(f"Error MercadoLibre {response.status_code}: {response.text}")
+                payload_keys = sorted(payload) if isinstance(payload, dict) else []
+                _logger.error(
+                    "ML error HTTP %s en %s %s para account_id=%s; payload_keys=%s; response=%s",
+                    response.status_code,
+                    method,
+                    endpoint,
+                    self.account.id,
+                    payload_keys,
+                    response.text,
+                )
+                raise UserError(
+                    f"Error MercadoLibre {response.status_code} en {method} {endpoint} "
+                    f"(campos enviados: {', '.join(payload_keys) or 'ninguno'}): {response.text}"
+                )
         if not response.text:
             return {"_meta": {"elapsed_ms": elapsed_ms}}
         data = response.json()
