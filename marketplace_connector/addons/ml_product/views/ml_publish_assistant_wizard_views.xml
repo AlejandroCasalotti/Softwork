@@ -16,7 +16,7 @@
                 <div class="alert alert-info" role="alert" invisible="step != 'base'">Elegí la categoría y el tipo de publicación. Luego cargá sus atributos.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'pricing_stock'">Definí el precio y el stock que se enviarán a MercadoLibre.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'sale_format'">Completá la unidad de venta y el rendimiento solo cuando apliquen a la categoría.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'costs_installments'">MercadoLibre calcula la comisión y las cuotas disponibles según categoría, precio y tipo de publicación.</div>
+                <div class="alert alert-info" role="alert" invisible="step != 'costs_installments'">MercadoLibre calcula comisión y cuotas según categoría, precio y tipo de publicación. La elección se realiza mediante el tipo de publicación; no hay una cuota enviable por ítem.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'delivery'">Elegí cómo se entregará el producto al comprador.</div>
                 <div class="alert alert-warning" role="alert" invisible="step != 'attributes'">Completá las filas obligatorias. Usá la lupa cuando haya opciones disponibles.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'variants_photos'">Agregá URLs públicas de imágenes adicionales si las necesitás.</div>

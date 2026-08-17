@@ -196,6 +196,11 @@ class MlPublishAssistantWizard(models.TransientModel):
                     rate = installment.get("rate")
                     installment_text = f"{quantity or 0} cuotas de $ {amount or 0} (tasa {rate or 0}%)"
                 lines.append(f"Comisión: {fee_text}. {installment_text}.")
+            if lines:
+                lines.append(
+                    "La opción aplicable se determina al elegir el Tipo de publicación; "
+                    "MercadoLibre no admite enviar cuotas o comisión como un campo del ítem."
+                )
             self.ml_listing_cost_summary = "\n".join(lines) or "MercadoLibre no informó costos ni cuotas."
         except Exception as err:
             _logger.exception("Error consultando costos ML para wizard_id=%s", self.id)
