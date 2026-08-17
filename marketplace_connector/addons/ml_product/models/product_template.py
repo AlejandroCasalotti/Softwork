@@ -61,6 +61,8 @@ class ProductTemplate(models.Model):
     ml_status = fields.Char(string="Estado ML", readonly=True)
     ml_permalink = fields.Char(string="URL publicación", readonly=True)
     ml_item_id = fields.Char(string="ID Publicación", readonly=True)
+    ml_catalog_managed = fields.Boolean(string="Título administrado por catálogo", readonly=True)
+    ml_listing_cost_summary = fields.Text(string="Cargo por vender y cuotas ML", readonly=True)
     ml_publish_date = fields.Datetime(string="Fecha publicación", readonly=True)
     ml_sync_date = fields.Datetime(string="Última sincronización", readonly=True)
 
@@ -353,13 +355,76 @@ class ProductTemplate(models.Model):
         raw = response.get("raw") if isinstance(response, dict) else {}
         if not isinstance(raw, dict):
             raw = {}
-        self.write({
+        vals = {
             "ml_item_id": raw.get("id") or response.get("item_id") or self.ml_item_id,
             "ml_status": raw.get("status") or default_status or self.ml_status,
             "ml_permalink": raw.get("permalink") or self.ml_permalink,
+            "ml_catalog_managed": bool(response.get("catalog_managed", self.ml_catalog_managed)),
             "ml_publish_date": self.ml_publish_date or fields.Datetime.now(),
             "ml_sync_date": fields.Datetime.now(),
-        })
+        }
+        if raw.get("title"):
+            vals["ml_title"] = raw["title"]
+        self.write(vals)
+
+    def action_modify_ml_listing(self):
+        self.ensure_one()
+        if not self.ml_item_id:
+            raise UserError("Primero publica el producto en MercadoLibre.")
+        account = self._get_ml_account()
+        provider = self._get_ml_provider(account)
+        result = provider.get_item(self.ml_item_id)
+        item = result.get("item") if isinstance(result, dict) else {}
+        if not isinstance(item, dict):
+            raise UserError("MercadoLibre no devolvió los datos de la publicación.")
+
+        attrs = item.get("attributes") if isinstance(item.get("attributes"), list) else []
+        pictures = item.get("pictures") if isinstance(item.get("pictures"), list) else []
+        cost_summary = "MercadoLibre no informó cargos ni cuotas para esta publicación."
+        if hasattr(provider, "get_listing_prices") and item.get("price"):
+            try:
+                quote = provider.get_listing_prices(
+                    category_id=item.get("category_id") or self.ml_category_id,
+                    price=item["price"],
+                    listing_type_id=item.get("listing_type_id") or self.ml_listing_type,
+                )
+                quotes = quote.get("items") if isinstance(quote, dict) else []
+                lines = []
+                for quote_item in quotes if isinstance(quotes, list) else []:
+                    details = quote_item.get("sale_fee_details") if isinstance(quote_item.get("sale_fee_details"), dict) else {}
+                    fee = quote_item.get("sale_fee_amount", details.get("gross_amount"))
+                    installment = quote_item.get("installments") or {}
+                    installment_text = "Sin cuotas informadas"
+                    if isinstance(installment, dict) and installment:
+                        installment_text = (
+                            f"{installment.get('quantity') or 0} cuotas de $ {installment.get('amount') or 0} "
+                            f"(tasa {installment.get('rate') or 0}%)"
+                        )
+                    lines.append(f"Comisión: $ {fee if fee is not None else 0}. {installment_text}.")
+                if lines:
+                    cost_summary = "\n".join(lines)
+            except Exception:
+                _logger.exception("No se pudo consultar la cotización ML para product_tmpl_id=%s", self.id)
+        vals = {
+            "ml_title": item.get("title") or self.ml_title,
+            "ml_price": float(item["price"]) if item.get("price") is not None else self.ml_price,
+            "ml_quantity": float(item["available_quantity"]) if item.get("available_quantity") is not None else self.ml_quantity,
+            "ml_status": item.get("status") or self.ml_status,
+            "ml_permalink": item.get("permalink") or self.ml_permalink,
+            "ml_attributes_json": json.dumps(attrs, ensure_ascii=False),
+            "ml_pictures_json": json.dumps(pictures, ensure_ascii=False),
+            "ml_catalog_managed": bool(item.get("catalog_product_id")) or self.ml_catalog_managed,
+            "ml_listing_cost_summary": cost_summary,
+            "ml_sync_date": fields.Datetime.now(),
+        }
+        self.with_context(ml_skip_bidirectional_sync=True).write(vals)
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "product.template",
+            "view_mode": "form",
+            "res_id": self.id,
+            "target": "current",
+        }
 
     def _compute_ml_required_completion(self):
         for product in self:

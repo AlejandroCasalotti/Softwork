@@ -16,7 +16,6 @@
                 <div class="alert alert-info" role="alert" invisible="step != 'base'">Elegí la categoría y el tipo de publicación. Luego cargá sus atributos.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'pricing_stock'">Definí el precio y el stock que se enviarán a MercadoLibre.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'sale_format'">Completá la unidad de venta y el rendimiento solo cuando apliquen a la categoría.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'costs_installments'">MercadoLibre calcula comisión y cuotas según categoría, precio y tipo de publicación. La elección se realiza mediante el tipo de publicación; no hay una cuota enviable por ítem.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'delivery'">Elegí cómo se entregará el producto al comprador.</div>
                 <div class="alert alert-warning" role="alert" invisible="step != 'attributes'">Completá las filas obligatorias. Usá la lupa cuando haya opciones disponibles.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'variants_photos'">Agregá URLs públicas de imágenes adicionales si las necesitás.</div>
@@ -71,18 +70,13 @@
                     </group>
                 </group>
 
-                <group invisible="step != 'costs_installments'" string="Paso 4: Cargo por vender y cuotas">
-                    <field name="ml_listing_cost_summary" widget="text" readonly="1" nolabel="1" placeholder="Se consultará automáticamente al ingresar a este paso."/>
-                    <button name="action_refresh_listing_costs" type="object" string="Actualizar costos y cuotas" class="btn-secondary"/>
-                </group>
-
-                <group invisible="step != 'delivery'" string="Paso 5: Forma de entrega">
+                <group invisible="step != 'delivery'" string="Paso 4: Forma de entrega">
                     <group>
                         <field name="ml_shipping_mode" required="1"/>
                     </group>
                 </group>
 
-                <group invisible="step != 'attributes'" string="Paso 6: Atributos - Especificaciones del producto">
+                <group invisible="step != 'attributes'" string="Paso 5: Atributos - Especificaciones del producto">
                     <field name="attribute_line_ids" nolabel="1">
                         <list editable="bottom">
                             <field name="sequence" string="O." width="30px"/>
@@ -96,7 +90,7 @@
                     </field>
                 </group>
 
-                <group invisible="step != 'variants_photos'" string="Paso 7: Imágenes - Fotos del producto">
+                <group invisible="step != 'variants_photos'" string="Paso 6: Imágenes - Fotos del producto">
                     <field name="picture_line_ids" nolabel="1">
                         <list editable="bottom">
                             <field name="sequence" string="O."/>
@@ -106,7 +100,7 @@
                     <field name="ml_variant_notes" widget="text" placeholder="Notas sobre variantes (opcional)."/>
                 </group>
 
-                <group invisible="step != 'review'" string="Paso 8: Revisión - Checklist final">
+                <group invisible="step != 'review'" string="Paso 7: Revisión - Checklist final">
                     <button name="action_validate_checklist" type="object" string="✓ Validar checklist" class="btn-secondary btn-block"/>
                     <field name="validation_summary" widget="text" readonly="1" placeholder="Se mostrará el estado final del producto y recomendaciones."/>
                 </group>
