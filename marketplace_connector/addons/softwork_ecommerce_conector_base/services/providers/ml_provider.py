@@ -482,19 +482,17 @@ class MercadoLibreProvider(IProvider):
             raw=attrs_res.get("raw") if isinstance(attrs_res, dict) else {},
         )
 
-    def update_product(self, payload):
+    def delete_product(self, payload):
         payload = payload or {}
         item_id = self._extract_item_id(payload)
+        data = self._request("PUT", f"/items/{item_id}", payload={"status": "closed"})
+        return self._ok(action="delete_product", item_id=item_id, raw=data)
 
-        if payload.get("status") and not payload.get("title"):
-            item_payload = {"status": payload.get("status")}
-        else:
-            item_payload = self._build_item_update_payload(payload)
-            if payload.get("status"):
-                item_payload["status"] = payload.get("status")
-
-        data = self._request("PUT", f"/items/{item_id}", payload=item_payload)
-        return self._ok(action="update_product", item_id=item_id, raw=data)
+    def update_stock(self, payload):
+        payload = payload or {}
+        item_id = self._extract_item_id(payload)
+        qty = max(0, self._to_int(payload.get("available_quantity"), 0))
+        data = self._request("PUT", f"/items/{item_id}", payload={"available_quantity": qty})
         return self._ok(action="update_stock", item_id=item_id, available_quantity=qty, raw=data)
 
     def update_price(self, payload):
