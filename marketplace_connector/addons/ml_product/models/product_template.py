@@ -277,7 +277,7 @@ class ProductTemplate(models.Model):
         title = self._effective_title()
         if not title:
             raise UserError("Falta título para publicar en MercadoLibre.")
-        price = self._effective_price()
+        price = round(self._effective_price(), 2)
         if price <= 0:
             raise UserError("El precio debe ser mayor a cero.")
         qty = self._effective_qty()
@@ -310,7 +310,7 @@ class ProductTemplate(models.Model):
             "buying_mode": "buy_it_now",
             "condition": self.ml_condition or "new",
             "listing_type_id": listing_type,
-           "family_name": (self.ml_family_name or "").strip(),
+            "family_name": (self.ml_family_name or "").strip(),
             "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": sale_terms,
             "pictures": self._collect_ml_pictures(),
@@ -556,7 +556,12 @@ class ProductTemplate(models.Model):
                 msg = str(e)
                 if (
                     (product.ml_shipping_mode or "me2") == "me2"
-                    and ("shipping.lost_me2" in msg or "shipping.lost_me1" in msg)
+                    and (
+                        "shipping.lost_me2" in msg
+                        or "shipping.lost_me1" in msg
+                        or "shipping.lost_me2_by_intersected_logistics" in msg
+                        or "shipping.lost_me1_by_user" in msg
+                    )
                 ):
                     payload["shipping"] = {"mode": "custom"}
                     if product.ml_item_id:

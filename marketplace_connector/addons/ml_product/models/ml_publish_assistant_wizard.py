@@ -173,13 +173,20 @@ class MlPublishAssistantWizard(models.TransientModel):
             )
             items = response.get("items") if isinstance(response, dict) else []
             if not isinstance(items, list) or not items:
-                self.ml_listing_cost_summary = "MercadoLibre no devolvió opciones de costos para esta combinación."
+                raw = response.get("raw") if isinstance(response, dict) else None
+                raw_type = type(raw).__name__
+                raw_keys = ", ".join(sorted(raw.keys())) if isinstance(raw, dict) else ""
+                detail = f" Respuesta: {raw_type}{f' ({raw_keys})' if raw_keys else ''}."
+                self.ml_listing_cost_summary = (
+                    "MercadoLibre no informó costos ni cuotas para esta combinación." + detail
+                )
                 return self._reload_self()
             lines = []
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                fee = item.get("sale_fee_amount")
+                fee_details = item.get("sale_fee_details") if isinstance(item.get("sale_fee_details"), dict) else {}
+                fee = item.get("sale_fee_amount", fee_details.get("gross_amount"))
                 fee_text = f"$ {fee}" if fee is not None else "costo no informado"
                 installment = item.get("installments") or {}
                 installment_text = "Sin cuotas informadas"

@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import time
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import timedelta
 
 from odoo import fields
@@ -216,6 +217,9 @@ class MercadoLibreProvider(IProvider):
             raise UserError("MercadoLibre: falta 'category_id' para publicar.")
 
         price = self._to_float(payload.get("price"), 0.0)
+        currency_id = payload.get("currency_id") or "ARS"
+        if currency_id == "ARS":
+            price = float(Decimal(str(price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
         qty = self._to_int(payload.get("available_quantity"), 0)
 
         if price <= 0:
@@ -227,7 +231,7 @@ class MercadoLibreProvider(IProvider):
             "title": title,
             "category_id": category_id,
             "price": price,
-            "currency_id": payload.get("currency_id") or "ARS",
+            "currency_id": currency_id,
             "available_quantity": qty,
             "buying_mode": payload.get("buying_mode") or "buy_it_now",
             "condition": payload.get("condition") or "new",
@@ -512,16 +516,49 @@ class MercadoLibreProvider(IProvider):
         price = self._to_float(price, 0.0)
         if not category_id or not listing_type_id or price <= 0:
             raise UserError("Faltan categoría, tipo de publicación o precio para consultar costos ML.")
+
+        def _as_items(response):
+            if isinstance(response, list):
+                return [item for item in response if isinstance(item, dict)]
+            if not isinstance(response, dict):
+                return []
+            for key in ("items", "results", "prices", "listing_prices"):
+                values = response.get(key)
+                if isinstance(values, list):
+                    return [item for item in values if isinstance(item, dict)]
+            if any(key in response for key in ("sale_fee_amount", "sale_fee_details", "listing_type_id")):
+                return [response]
+            return []
+
+        params = {
+            "category_id": category_id,
+            "price": price,
+            "listing_type_id": listing_type_id,
+        }
         data = self._request(
             "GET",
             "/sites/MLA/listing_prices",
-            params={
-                "category_id": category_id,
-                "price": price,
-                "listing_type_id": listing_type_id,
-            },
+            params=params,
         )
-        items = data if isinstance(data, list) else []
+        items = _as_items(data)
+        if not items:
+            fallback_params = {"category_id": category_id, "price": price}
+            fallback_data = self._request("GET", "/sites/MLA/listing_prices", params=fallback_params)
+            fallback_items = _as_items(fallback_data)
+            if fallback_items:
+                data = fallback_data
+                items = fallback_items
+        matching_items = [item for item in items if item.get("listing_type_id") == listing_type_id]
+        if matching_items:
+            items = matching_items
+        _logger.info(
+            "ML listing_prices account_id=%s category_id=%s listing_type_id=%s result_count=%s raw_type=%s",
+            self.account.id,
+            category_id,
+            listing_type_id,
+            len(items),
+            type(data).__name__,
+        )
         return self._ok(action="get_listing_prices", items=items, raw=data)
 
     def delete_product(self, payload):
