@@ -13,6 +13,7 @@ class MlCategory(models.Model):
     _name = "ml.category"
     _description = "Categorías MercadoLibre"
     _order = "category_name"
+    _rec_name = "category_name"
 
     account_id = fields.Many2one("sce.account", required=True, ondelete="cascade", index=True)
     category_id = fields.Char(required=True, index=True)

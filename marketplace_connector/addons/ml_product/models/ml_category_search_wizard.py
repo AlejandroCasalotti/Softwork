@@ -205,6 +205,21 @@ class MlCategorySearchWizard(models.TransientModel):
 
         # Si hay wizard de publicación padre, volver a él. Si no, cerrar.
         if self.publish_wizard_id:
+            category_record = self.env["ml.category"].search(
+                [("account_id", "=", self.account_id.id), ("category_id", "=", category_id)],
+                limit=1,
+            )
+            if not category_record:
+                category_record = self.env["ml.category"].create(
+                    {
+                        "account_id": self.account_id.id,
+                        "category_id": category_id,
+                        "category_name": self.category_name or category_id,
+                    }
+                )
+            self.publish_wizard_id.write(
+                {"step": "base", "ml_category_ref_id": category_record.id}
+            )
             return {
                 "type": "ir.actions.act_window",
                 "res_model": "ml.publish.assistant.wizard",

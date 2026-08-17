@@ -427,7 +427,7 @@ class ProductTemplate(models.Model):
             "res_model": "ml.publish.assistant.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {"default_product_tmpl_id": self.id},
+            "context": {"default_product_tmpl_id": self.id, "default_step": "base"},
         }
 
     def action_open_ml_category_search_wizard(self):
