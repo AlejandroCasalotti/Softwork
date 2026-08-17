@@ -30,6 +30,7 @@
 
                         <group string="Precio y stock publicados">
                             <field name="ml_pricelist_id"/>
+                            <field name="ml_price_uom_id"/>
                             <field name="ml_use_pricelist_price"/>
                             <field name="ml_manual_price_override"/>
                             <field name="ml_price" readonly="not ml_manual_price_override"/>
@@ -45,7 +46,8 @@
                             <field name="ml_required_completion" readonly="1"/>
                         </group>
 
-                        <group string="Estado publicación">
+                        <group string="Entrega y estado">
+                            <field name="ml_shipping_mode"/>
                             <field name="ml_status" readonly="1"/>
                             <field name="ml_item_id" readonly="1"/>
                             <field name="ml_permalink" readonly="1"/>

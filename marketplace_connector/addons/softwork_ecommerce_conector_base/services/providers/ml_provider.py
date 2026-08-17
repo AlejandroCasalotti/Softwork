@@ -506,6 +506,24 @@ class MercadoLibreProvider(IProvider):
             raw=attrs_res.get("raw") if isinstance(attrs_res, dict) else {},
         )
 
+    def get_listing_prices(self, category_id, price, listing_type_id):
+        category_id = (category_id or "").strip()
+        listing_type_id = (listing_type_id or "").strip()
+        price = self._to_float(price, 0.0)
+        if not category_id or not listing_type_id or price <= 0:
+            raise UserError("Faltan categoría, tipo de publicación o precio para consultar costos ML.")
+        data = self._request(
+            "GET",
+            "/sites/MLA/listing_prices",
+            params={
+                "category_id": category_id,
+                "price": price,
+                "listing_type_id": listing_type_id,
+            },
+        )
+        items = data if isinstance(data, list) else []
+        return self._ok(action="get_listing_prices", items=items, raw=data)
+
     def delete_product(self, payload):
         payload = payload or {}
         item_id = self._extract_item_id(payload)

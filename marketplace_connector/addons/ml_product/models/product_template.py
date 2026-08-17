@@ -40,6 +40,7 @@ class ProductTemplate(models.Model):
         default="me2",
     )
     ml_pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios ML")
+    ml_price_uom_id = fields.Many2one("uom.uom", string="UoM de precio ML")
     ml_use_pricelist_price = fields.Boolean(string="Usar lista de precios", default=True)
     ml_manual_price_override = fields.Boolean(string="Usar precio manual", default=False)
     ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
@@ -83,9 +84,18 @@ class ProductTemplate(models.Model):
             return self.ml_price
         if self.ml_use_pricelist_price and self.ml_pricelist_id:
             try:
-                return self.ml_pricelist_id._get_product_price(self, 1.0)
+                return self.ml_pricelist_id._get_product_price(
+                    self, 1.0, uom=self.ml_price_uom_id or self.uom_id
+                )
             except Exception:
-                return self.list_price
+                pass
+        source_uom = self.uom_id
+        target_uom = self.ml_price_uom_id or source_uom
+        if source_uom and target_uom:
+            try:
+                return source_uom._compute_price(self.list_price, target_uom)
+            except Exception:
+                pass
         return self.ml_price if self.ml_price > 0 else self.list_price
 
     def _effective_qty(self):

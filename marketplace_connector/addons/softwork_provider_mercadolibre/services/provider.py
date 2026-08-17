@@ -86,6 +86,13 @@ class MercadoLibreExternalProvider(IProvider):
     def get_category_required_fields(self, category_id):
         return self._delegate.get_category_required_fields(category_id=category_id)
 
+    def get_listing_prices(self, category_id, price, listing_type_id):
+        return self._delegate.get_listing_prices(
+            category_id=category_id,
+            price=price,
+            listing_type_id=listing_type_id,
+        )
+
     def webhook(self, payload):
         return self._delegate.webhook(payload)
 

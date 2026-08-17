@@ -19,6 +19,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             ("base", "Base"),
             ("pricing_stock", "Precio y Stock"),
             ("sale_format", "Formato de venta"),
+            ("costs_installments", "Costos y cuotas"),
+            ("delivery", "Entrega"),
             ("attributes", "Atributos"),
             ("variants_photos", "Variantes y fotos"),
             ("review", "Revisión final"),
@@ -32,6 +34,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
 
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
+    ml_title = fields.Char(string="Título ML")
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
     ml_family_name = fields.Char(string="Familia/Línea de Producto", help="Atributo requerido por MercadoLibre. Ej: Porcelanato, Cerámica, etc.")
@@ -42,11 +45,18 @@ class MlPublishAssistantWizard(models.TransientModel):
     )
 
     ml_pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios")
+    ml_price_uom_id = fields.Many2one("uom.uom", string="UoM de precio")
     ml_use_pricelist_price = fields.Boolean(string="Usar precio desde lista", default=True)
     ml_manual_price_override = fields.Boolean(string="Usar precio manual", default=False)
     ml_price = fields.Float(string="Precio ML")
     ml_stock_reserve_qty = fields.Float(string="Stock reservado", default=0.0)
     ml_effective_qty = fields.Integer(string="Stock efectivo", readonly=True)
+    ml_shipping_mode = fields.Selection(
+        [("me2", "Mercado Envíos"), ("custom", "Acordar con comprador"), ("not_specified", "No especificado")],
+        string="Forma de entrega",
+        default="me2",
+    )
+    ml_listing_cost_summary = fields.Text(string="Costos y cuotas", readonly=True)
 
     ml_sales_unit_value_id = fields.Many2one("ml.attribute.option", string="Unidad de venta")
     ml_yield_value = fields.Float(string="Rendimiento")
@@ -85,6 +95,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             ("base", "Base"),
             ("pricing_stock", "Precio y Stock"),
             ("sale_format", "Formato de venta"),
+            ("costs_installments", "Costos y cuotas"),
+            ("delivery", "Entrega"),
             ("attributes", "Atributos"),
             ("variants_photos", "Variantes y fotos"),
             ("review", "Revisión final"),
@@ -103,6 +115,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             "base": bool(self.ml_category_ref_id and self.listing_type_id),
             "pricing_stock": bool(self.ml_price > 0 and self.ml_effective_qty >= 0),
             "sale_format": True,  # No bloqueante
+            "costs_installments": True,
+            "delivery": bool(self.ml_shipping_mode),
             "attributes": True,  # Validado en review
             "variants_photos": bool(self.picture_line_ids),
             "review": False,  # Calculado dinámicamente
@@ -124,20 +138,62 @@ class MlPublishAssistantWizard(models.TransientModel):
                     "Revisa permisos/sesión de Odoo.sh y credenciales de la cuenta ML."
                 )
 
-    def _compute_suggested_price(self, product, pricelist):
+    def _compute_suggested_price(self, product, pricelist, price_uom=False):
         if not product:
             return 0.0
         if pricelist:
             try:
-                return float(pricelist._get_product_price(product, 1.0) or 0.0)
+                return float(pricelist._get_product_price(product, 1.0, uom=price_uom or product.uom_id) or 0.0)
             except Exception:
-                return float(product.list_price or 0.0)
-        return float(product.ml_price or product.list_price or 0.0)
+                pass
+        try:
+            return float(product.uom_id._compute_price(product.list_price, price_uom or product.uom_id) or 0.0)
+        except Exception:
+            return float(product.ml_price or product.list_price or 0.0)
 
     def _compute_effective_qty(self, product, reserve_qty):
         reserve = max(0.0, reserve_qty or 0.0)
         qty_source = product.qty_available if product else 0.0
         return int(max(0.0, qty_source - reserve))
+
+    def action_refresh_listing_costs(self):
+        self.ensure_one()
+        if not self.ml_category_ref_id or not self.listing_type_id or self.ml_price <= 0:
+            self.ml_listing_cost_summary = "Completá categoría, tipo de publicación y precio para consultar costos y cuotas."
+            return self._reload_self()
+        provider = ProviderFactory.get_provider(self.account_id)
+        if not hasattr(provider, "get_listing_prices"):
+            self.ml_listing_cost_summary = "El provider configurado no informa costos ni cuotas para esta cuenta."
+            return self._reload_self()
+        try:
+            response = provider.get_listing_prices(
+                category_id=self.ml_category_ref_id.category_id,
+                price=self.ml_price,
+                listing_type_id=self.listing_type_id.listing_type_id,
+            )
+            items = response.get("items") if isinstance(response, dict) else []
+            if not isinstance(items, list) or not items:
+                self.ml_listing_cost_summary = "MercadoLibre no devolvió opciones de costos para esta combinación."
+                return self._reload_self()
+            lines = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                fee = item.get("sale_fee_amount")
+                fee_text = f"$ {fee}" if fee is not None else "costo no informado"
+                installment = item.get("installments") or {}
+                installment_text = "Sin cuotas informadas"
+                if isinstance(installment, dict) and installment:
+                    quantity = installment.get("quantity")
+                    amount = installment.get("amount")
+                    rate = installment.get("rate")
+                    installment_text = f"{quantity or 0} cuotas de $ {amount or 0} (tasa {rate or 0}%)"
+                lines.append(f"Comisión: {fee_text}. {installment_text}.")
+            self.ml_listing_cost_summary = "\n".join(lines) or "MercadoLibre no informó costos ni cuotas."
+        except Exception as err:
+            _logger.exception("Error consultando costos ML para wizard_id=%s", self.id)
+            self.ml_listing_cost_summary = f"No se pudieron consultar costos y cuotas: {err}"
+        return self._reload_self()
 
     @api.onchange("ml_category_ref_id")
     def _onchange_category_ref(self):
@@ -148,7 +204,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 # para cargar, pero podemos dejar preparado el mensaje
                 pass
 
-    @api.onchange("ml_pricelist_id", "ml_use_pricelist_price", "ml_manual_price_override", "ml_stock_reserve_qty")
+    @api.onchange("ml_pricelist_id", "ml_price_uom_id", "ml_use_pricelist_price", "ml_manual_price_override", "ml_stock_reserve_qty")
     def _onchange_pricing_stock(self):
         for wizard in self:
             product = wizard.product_tmpl_id
@@ -161,7 +217,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 if not wizard.ml_price:
                     wizard.ml_price = product.ml_price or product.list_price
             elif wizard.ml_use_pricelist_price:
-                wizard.ml_price = wizard._compute_suggested_price(product, wizard.ml_pricelist_id)
+                wizard.ml_price = wizard._compute_suggested_price(product, wizard.ml_pricelist_id, wizard.ml_price_uom_id)
             else:
                 wizard.ml_price = product.ml_price or product.list_price
 
@@ -270,7 +326,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             limit=1,
         )
 
-        suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False)
+        suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False, product.ml_price_uom_id)
         effective_qty = self._compute_effective_qty(product, product.ml_stock_reserve_qty)
 
         selected_category = self.env["ml.category"].search(
@@ -283,17 +339,20 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
                 "ml_category_ref_id": selected_category.id if selected_category else False,
+                "ml_title": product.ml_title or product.name or "",
                 "listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_brand": product.ml_brand or "",
                 "ml_model": product.ml_model or "",
                 "ml_family_name": product.ml_family_name or "",
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
+                "ml_price_uom_id": product.ml_price_uom_id.id if product.ml_price_uom_id else product.uom_id.id,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
                 "ml_manual_price_override": product.ml_manual_price_override,
                 "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
                 "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
                 "ml_effective_qty": effective_qty,
+                "ml_shipping_mode": product.ml_shipping_mode or "me2",
                 "ml_sales_unit_value_id": False,
                 "ml_yield_value": 0.0,
                 "ml_yield_unit": "m2",
@@ -333,6 +392,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         allowed_fields = set(self._fields.keys())
         for vals in vals_list:
             safe_vals = dict(vals or {})
+            safe_vals["step"] = "base"
             unknown_keys = [k for k in safe_vals.keys() if k not in allowed_fields]
             if unknown_keys:
                 _logger.warning(
@@ -408,7 +468,7 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_next(self):
         self.ensure_one()
-        order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
+        order = ["base", "pricing_stock", "sale_format", "costs_installments", "delivery", "attributes", "variants_photos", "review"]
         current_step = self.step if self.step in order else "base"
         if not self.step:
             self.step = current_step
@@ -419,6 +479,9 @@ class MlPublishAssistantWizard(models.TransientModel):
         idx = order.index(current_step)
         if idx < len(order) - 1:
             next_step = order[idx + 1]
+            if next_step == "costs_installments":
+                self.step = next_step
+                return self.action_refresh_listing_costs()
             # Auto-trigger metadata load al llegar a attributes
             if next_step == "attributes" and self.ml_category_ref_id and not self.attribute_line_ids:
                 self.step = next_step
@@ -432,7 +495,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         # Guardar cambios antes de retroceder
         self.action_apply_to_product()
         
-        order = ["base", "pricing_stock", "sale_format", "attributes", "variants_photos", "review"]
+        order = ["base", "pricing_stock", "sale_format", "costs_installments", "delivery", "attributes", "variants_photos", "review"]
         current_step = self.step if self.step in order else "base"
         if not self.step:
             self.step = current_step
@@ -677,6 +740,7 @@ class MlPublishAssistantWizard(models.TransientModel):
 
         product.write(
             {
+                "ml_title": (self.ml_title or product.name or "").strip(),
                 "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
                 "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
                 "ml_brand": (self.ml_brand or "").strip(),
@@ -684,10 +748,12 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_family_name": (self.ml_family_name or "").strip(),
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
+                "ml_price_uom_id": self.ml_price_uom_id.id if self.ml_price_uom_id else product.uom_id.id,
                 "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
                 "ml_manual_price_override": bool(self.ml_manual_price_override),
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
+                "ml_shipping_mode": self.ml_shipping_mode or "me2",
                     "ml_sale_terms_json": "[]",
                 "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
                 "ml_pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
