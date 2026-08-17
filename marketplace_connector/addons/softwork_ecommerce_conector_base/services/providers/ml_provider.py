@@ -225,10 +225,6 @@ class MercadoLibreProvider(IProvider):
         if attributes:
             item["attributes"] = attributes
 
-            family_name = (payload.get("family_name") or "").strip()
-            if family_name:
-                item["family_name"] = family_name
-
         family_name = (payload.get("family_name") or "").strip()
         if family_name:
             item["family_name"] = family_name
@@ -250,6 +246,37 @@ class MercadoLibreProvider(IProvider):
         if payload.get("warranty"):
             item.setdefault("sale_terms", [])
             item["sale_terms"].append({"id": "WARRANTY_TYPE", "value_name": payload["warranty"]})
+
+        return item
+
+    def _build_item_update_payload(self, payload):
+        payload = payload or {}
+        item = {}
+
+        if "price" in payload:
+            price = self._to_float(payload.get("price"), 0.0)
+            if price > 0:
+                item["price"] = price
+        if "available_quantity" in payload:
+            item["available_quantity"] = max(0, self._to_int(payload.get("available_quantity"), 0))
+
+        attributes = self._normalize_attributes(payload)
+        if attributes:
+            item["attributes"] = attributes
+
+        pictures = self._normalize_pictures(payload)
+        if pictures:
+            item["pictures"] = pictures
+
+        description = payload.get("description")
+        if isinstance(description, dict):
+            item["description"] = description
+        elif payload.get("description_plain_text"):
+            item["description"] = {"plain_text": payload["description_plain_text"]}
+
+        sale_terms = payload.get("sale_terms")
+        if isinstance(sale_terms, list):
+            item["sale_terms"] = sale_terms
 
         return item
 
@@ -364,7 +391,7 @@ class MercadoLibreProvider(IProvider):
         if payload.get("status") and not payload.get("title"):
             item_payload = {"status": payload.get("status")}
         else:
-            item_payload = self._build_item_payload(payload)
+            item_payload = self._build_item_update_payload(payload)
             if payload.get("status"):
                 item_payload["status"] = payload.get("status")
 
@@ -455,19 +482,19 @@ class MercadoLibreProvider(IProvider):
             raw=attrs_res.get("raw") if isinstance(attrs_res, dict) else {},
         )
 
-    def delete_product(self, payload):
+    def update_product(self, payload):
         payload = payload or {}
         item_id = self._extract_item_id(payload)
-        data = self._request("PUT", f"/items/{item_id}", payload={"status": "closed"})
-        return self._ok(action="delete_product", item_id=item_id, raw=data)
 
-    def update_stock(self, payload):
-        payload = payload or {}
-        item_id = self._extract_item_id(payload)
-        qty = self._to_int(payload.get("available_quantity"), 0)
-        if qty < 0:
-            qty = 0
-        data = self._request("PUT", f"/items/{item_id}", payload={"available_quantity": qty})
+        if payload.get("status") and not payload.get("title"):
+            item_payload = {"status": payload.get("status")}
+        else:
+            item_payload = self._build_item_update_payload(payload)
+            if payload.get("status"):
+                item_payload["status"] = payload.get("status")
+
+        data = self._request("PUT", f"/items/{item_id}", payload=item_payload)
+        return self._ok(action="update_product", item_id=item_id, raw=data)
         return self._ok(action="update_stock", item_id=item_id, available_quantity=qty, raw=data)
 
     def update_price(self, payload):
