@@ -225,6 +225,14 @@ class MercadoLibreProvider(IProvider):
         if attributes:
             item["attributes"] = attributes
 
+            family_name = (payload.get("family_name") or "").strip()
+            if family_name:
+                item["family_name"] = family_name
+
+        family_name = (payload.get("family_name") or "").strip()
+        if family_name:
+            item["family_name"] = family_name
+
         pictures = self._normalize_pictures(payload)
         if pictures:
             item["pictures"] = pictures

@@ -302,6 +302,7 @@ class ProductTemplate(models.Model):
             "buying_mode": "buy_it_now",
             "condition": self.ml_condition or "new",
             "listing_type_id": listing_type,
+           "family_name": (self.ml_family_name or "").strip(),
             "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": sale_terms,
             "pictures": self._collect_ml_pictures(),
