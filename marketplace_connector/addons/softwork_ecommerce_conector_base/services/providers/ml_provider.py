@@ -394,7 +394,18 @@ class MercadoLibreProvider(IProvider):
 
     def publish_product(self, payload):
         item_payload = self._build_item_payload(payload or {})
-        data = self._request("POST", "/items", payload=item_payload)
+        try:
+            data = self._request("POST", "/items", payload=item_payload)
+        except UserError as err:
+            error_message = str(err)
+            if "body.invalid_fields" not in error_message or "[title]" not in error_message:
+                raise
+            item_payload.pop("title", None)
+            _logger.warning(
+                "ML rechazó title en POST /items para account_id=%s; se reintenta sin ese campo.",
+                self.account.id,
+            )
+            data = self._request("POST", "/items", payload=item_payload)
         return self._ok(action="publish_product", item_id=data.get("id"), raw=data)
 
     def update_product(self, payload):
