@@ -77,7 +77,17 @@
                         <field name="ml_yield_unit" string="Unidad"/>
                     </group>
                     <group string="Cuotas / condiciones de pago (sale_terms)" col="1">
-                        <field name="ml_sale_terms_json" nolabel="1" widget="text" placeholder='Ej: [{"id": "MANUFACTURING_TIME", "value_name": "5 días"}]'/>
+                        <field name="sale_term_line_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="sequence" string="O." width="30px"/>
+                                <field name="required" readonly="1" string="Oblig." width="50px"/>
+                                <field name="term_name" readonly="1" string="Condición"/>
+                                <field name="term_option_id" options="{'no_create': True, 'no_open': True}" string="Opción" invisible="has_options == False" width="250px"/>
+                                <field name="value_id" placeholder="ID valor" invisible="has_options == True" width="100px"/>
+                                <field name="value_name" placeholder="Valor libre" invisible="has_options == True" width="150px"/>
+                            </list>
+                        </field>
+                        <p class="text-muted" invisible="sale_term_line_ids">Hacé clic en "↓ Cargar atributos de la categoría" (Paso 1) para traer las condiciones de venta de esta categoría.</p>
                     </group>
                 </group>
 

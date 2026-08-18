@@ -152,11 +152,6 @@ class ProductTemplate(models.Model):
         self.ensure_one()
         pictures = []
 
-        # MercadoLibre exige source URL corta y pública (no data URI base64)
-        def _valid_source(src):
-            s = (src or "").strip()
-            return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
-
         raw_pictures = (self.ml_pictures_json or "").strip()
         if raw_pictures:
             try:
@@ -166,7 +161,7 @@ class ProductTemplate(models.Model):
                         if not isinstance(item, dict):
                             continue
                         source = (item.get("source") or "").strip()
-                        if _valid_source(source):
+                        if self._is_valid_ml_picture_source(source):
                             pictures.append({"source": source})
             except Exception:
                 pictures = []
@@ -176,6 +171,12 @@ class ProductTemplate(models.Model):
 
         # No hay imágenes manuales/sincronizadas: usamos la imagen principal y la galería de Odoo
         return self._collect_odoo_image_sources(account=account)
+
+    @staticmethod
+    def _is_valid_ml_picture_source(source):
+        # MercadoLibre exige source URL http/https pública y de hasta 1024 caracteres
+        s = (source or "").strip()
+        return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
 
     def _get_ml_public_base_url(self, account=None):
         self.ensure_one()
@@ -191,19 +192,16 @@ class ProductTemplate(models.Model):
         if not base_url:
             return []
 
-        def _valid_source(src):
-            s = (src or "").strip()
-            return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
-
         sources = []
         if self.image_1920:
             url = f"{base_url}/web/image/product.template/{self.id}/image_1920?unique={self.write_date or fields.Datetime.now()}"
-            if _valid_source(url):
+            if self._is_valid_ml_picture_source(url):
                 sources.append({"source": url})
 
-        for image in self.product_template_image_ids.sorted("sequence"):
+        gallery = getattr(self, "product_template_image_ids", False)
+        for image in (gallery.sorted("sequence") if gallery else []):
             url = f"{base_url}/web/image/product.image/{image.id}/image_1920?unique={image.write_date or fields.Datetime.now()}"
-            if _valid_source(url):
+            if self._is_valid_ml_picture_source(url):
                 sources.append({"source": url})
 
         return sources
@@ -324,6 +322,17 @@ class ProductTemplate(models.Model):
         except Exception:
             _logger.exception("No se pudo filtrar sale_terms/attributes por categoría ML; se conserva payload original.")
 
+        pictures = []
+        for pic in self._collect_ml_pictures():
+            source = (pic.get("source") or "").strip() if isinstance(pic, dict) else ""
+            if self._is_valid_ml_picture_source(source):
+                pictures.append({"source": source})
+            else:
+                _logger.warning(
+                    "Foto descartada para publicación ML (source inválido/excede 1024 caracteres) product_tmpl_id=%s",
+                    self.id,
+                )
+
         payload = {
             "title": title,
             "category_id": category,
@@ -336,13 +345,15 @@ class ProductTemplate(models.Model):
             "family_name": (self.ml_family_name or "").strip(),
             "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": sale_terms,
-            "pictures": self._collect_ml_pictures(),
+            "pictures": pictures,
             "attributes": attrs,
             "shipping": {"mode": self.ml_shipping_mode or "me2"},
         }
 
         if self.ml_warranty:
-            payload["sale_terms"].append({"id": "WARRANTY_TYPE", "value_name": self.ml_warranty})
+            existing_term_ids = {(t.get("id") or "").strip() for t in payload["sale_terms"] if isinstance(t, dict)}
+            if "WARRANTY_TYPE" not in existing_term_ids:
+                payload["sale_terms"].append({"id": "WARRANTY_TYPE", "value_name": self.ml_warranty})
 
         if self.ml_description_html:
             payload["description_plain_text"] = self.ml_description_html

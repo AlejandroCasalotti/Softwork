@@ -14,6 +14,15 @@ class MlPublishAssistantWizard(models.TransientModel):
     _name = "ml.publish.assistant.wizard"
     _description = "Asistente único de publicación MercadoLibre"
 
+    # IDs de atributos de categoría que ML trata como condiciones de venta (sale_terms)
+    SALE_TERM_ATTRIBUTE_IDS = {
+        "WARRANTY_TYPE",
+        "WARRANTY_TIME",
+        "MANUFACTURING_TIME",
+        "MANUFACTURING_TYPE",
+        "RETURN_TYPE",
+    }
+
     step = fields.Selection(
         [
             ("base", "Base"),
@@ -75,7 +84,9 @@ class MlPublishAssistantWizard(models.TransientModel):
         string="Unidad de rendimiento",
         default="m2",
     )
-    ml_sale_terms_json = fields.Text(string="Formato de venta (sale_terms JSON)")
+    sale_term_line_ids = fields.One2many(
+        "ml.publish.assistant.saleterm.line", "wizard_id", string="Condiciones de venta"
+    )
     ml_warranty = fields.Char(string="Garantía")
     ml_description_html = fields.Html(string="Descripción")
     ml_required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
@@ -322,7 +333,6 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_sales_unit_value_id": False,
                 "ml_yield_value": 0.0,
                 "ml_yield_unit": "m2",
-                "ml_sale_terms_json": product.ml_sale_terms_json or "[]",
                 "ml_warranty": product.ml_warranty or "",
                 "ml_description_html": product.ml_description_html or "",
                 "ml_variant_notes": "",
@@ -573,14 +583,16 @@ class MlPublishAssistantWizard(models.TransientModel):
                 stale_opts.unlink()
 
         self.attribute_line_ids.unlink()
+        self.sale_term_line_ids.unlink()
+
+        combined = [a for a in (required + recommended) if isinstance(a, dict) and (a.get("id") or "").strip()]
+        sale_term_attrs = [a for a in combined if (a.get("id") or "").strip() in self.SALE_TERM_ATTRIBUTE_IDS]
+        regular_attrs = [a for a in combined if (a.get("id") or "").strip() not in self.SALE_TERM_ATTRIBUTE_IDS]
+
         commands = []
         seq = 10
-        for attr in required + recommended:
-            if not isinstance(attr, dict):
-                continue
+        for attr in regular_attrs:
             aid = (attr.get("id") or "").strip()
-            if not aid:
-                continue
             values = attr.get("values") if isinstance(attr.get("values"), list) else []
             commands.append(
                 (
@@ -601,10 +613,32 @@ class MlPublishAssistantWizard(models.TransientModel):
         if commands:
             self.write({"attribute_line_ids": commands})
 
+        saleterm_commands = []
+        seq = 10
+        for attr in sale_term_attrs:
+            aid = (attr.get("id") or "").strip()
+            values = attr.get("values") if isinstance(attr.get("values"), list) else []
+            saleterm_commands.append(
+                (
+                    0,
+                    0,
+                    {
+                        "sequence": seq,
+                        "term_id": aid,
+                        "term_name": (attr.get("name") or aid).strip(),
+                        "required": aid in req_ids,
+                        "has_options": bool(values),
+                        "value_id": "",
+                        "value_name": "",
+                    },
+                )
+            )
+            seq += 10
+        if saleterm_commands:
+            self.write({"sale_term_line_ids": saleterm_commands})
+
         option_model = self.env["ml.attribute.option"]
-        for attr in required + recommended:
-            if not isinstance(attr, dict):
-                continue
+        for attr in combined:
             aid = (attr.get("id") or "").strip()
             if not aid:
                 continue
@@ -638,7 +672,11 @@ class MlPublishAssistantWizard(models.TransientModel):
                 else:
                     option_model.create(vals_opt)
 
-        self.ml_required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
+        self.ml_required_attributes_json = json.dumps(
+            [a for a in required if (a.get("id") or "").strip() not in self.SALE_TERM_ATTRIBUTE_IDS],
+            ensure_ascii=False,
+            indent=2,
+        )
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
 
@@ -646,13 +684,21 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ensure_one()
         product = self.product_tmpl_id
 
-        raw_sale_terms = (self.ml_sale_terms_json or "[]").strip() or "[]"
-        try:
-            parsed_sale_terms = json.loads(raw_sale_terms)
-        except Exception:
-            raise UserError("Formato de venta (sale_terms) inválido: debe ser JSON válido.")
-        if not isinstance(parsed_sale_terms, list) or any(not isinstance(t, dict) for t in parsed_sale_terms):
-            raise UserError("Formato de venta (sale_terms) inválido: debe ser una lista de objetos.")
+        sale_terms_payload = []
+        for line in self.sale_term_line_ids.sorted("sequence"):
+            tid = (line.term_id or "").strip()
+            if not tid:
+                continue
+            item = {"id": tid}
+            opt = line.term_option_id
+            effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
+            effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
+            if effective_value_id:
+                item["value_id"] = effective_value_id
+            if effective_value_name:
+                item["value_name"] = effective_value_name
+            if item.get("value_id") or item.get("value_name"):
+                sale_terms_payload.append(item)
 
         attrs_payload = []
         for line in self.attribute_line_ids.sorted("sequence"):
@@ -695,9 +741,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         seen_sources = set()
         for line in self.picture_line_ids.sorted("sequence"):
             source = (line.source or "").strip()
-            if not source:
-                continue
-            if not source.startswith(("http://", "https://")) or len(source) > 1024:
+            if not product._is_valid_ml_picture_source(source):
                 continue
             if source in seen_sources:
                 continue
@@ -720,7 +764,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
                 "ml_shipping_mode": self.ml_shipping_mode or "me2",
-                "ml_sale_terms_json": raw_sale_terms,
+                "ml_sale_terms_json": json.dumps(sale_terms_payload, ensure_ascii=False),
                 "ml_warranty": (self.ml_warranty or "").strip(),
                 "ml_description_html": self.ml_description_html or False,
                 "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
@@ -758,7 +802,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         else:
             for p in pictures:
                 src = (p.get("source") or "").strip()
-                if not src.startswith(("http://", "https://")) or len(src) > 1024:
+                if not product._is_valid_ml_picture_source(src):
                     image_errors.append("Hay imágenes inválidas para ML.")
                     break
 
@@ -808,16 +852,13 @@ class MlPublishAssistantWizard(models.TransientModel):
                 )
 
         sale_terms_errors = []
-        raw_terms = (self.ml_sale_terms_json or "").strip()
-        if raw_terms:
-            try:
-                parsed_terms = json.loads(raw_terms)
-                if not isinstance(parsed_terms, list):
-                    sale_terms_errors.append("sale_terms debe ser una lista.")
-                elif any(not isinstance(t, dict) for t in parsed_terms):
-                    sale_terms_errors.append("sale_terms debe contener solo objetos.")
-            except Exception:
-                sale_terms_errors.append("sale_terms JSON inválido.")
+        required_saleterm_lines = self.sale_term_line_ids.filtered(lambda l: l.required)
+        for line in required_saleterm_lines:
+            opt = line.term_option_id
+            effective_value_id = (opt.value_id or "").strip() if opt else (line.value_id or "").strip()
+            effective_value_name = (opt.value_name or "").strip() if opt else (line.value_name or "").strip()
+            if not (effective_value_id or effective_value_name):
+                sale_terms_errors.append(f"Falta condición de venta requerida ML: {line.term_name or line.term_id}")
 
         if not (product.ml_brand or "").strip():
             warnings.append("Recomendado: completar Marca.")
@@ -825,8 +866,8 @@ class MlPublishAssistantWizard(models.TransientModel):
             warnings.append("Recomendado: completar Modelo.")
         if not (self.ml_family_name or "").strip():
             warnings.append("Importante: MercadoLibre requiere 'Familia/Línea' para muchas categorías. Completa este campo en Paso 1 para evitar errores de publicación.")
-        if not raw_terms:
-            warnings.append("Recomendado: definir sale_terms para mejorar calidad de publicación.")
+        if not self.sale_term_line_ids:
+            warnings.append("Recomendado: cargá los atributos de la categoría en el Paso 1 para ver sus condiciones de venta.")
         warnings.extend(warnings_by_attr)
 
         if base_errors:
