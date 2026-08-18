@@ -5,6 +5,8 @@
         <field name="model">ml.publish.assistant.wizard</field>
         <field name="arch" type="xml">
             <form string="Asistente de publicación MercadoLibre">
+                <field name="ml_item_id" invisible="1"/>
+                <field name="is_editing" invisible="1"/>
                 <group>
                     <group>
                         <field name="progress_indicator" readonly="1" nolabel="1" class="text-muted"/>
@@ -12,6 +14,7 @@
                         <field name="account_id" readonly="1" label="Cuenta ML"/>
                     </group>
                 </group>
+                <div class="alert alert-warning" role="alert" invisible="not is_editing">Estás editando una publicación ya activa en MercadoLibre.</div>
 
                 <div class="alert alert-info" role="alert" invisible="step != 'base'">Elegí la categoría y el tipo de publicación. Luego cargá sus atributos.</div>
                 <div class="alert alert-info" role="alert" invisible="step != 'pricing_stock'">Definí el precio y el stock que se enviarán a MercadoLibre.</div>
@@ -28,9 +31,10 @@
                     <group>
                         <div class="o_form_label">Categoría ML</div>
                         <div>
-                            <field name="ml_category_ref_id" options="{'no_create': True}" nolabel="1" domain="[('account_id', '=', account_id)]"/>
-                            <button name="action_open_category_search" type="object" string="Buscar categoría ML" class="btn-primary btn-sm"/>
+                            <field name="ml_category_ref_id" options="{'no_create': True}" nolabel="1" readonly="is_editing" domain="[('account_id', '=', account_id)]"/>
+                            <button name="action_open_category_search" type="object" string="Buscar categoría ML" class="btn-primary btn-sm" invisible="is_editing"/>
                         </div>
+                        <div class="text-muted" invisible="not is_editing">La categoría no se puede cambiar una vez publicado.</div>
                     </group>
                     <group>
                         <field name="listing_type_id" string="Tipo de publicación" required="1"/>
@@ -40,6 +44,10 @@
                         <field name="ml_brand" placeholder="Ej: Cerámica Alberdi"/>
                         <field name="ml_model" placeholder="Ej: Porcelanato 60x120"/>
                         <field name="ml_family_name" placeholder="Ej: Porcelanato, Azulejo, Sanitario"/>
+                        <field name="ml_warranty" placeholder="Ej: 6 meses de garantía de fábrica"/>
+                    </group>
+                    <group string="Descripción" col="1">
+                        <field name="ml_description_html" nolabel="1" placeholder="Descripción del producto para el comprador"/>
                     </group>
                     <button name="action_load_ml_metadata" type="object" string="↓ Cargar atributos de la categoría" class="btn-info btn-block" visible="ml_category_ref_id"/>
                 </group>
@@ -67,6 +75,9 @@
                     <group string="Rendimiento (si aplica)" col="2">
                         <field name="ml_yield_value" string="Cantidad"/>
                         <field name="ml_yield_unit" string="Unidad"/>
+                    </group>
+                    <group string="Cuotas / condiciones de pago (sale_terms)" col="1">
+                        <field name="ml_sale_terms_json" nolabel="1" widget="text" placeholder='Ej: [{"id": "MANUFACTURING_TIME", "value_name": "5 días"}]'/>
                     </group>
                 </group>
 
@@ -109,7 +120,8 @@
                     <button name="action_prev" type="object" string="← Anterior" class="btn-secondary" invisible="step == 'base'"/>
                     <button name="action_next" type="object" string="Siguiente →" class="btn-primary"/>
                     <button name="action_apply_to_product" type="object" string="💾 Guardar" class="btn-secondary"/>
-                    <button name="action_publish" type="object" string="🚀 Publicar en ML" class="btn-success" invisible="step != 'review'"/>
+                    <button name="action_publish" type="object" string="🚀 Publicar en ML" class="btn-success" invisible="step != 'review' or is_editing"/>
+                    <button name="action_publish" type="object" string="🔄 Actualizar en ML" class="btn-success" invisible="step != 'review' or not is_editing"/>
                     <button string="Cancelar" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

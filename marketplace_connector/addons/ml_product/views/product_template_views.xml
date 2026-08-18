@@ -8,11 +8,9 @@
             <xpath expr="//notebook" position="inside">
                 <page string="MercadoLibre">
                     <group string="Publicación" col="6">
-                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Asistente ML (recomendado)" class="btn-primary"/>
+                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Asistente ML (recomendado)" class="btn-primary" invisible="ml_item_id != False"/>
+                        <button name="action_modify_ml_listing" type="object" string="Modificar publicación en ML" class="btn-primary" invisible="ml_item_id == False"/>
                         <button name="action_validate_ml_listing" type="object" string="Validar publicación" class="btn-secondary"/>
-                        <button name="action_publish_ml" type="object" string="Publicar ahora" class="btn-primary" invisible="ml_publish_enabled == False"/>
-                        <button name="action_modify_ml_listing" type="object" string="Modificar publicación" class="btn-primary" invisible="ml_item_id == False"/>
-                        <button name="action_update_ml" type="object" string="Actualizar publicación" class="btn-secondary" invisible="ml_item_id == False"/>
                         <button name="action_open_ml_attribute_editor_wizard" type="object" string="Editar atributos" class="btn-secondary" invisible="ml_item_id == False"/>
                         <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link" invisible="ml_permalink == False"/>
                         <button name="action_pause_ml" type="object" string="Pausar" class="btn-secondary" invisible="ml_item_id == False"/>

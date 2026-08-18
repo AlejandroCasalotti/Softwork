@@ -31,6 +31,13 @@ class MlPublishAssistantWizard(models.TransientModel):
     status = fields.Char(string="Estado")
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
+    ml_item_id = fields.Char(related="product_tmpl_id.ml_item_id", string="ID publicación ML")
+    is_editing = fields.Boolean(string="Editando publicación existente", compute="_compute_is_editing")
+
+    @api.depends("ml_item_id")
+    def _compute_is_editing(self):
+        for wizard in self:
+            wizard.is_editing = bool(wizard.ml_item_id)
 
     ml_category_ref_id = fields.Many2one("ml.category", string="Categoría ML")
     ml_title = fields.Char(string="Título ML")
@@ -69,6 +76,8 @@ class MlPublishAssistantWizard(models.TransientModel):
         default="m2",
     )
     ml_sale_terms_json = fields.Text(string="Formato de venta (sale_terms JSON)")
+    ml_warranty = fields.Char(string="Garantía")
+    ml_description_html = fields.Html(string="Descripción")
     ml_required_attributes_json = fields.Text(string="Atributos requeridos", readonly=True)
     ml_recommended_attributes_json = fields.Text(string="Atributos secundarios", readonly=True)
     attribute_line_ids = fields.One2many(
@@ -314,29 +323,22 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_yield_value": 0.0,
                 "ml_yield_unit": "m2",
                 "ml_sale_terms_json": product.ml_sale_terms_json or "[]",
+                "ml_warranty": product.ml_warranty or "",
+                "ml_description_html": product.ml_description_html or "",
                 "ml_variant_notes": "",
             }
         )
 
         picture_commands = []
-        raw_pictures = (product.ml_pictures_json or "").strip()
-        if raw_pictures:
-            try:
-                parsed = json.loads(raw_pictures)
-                if isinstance(parsed, list):
-                    seq = 10
-                    seen = set()
-                    for item in parsed:
-                        if not isinstance(item, dict):
-                            continue
-                        source = (item.get("source") or "").strip()
-                        if not source or source in seen:
-                            continue
-                        seen.add(source)
-                        picture_commands.append((0, 0, {"sequence": seq, "source": source}))
-                        seq += 10
-            except Exception:
-                picture_commands = []
+        seq = 10
+        seen = set()
+        for item in product._collect_ml_pictures(account=account):
+            source = (item.get("source") or "").strip()
+            if not source or source in seen:
+                continue
+            seen.add(source)
+            picture_commands.append((0, 0, {"sequence": seq, "source": source}))
+            seq += 10
 
         if picture_commands:
             vals["picture_line_ids"] = picture_commands
@@ -363,6 +365,8 @@ class MlPublishAssistantWizard(models.TransientModel):
 
     def action_open_category_search(self):
         self.ensure_one()
+        if self.is_editing:
+            raise UserError("La categoría no se puede modificar una vez publicado el producto en MercadoLibre.")
         self.action_apply_to_product()
         product = self.product_tmpl_id
         wizard = self.env["ml.category.search.wizard"].create(
@@ -642,6 +646,14 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ensure_one()
         product = self.product_tmpl_id
 
+        raw_sale_terms = (self.ml_sale_terms_json or "[]").strip() or "[]"
+        try:
+            parsed_sale_terms = json.loads(raw_sale_terms)
+        except Exception:
+            raise UserError("Formato de venta (sale_terms) inválido: debe ser JSON válido.")
+        if not isinstance(parsed_sale_terms, list) or any(not isinstance(t, dict) for t in parsed_sale_terms):
+            raise UserError("Formato de venta (sale_terms) inválido: debe ser una lista de objetos.")
+
         attrs_payload = []
         for line in self.attribute_line_ids.sorted("sequence"):
             aid = (line.attribute_id or "").strip()
@@ -708,7 +720,9 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
                 "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
                 "ml_shipping_mode": self.ml_shipping_mode or "me2",
-                    "ml_sale_terms_json": "[]",
+                "ml_sale_terms_json": raw_sale_terms,
+                "ml_warranty": (self.ml_warranty or "").strip(),
+                "ml_description_html": self.ml_description_html or False,
                 "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
                 "ml_pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
             }

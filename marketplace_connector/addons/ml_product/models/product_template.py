@@ -148,7 +148,7 @@ class ProductTemplate(models.Model):
             normalized.append({"id": "MODEL", "value_name": self._normalize_ml_value(self.ml_model)})
         return normalized
 
-    def _collect_ml_pictures(self):
+    def _collect_ml_pictures(self, account=None):
         self.ensure_one()
         pictures = []
 
@@ -174,18 +174,39 @@ class ProductTemplate(models.Model):
         if pictures:
             return pictures
 
-        image_url = ""
-        if self.id and self.write_date:
-            image_url = (
-                f"/web/image/product.template/{self.id}/image_1920"
-                f"?unique={(self.write_date or fields.Datetime.now())}"
-            )
+        # No hay imágenes manuales/sincronizadas: usamos la imagen principal y la galería de Odoo
+        return self._collect_odoo_image_sources(account=account)
 
-        if _valid_source(image_url):
-            pictures.append({"source": image_url})
+    def _get_ml_public_base_url(self, account=None):
+        self.ensure_one()
+        account = account or self.ml_account_id
+        if account and (account.odoo_base_url or "").strip():
+            return account.odoo_base_url.strip().rstrip("/")
+        return (self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").strip().rstrip("/")
 
-        # No enviamos imágenes adicionales en base64 para evitar item.pictures.invalid_source
-        return pictures
+    def _collect_odoo_image_sources(self, account=None):
+        """URLs públicas (http/https) de la imagen principal y galería del producto en Odoo."""
+        self.ensure_one()
+        base_url = self._get_ml_public_base_url(account=account)
+        if not base_url:
+            return []
+
+        def _valid_source(src):
+            s = (src or "").strip()
+            return bool(s and s.startswith(("http://", "https://")) and len(s) <= 1024)
+
+        sources = []
+        if self.image_1920:
+            url = f"{base_url}/web/image/product.template/{self.id}/image_1920?unique={self.write_date or fields.Datetime.now()}"
+            if _valid_source(url):
+                sources.append({"source": url})
+
+        for image in self.product_template_image_ids.sorted("sequence"):
+            url = f"{base_url}/web/image/product.image/{image.id}/image_1920?unique={image.write_date or fields.Datetime.now()}"
+            if _valid_source(url):
+                sources.append({"source": url})
+
+        return sources
 
     def _build_variant_combinations(self):
         self.ensure_one()
@@ -418,6 +439,8 @@ class ProductTemplate(models.Model):
             "ml_sync_date": fields.Datetime.now(),
         }
         self.with_context(ml_skip_bidirectional_sync=True).write(vals)
+
+        return self.action_open_ml_publish_assistant_wizard()
         return {
             "type": "ir.actions.act_window",
             "res_model": "product.template",
@@ -648,9 +671,6 @@ class ProductTemplate(models.Model):
                 "sticky": False,
             },
         }
-
-    def action_update_ml(self):
-        return self.action_publish_ml()
 
     def action_pause_ml(self):
         for product in self:
