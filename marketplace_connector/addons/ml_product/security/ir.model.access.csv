@@ -1,5 +1,4 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-ml_product.access_ml_family,access_ml_family,model_ml_family,base.group_user,1,1,1,1
 ml_product.access_ml_category_search_wizard,access_ml_category_search_wizard,model_ml_category_search_wizard,base.group_user,1,1,1,1
 ml_product.access_ml_category_search_result,access_ml_category_search_result,model_ml_category_search_result,base.group_user,1,1,1,1
 ml_product.access_ml_publish_assistant_wizard,access_ml_publish_assistant_wizard,model_ml_publish_assistant_wizard,base.group_user,1,1,1,1

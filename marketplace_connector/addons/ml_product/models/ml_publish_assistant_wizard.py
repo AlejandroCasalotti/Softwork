@@ -60,8 +60,8 @@ class MlPublishAssistantWizard(models.TransientModel):
     ml_title = fields.Char(string="Título ML")
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
-    ml_family_name_id = fields.Many2one(
-        "ml.family", string="Familia/Línea de Producto", help="Atributo requerido por MercadoLibre. Ej: Porcelanato, Cerámica, etc."
+    ml_family_name_id = fields.Char(
+        string="Familia/Línea de Producto", help="Atributo requerido por MercadoLibre. Ej: Porcelanato, Cerámica, etc."
     )
     listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
@@ -330,7 +330,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_brand": product.ml_brand or "",
                 "ml_model": product.ml_model or "",
-                "ml_family_name_id": product.ml_family_name_id.id if product.ml_family_name_id else False,
+                "ml_family_name_id": product.ml_family_name_id or "",
                 "ml_condition": product.ml_condition or "new",
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_price_uom_id": product.ml_price_uom_id.id if product.ml_price_uom_id else product.uom_id.id,
@@ -772,7 +772,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
                 "ml_brand": (self.ml_brand or "").strip(),
                 "ml_model": (self.ml_model or "").strip(),
-                "ml_family_name_id": self.ml_family_name_id.id if self.ml_family_name_id else False,
+                "ml_family_name_id": (self.ml_family_name_id or "").strip(),
                 "ml_condition": self.ml_condition or "new",
                 "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
                 "ml_price_uom_id": self.ml_price_uom_id.id if self.ml_price_uom_id else product.uom_id.id,

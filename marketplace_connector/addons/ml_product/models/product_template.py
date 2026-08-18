@@ -32,8 +32,8 @@ class ProductTemplate(models.Model):
     )
     ml_brand = fields.Char(string="Marca")
     ml_model = fields.Char(string="Modelo")
-    ml_family_name_id = fields.Many2one(
-        "ml.family", string="Familia/Línea de Producto", help="Requerido por MercadoLibre para muchas categorías"
+    ml_family_name_id = fields.Char(
+        string="Familia/Línea de Producto", help="Requerido por MercadoLibre para muchas categorías"
     )
     ml_warranty = fields.Char(string="Garantía")
     ml_shipping_mode = fields.Selection(
@@ -344,7 +344,7 @@ class ProductTemplate(models.Model):
             "buying_mode": "buy_it_now",
             "condition": self.ml_condition or "new",
             "listing_type_id": listing_type,
-            "family_name": (self.ml_family_name_id.name or "").strip(),
+            "family_name": (self.ml_family_name_id or "").strip(),
             "seller_custom_field": (self.default_code or "").strip() or False,
             "sale_terms": sale_terms,
             "pictures": pictures,
