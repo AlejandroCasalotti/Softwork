@@ -53,6 +53,9 @@ class MercadoLibreExternalProvider(IProvider):
     def update_price(self, payload):
         return self._delegate.update_price(payload)
 
+    def get_item(self, external_id):
+        return self._delegate.get_item(external_id)
+
     def get_orders(self, params=None):
         return self._delegate.get_orders(params=params)
 
