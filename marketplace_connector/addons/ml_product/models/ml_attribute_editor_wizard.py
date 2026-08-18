@@ -36,7 +36,7 @@ class MlAttributeEditorWizard(models.TransientModel):
     line_ids = fields.One2many(
         "ml.attribute.editor.wizard.line",
         "wizard_id",
-        string="Atributos requeridos",
+        string="Atributos",
     )
 
     def _raise_if_access_denied_response(self, payload, operation):
@@ -96,6 +96,20 @@ class MlAttributeEditorWizard(models.TransientModel):
                 type(req_res).__name__,
             )
             required = []
+        required_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
+        required_ids.discard("")
+
+        attrs_res = provider.get_category_attributes(category_id=self.category_id)
+        self._raise_if_access_denied_response(attrs_res, "get_category_attributes")
+        all_attrs = attrs_res.get("items") if isinstance(attrs_res, dict) else []
+        if not isinstance(all_attrs, list):
+            _logger.warning(
+                "Respuesta inesperada en get_category_attributes account_id=%s category_id=%s: %s",
+                self.account_id.id,
+                self.category_id,
+                type(attrs_res).__name__,
+            )
+            all_attrs = []
 
         current_attrs = []
         raw = self.product_tmpl_id.ml_attributes_json or ""
@@ -114,7 +128,7 @@ class MlAttributeEditorWizard(models.TransientModel):
 
         self.line_ids.unlink()
         commands = []
-        for attr in required:
+        for attr in all_attrs:
             if not isinstance(attr, dict):
                 continue
             attr_id = (attr.get("id") or "").strip()
@@ -188,7 +202,7 @@ class MlAttributeEditorWizard(models.TransientModel):
                         "value_name": value_name,
                         "value_id": value_id,
                         "has_options": has_options,
-                        "is_required": True,
+                        "is_required": attr_id in required_ids,
                     },
                 )
             )

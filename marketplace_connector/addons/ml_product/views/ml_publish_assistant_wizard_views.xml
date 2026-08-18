@@ -43,7 +43,7 @@
                     <group string="Datos clave del producto (opcional)" col="2">
                         <field name="ml_brand" placeholder="Ej: Cerámica Alberdi"/>
                         <field name="ml_model" placeholder="Ej: Porcelanato 60x120"/>
-                        <field name="ml_family_name" placeholder="Ej: Porcelanato, Azulejo, Sanitario"/>
+                        <field name="ml_family_name_id"/>
                         <field name="ml_warranty" placeholder="Ej: 6 meses de garantía de fábrica"/>
                     </group>
                     <group string="Descripción" col="1">

@@ -10,6 +10,7 @@
                     <group string="Publicación" col="6">
                         <button name="action_open_ml_publish_assistant_wizard" type="object" string="Asistente ML (recomendado)" class="btn-primary" invisible="ml_item_id != False"/>
                         <button name="action_modify_ml_listing" type="object" string="Modificar publicación en ML" class="btn-primary" invisible="ml_item_id == False"/>
+                        <button name="action_update_ml" type="object" string="Actualizar publicación" class="btn-secondary" invisible="ml_item_id == False"/>
                         <button name="action_validate_ml_listing" type="object" string="Validar publicación" class="btn-secondary"/>
                         <button name="action_open_ml_attribute_editor_wizard" type="object" string="Editar atributos" class="btn-secondary" invisible="ml_item_id == False"/>
                         <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link" invisible="ml_permalink == False"/>
@@ -43,7 +44,7 @@
                         <group string="Datos del catálogo">
                             <field name="ml_brand"/>
                             <field name="ml_model"/>
-                            <field name="ml_family_name"/>
+                            <field name="ml_family_name_id"/>
                             <field name="ml_required_completion" readonly="1"/>
                         </group>
 
