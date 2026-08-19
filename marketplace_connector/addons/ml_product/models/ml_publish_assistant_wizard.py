@@ -269,23 +269,23 @@ class MlPublishAssistantWizard(models.TransientModel):
             vals["name"] = "Asistente publicación ML"
         if "status" in fields_list and "status" not in vals:
             vals["status"] = ""
-        product_id = self.env.context.get("default_product_tmpl_id")
+        publication = self.env["marketplace.publication"].browse(
+            self.env.context.get("default_publication_id")
+        ).exists()
+        product_id = publication.product_tmpl_id.id if publication else self.env.context.get("default_product_tmpl_id")
         if not product_id:
             return vals
         product = self.env["product.template"].browse(product_id).exists()
         if not product:
             return vals
 
-        account = product.ml_account_id or self.env["sce.account"].search(
+        account = publication.account_id if publication else product.ml_account_id or self.env["sce.account"].search(
             [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
             limit=1,
         )
         if not account:
             raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
 
-        publication = self.env["marketplace.publication"].browse(
-            self.env.context.get("default_publication_id")
-        ).exists()
         if not publication:
             publication = self._get_or_create_publication(product, account)
         provider_data = self._parse_provider_data(publication.provider_data_json)

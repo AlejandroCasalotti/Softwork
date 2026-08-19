@@ -54,7 +54,7 @@ class SceConnector(models.Model):
         string="Provider Implementation Path",
         help=(
             "Optional dotted path for external provider factory. "
-            "Example: softwork_provider_mercadolibre.services.provider.get_provider"
+            "Example: sce_connector_ml.services.provider.get_provider"
         ),
         tracking=True,
     )

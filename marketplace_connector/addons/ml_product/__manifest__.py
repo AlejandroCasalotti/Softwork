@@ -10,6 +10,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/product_template_views.xml",
+        "views/marketplace_publication_views.xml",
         "views/ml_category_search_wizard_views.xml",
         "views/ml_attribute_editor_wizard_views.xml",
         "views/ml_publish_config_wizard_views.xml",

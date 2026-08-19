@@ -15,7 +15,7 @@ class ProviderFactory:
 
     Política actual (transición):
     1) provider externo explícito por connector.provider_impl_path
-    2) fallback externo por convención softwork_provider_<provider_type>
+    2) fallback externo por convención sce_connector_<provider_type>
     3) built-in core como compatibilidad legacy (deprecado)
     """
 
@@ -25,6 +25,12 @@ class ProviderFactory:
         candidate_paths = []
         if impl_path:
             candidate_paths.append(impl_path)
+        candidate_paths.append(
+            f"sce_connector_{provider_type}.services.provider.get_provider"
+        )
+        candidate_paths.append(
+            f"odoo.addons.sce_connector_{provider_type}.services.provider.get_provider"
+        )
         candidate_paths.append(
             f"softwork_provider_{provider_type}.services.provider.get_provider"
         )
@@ -62,7 +68,7 @@ class ProviderFactory:
         if provider_type == "mercadolibre":
             _logger.warning(
                 "Using deprecated built-in provider for '%s' on connector '%s' (%s). "
-                "Recommended: configure connector.provider_impl_path or install softwork_provider_%s.",
+                "Recommended: configure connector.provider_impl_path or install sce_connector_%s.",
                 provider_type,
                 account.connector_id.display_name,
                 account.connector_id.id,
@@ -99,8 +105,8 @@ class ProviderFactory:
                 f"External-only mode is enabled (sce.provider_force_external_only=1). "
                 f"No external provider resolved for type: {provider_type}. "
                 f"Configure connector.provider_impl_path (e.g. "
-                f"'softwork_provider_{provider_type}.services.provider.get_provider') "
-                f"or install module softwork_provider_{provider_type}."
+                f"'sce_connector_{provider_type}.services.provider.get_provider') "
+                f"or install module sce_connector_{provider_type}."
             )
 
         builtin = ProviderFactory._get_builtin_provider(account, provider_type)
@@ -110,6 +116,6 @@ class ProviderFactory:
         raise UserError(
             f"Provider not implemented yet for type: {provider_type}. "
             f"Configure connector.provider_impl_path (e.g. "
-            f"'softwork_provider_{provider_type}.services.provider.get_provider') "
-            f"or install module softwork_provider_{provider_type}."
+            f"'sce_connector_{provider_type}.services.provider.get_provider') "
+            f"or install module sce_connector_{provider_type}."
         )
