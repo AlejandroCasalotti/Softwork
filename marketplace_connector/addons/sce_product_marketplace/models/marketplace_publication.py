@@ -135,25 +135,30 @@ class MarketplacePublication(models.Model):
 
     def action_publish(self):
         for publication in self:
-            publication._publication_service().publish(publication)
+            publication._publication_service().enqueue(publication, "publish")
         return True
 
     def action_update_marketplace(self):
         for publication in self:
-            publication._publication_service().update(publication)
+            publication._publication_service().enqueue(publication, "update")
         return True
 
     def action_sync_marketplace_stock(self):
         for publication in self:
-            publication._publication_service().update_stock(publication)
+            publication._publication_service().enqueue(publication, "update_stock")
         return True
 
     def action_sync_marketplace_price(self):
         for publication in self:
-            publication._publication_service().update_price(publication)
+            publication._publication_service().enqueue(publication, "update_price")
+        return True
+
+    def action_sync_from_marketplace(self):
+        for publication in self:
+            publication._publication_service().enqueue(publication, "sync")
         return True
 
     def action_delete_marketplace(self):
         for publication in self:
-            publication._publication_service().delete(publication)
+            publication._publication_service().enqueue(publication, "delete")
         return True

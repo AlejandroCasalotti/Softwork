@@ -756,18 +756,23 @@ class ProductTemplate(models.Model):
             if not product.ml_publish_enabled or not product.ml_item_id:
                 continue
             try:
-                account = product._get_ml_account()
-                provider = product._get_ml_provider(account)
-                payload = {
-                    "item_id": product.ml_item_id,
-                    "price": product._effective_price(),
-                    "available_quantity": product._effective_qty(),
-                }
-                provider.update_product(payload)
-                product.with_context(ml_skip_bidirectional_sync=True).write({
-                    "ml_sync_date": fields.Datetime.now(),
-                })
+                publication = product._get_or_create_ml_publication()
+                publication.write(
+                    {
+                        "external_id": product.ml_item_id,
+                        "title": product._effective_title(),
+                        "price": product._effective_price(),
+                        "stock_reserve_qty": max(0.0, product.ml_stock_reserve_qty or 0.0),
+                        "use_pricelist_price": bool(product.ml_use_pricelist_price),
+                        "manual_price_override": bool(product.ml_manual_price_override),
+                    }
+                )
+                self.env["marketplace.publication.service"].enqueue(publication, "update")
             except Exception:
+                _logger.exception(
+                    "No se pudo encolar sincronización ML para product_tmpl_id=%s",
+                    product.id,
+                )
                 continue
 
     @api.model_create_multi
@@ -816,26 +821,9 @@ class ProductTemplate(models.Model):
         for product in self:
             if not product.ml_item_id:
                 continue
-            account = product._get_ml_account()
-            provider = product._get_ml_provider(account)
-            result = provider.sync({
-                "operation": "import_item",
-                "payload": {"item_id": product.ml_item_id},
-            })
-            item = result.get("item") if isinstance(result, dict) else {}
-            if not isinstance(item, dict):
-                item = {}
-            vals = {
-                "ml_status": item.get("status") or product.ml_status,
-                "ml_permalink": item.get("permalink") or product.ml_permalink,
-                "ml_item_id": item.get("id") or product.ml_item_id,
-                "ml_sync_date": fields.Datetime.now(),
-            }
-            if item.get("price"):
-                vals["ml_price"] = float(item.get("price"))
-            if item.get("available_quantity") is not None:
-                vals["ml_quantity"] = float(item.get("available_quantity"))
-            product.with_context(ml_skip_bidirectional_sync=True).write(vals)
+            publication = product._get_or_create_ml_publication()
+            publication.write({"external_id": product.ml_item_id})
+            self.env["marketplace.publication.service"].enqueue(publication, "sync")
         return True
 
     def action_diagnose_ml_connection(self):

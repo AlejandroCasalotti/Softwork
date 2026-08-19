@@ -45,6 +45,79 @@ class MarketplacePublicationService(models.AbstractModel):
             raise UserError("La publicación necesita una cuenta de marketplace.")
         return self.env["sce.provider.factory"].get_provider(publication.account_id)
 
+    def enqueue(self, publication, operation):
+        publication.ensure_one()
+        job_types = {
+            "publish": "publish_product",
+            "update": "update_product",
+            "update_stock": "sync_publication_stock",
+            "update_price": "sync_publication_price",
+            "delete": "delete_product",
+            "sync": "sync_publication",
+            "import_order": "import_order",
+        }
+        job_type = job_types.get(operation)
+        if not job_type:
+            raise UserError("Operación de publicación no soportada: %s" % operation)
+        if operation == "publish":
+            publication._validate_for_operation()
+            publication.write({"state": "publishing", "error_message": False})
+        elif not publication.external_id:
+            raise UserError("La publicación necesita un ID externo para la operación '%s'." % operation)
+        job = self.env["sce.job"].create(
+            {
+                "name": "%s - %s" % (operation.replace("_", " ").title(), publication.display_name),
+                "account_id": publication.account_id.id,
+                "job_type": job_type,
+                "publication_id": publication.id,
+                "payload_json": json.dumps({"publication_id": publication.id}),
+            }
+        )
+        return job
+
+    def handle_webhook(self, account, payload):
+        if not account or not isinstance(payload, dict):
+            return False
+        resource = payload.get("resource") or ""
+        topic = (payload.get("topic") or payload.get("type") or "").lower()
+        data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        external_id = data.get("id") or payload.get("item_id") or payload.get("id")
+        if "order" in topic or "/orders/" in resource:
+            order_id = external_id
+            if not order_id and isinstance(resource, str):
+                parts = [part for part in resource.rstrip("/").split("/") if part]
+                if "orders" in parts:
+                    order_id = parts[parts.index("orders") + 1] if len(parts) > parts.index("orders") + 1 else False
+            if order_id:
+                return self.enqueue_order(account, str(order_id))
+            return False
+        if not external_id and isinstance(resource, str):
+            parts = [part for part in resource.rstrip("/").split("/") if part]
+            if parts:
+                external_id = parts[-1]
+        if not external_id:
+            return False
+        publication = self.env["marketplace.publication"].search(
+            [("account_id", "=", account.id), ("external_id", "=", str(external_id))],
+            limit=1,
+        )
+        if not publication:
+            return False
+        return self.enqueue(publication, "sync")
+
+    def enqueue_order(self, account, external_id):
+        if not account or not external_id:
+            raise UserError("La importación necesita cuenta e ID externo de orden.")
+        return self.env["sce.job"].create(
+            {
+                "name": "Import order %s" % external_id,
+                "account_id": account.id,
+                "job_type": "import_order",
+                "external_id": str(external_id),
+                "payload_json": json.dumps({"external_id": str(external_id)}),
+            }
+        )
+
     def publish(self, publication):
         publication.ensure_one()
         publication._validate_for_operation()
@@ -86,6 +159,82 @@ class MarketplacePublicationService(models.AbstractModel):
         result = self._get_provider(publication).update_price(self._build_payload(publication)) or {}
         publication.write({"sync_date": fields.Datetime.now()})
         return result
+
+    def sync_from_marketplace(self, publication):
+        publication.ensure_one()
+        if not publication.external_id:
+            raise UserError("No se puede sincronizar una publicación sin ID externo.")
+        result = self._get_provider(publication).get_item(publication.external_id) or {}
+        item = result.get("item") if isinstance(result, dict) else {}
+        if not isinstance(item, dict):
+            raise UserError("El marketplace devolvió un ítem inválido.")
+        values = {"sync_date": fields.Datetime.now(), "error_message": False}
+        if item.get("id"):
+            values["external_id"] = str(item["id"])
+        if item.get("permalink"):
+            values["external_url"] = item["permalink"]
+        if item.get("status"):
+            values["external_status"] = item["status"]
+        if item.get("price") is not None:
+            values["price"] = float(item["price"])
+        publication.write(values)
+        return result
+
+    def import_order(self, account, external_id):
+        result = self._get_provider_for_account(account).get_order(external_id)
+        order_data = result.get("order") if isinstance(result, dict) else {}
+        if not isinstance(order_data, dict):
+            raise UserError("El marketplace devolvió una orden inválida.")
+
+        order_ref = "%s:%s" % (account.provider_type or "marketplace", external_id)
+        order_model = self.env["sale.order"].sudo()
+        existing = order_model.search([("client_order_ref", "=", order_ref)], limit=1)
+        if existing:
+            return {"order_id": existing.id, "external_id": str(external_id), "created": False}
+
+        buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
+        buyer_name = buyer.get("nickname") or buyer.get("first_name") or "Marketplace buyer"
+        buyer_email = buyer.get("email") or False
+        partner_model = self.env["res.partner"].sudo()
+        partner = partner_model.search([("ref", "=", order_ref)], limit=1)
+        if not partner:
+            partner = partner_model.create({"name": buyer_name, "email": buyer_email, "ref": order_ref})
+
+        order = order_model.create(
+            {
+                "partner_id": partner.id,
+                "client_order_ref": order_ref,
+                "origin": "Marketplace %s" % external_id,
+            }
+        )
+        missing_items = []
+        for line in order_data.get("order_items") or []:
+            item = line.get("item") if isinstance(line, dict) and isinstance(line.get("item"), dict) else {}
+            item_id = str(item.get("id") or "")
+            product = self.env["product.product"].sudo().search([("default_code", "=", item_id)], limit=1)
+            if not product:
+                missing_items.append(item_id or item.get("title") or "unknown")
+                continue
+            order.env["sale.order.line"].sudo().create(
+                {
+                    "order_id": order.id,
+                    "product_id": product.id,
+                    "product_uom_qty": float(line.get("quantity") or 1.0),
+                    "price_unit": float(line.get("unit_price") or 0.0),
+                    "name": item.get("title") or product.display_name,
+                }
+            )
+        return {
+            "order_id": order.id,
+            "external_id": str(external_id),
+            "created": True,
+            "missing_items": missing_items,
+        }
+
+    def _get_provider_for_account(self, account):
+        if not account:
+            raise UserError("La orden necesita una cuenta de marketplace.")
+        return self.env["sce.provider.factory"].get_provider(account)
 
     def delete(self, publication):
         publication.ensure_one()

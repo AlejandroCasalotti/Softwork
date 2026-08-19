@@ -93,7 +93,7 @@ class SceJob(models.Model):
                 except Exception:
                     payload = {"raw": self.payload_json}
 
-            result = provider.sync({"operation": self.job_type, "payload": payload})
+            result = self._execute_provider_operation(provider, payload)
             end_dt = fields.Datetime.now()
             duration = int((end_dt - start_dt).total_seconds() * 1000)
 
@@ -172,6 +172,14 @@ class SceJob(models.Model):
                 job=self,
                 details_json=str(err),
             )
+
+    def _execute_provider_operation(self, provider, payload):
+        """Execute the default provider sync operation.
+
+        Addons can override this hook for domain-specific job types without
+        changing the queue lifecycle, metrics, events, or retry handling.
+        """
+        return provider.sync({"operation": self.job_type, "payload": payload})
 
     def cron_process_queue(self):
         jobs = self.search([("state", "=", "queued")], limit=50, order="create_date asc")

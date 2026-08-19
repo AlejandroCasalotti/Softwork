@@ -1020,7 +1020,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             )
         try:
             self.action_apply_to_product()
-            self.env["marketplace.publication.service"].publish(self.publication_id)
+            self.env["marketplace.publication.service"].enqueue(self.publication_id, "publish")
         except UserError:
             self.publication_id.write({"state": "failed", "error_message": "Error al publicar en MercadoLibre."})
             raise
