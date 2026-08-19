@@ -255,6 +255,11 @@ class MlAttributeEditorWizard(models.TransientModel):
                 provider_data["brand"] = item.get("value_name")
             if item["id"] == "MODEL" and item.get("value_name"):
                 provider_data["model"] = item.get("value_name")
+        vals = {"ml_attributes_json": attributes_json}
+        if provider_data.get("brand"):
+            vals["ml_brand"] = provider_data["brand"]
+        if provider_data.get("model"):
+            vals["ml_model"] = provider_data["model"]
         if self.publication_id:
             self.publication_id.write(
                 {
@@ -263,12 +268,8 @@ class MlAttributeEditorWizard(models.TransientModel):
                     "state": "attributes",
                 }
             )
-        vals = {"ml_attributes_json": attributes_json}
-        if provider_data.get("brand"):
-            vals["ml_brand"] = provider_data["brand"]
-        if provider_data.get("model"):
-            vals["ml_model"] = provider_data["model"]
-        self.product_tmpl_id.write(vals)
+        else:
+            self.product_tmpl_id.write(vals)
         return {"type": "ir.actions.act_window_close"}
 
 

@@ -221,17 +221,18 @@ class MlPublishConfigWizard(models.TransientModel):
                     "state": "pricing",
                 }
             )
-        self.product_tmpl_id.write(
-            {
-                "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
-                "ml_condition": self.ml_condition or "new",
-                "ml_warranty": self.ml_warranty or False,
-                "ml_shipping_mode": self.ml_shipping_mode or "me2",
-                "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
-                "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
-                "ml_manual_price_override": bool(self.ml_manual_price_override),
-                "ml_price": self.ml_price if self.ml_manual_price_override else self.product_tmpl_id.ml_price,
-                "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
-            }
-        )
+        else:
+            self.product_tmpl_id.write(
+                {
+                    "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
+                    "ml_condition": self.ml_condition or "new",
+                    "ml_warranty": self.ml_warranty or False,
+                    "ml_shipping_mode": self.ml_shipping_mode or "me2",
+                    "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
+                    "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
+                    "ml_manual_price_override": bool(self.ml_manual_price_override),
+                    "ml_price": self.ml_price if self.ml_manual_price_override else self.product_tmpl_id.ml_price,
+                    "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
+                }
+            )
         return {"type": "ir.actions.act_window_close"}
