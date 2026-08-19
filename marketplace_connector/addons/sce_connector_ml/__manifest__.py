@@ -11,7 +11,11 @@
         "softwork_ecommerce_conector_base",
         "sce_product_marketplace",
     ],
-    "data": ["security/ir.model.access.csv"],
+    "data": [
+        "security/ir.model.access.csv",
+        "views/ml_category_search_wizard_views.xml",
+        "views/ml_attribute_option_picker_wizard_views.xml",
+    ],
     "installable": True,
     "application": False,
 }

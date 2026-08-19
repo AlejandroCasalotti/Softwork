@@ -13,7 +13,6 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
     category_id = fields.Char(string="Categoría ML", readonly=True)
     attribute_id = fields.Char(string="Atributo", readonly=True)
     attribute_name = fields.Char(string="Nombre", readonly=True)
-
     option_id = fields.Many2one(
         "ml.attribute.option",
         string="Opción ML",
@@ -26,14 +25,7 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
             raise UserError("Selecciona una opción antes de aplicar.")
         if not self.line_id.exists():
             raise UserError("La línea de atributo ya no existe.")
-
-        self.line_id.write(
-            {
-                "value_id": self.option_id.value_id or "",
-                "value_name": self.option_id.value_name or "",
-            }
-        )
-
+        self.line_id.write({"value_id": self.option_id.value_id or "", "value_name": self.option_id.value_name or ""})
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.publish.assistant.wizard",
