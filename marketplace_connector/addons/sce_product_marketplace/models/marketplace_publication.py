@@ -5,6 +5,7 @@ from odoo import api, fields, models
 class MarketplacePublication(models.Model):
     _name = "marketplace.publication"
     _description = "Publicación de un producto en un marketplace"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
 
     # Relación
