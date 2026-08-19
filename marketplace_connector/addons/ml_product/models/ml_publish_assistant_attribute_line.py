@@ -32,6 +32,7 @@ class MlPublishAssistantAttributeLine(models.TransientModel):
             {
                 "wizard_id": wizard.id,
                 "line_id": self.id,
+                "account_id": wizard.account_id.id,
                 "category_id": wizard.ml_category_ref_id.category_id or "",
                 "attribute_id": self.attribute_id or "",
                 "attribute_name": self.attribute_name or "",

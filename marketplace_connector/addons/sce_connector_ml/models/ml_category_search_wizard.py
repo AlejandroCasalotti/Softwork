@@ -14,7 +14,7 @@ class MlCategorySearchWizard(models.TransientModel):
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     publication_id = fields.Many2one("marketplace.publication", readonly=True, ondelete="cascade")
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True)
-    publish_wizard_id = fields.Many2one("ml.publish.assistant.wizard", ondelete="cascade")
+    publish_wizard_id = fields.Integer(readonly=True)
     query = fields.Char(string="Buscar categoría", required=True)
     result_json = fields.Text(string="Resultados JSON", readonly=True)
     result_line_ids = fields.One2many("ml.category.search.result", "wizard_id", string="Resultados")
@@ -71,6 +71,8 @@ class MlCategorySearchWizard(models.TransientModel):
                 category_record = self.env["ml.category"].create(
                     {"account_id": self.account_id.id, "category_id": category.category_id, "category_name": category.category_name}
                 )
-            self.publish_wizard_id.write({"step": "base", "ml_category_ref_id": category_record.id})
-            return {"type": "ir.actions.act_window", "res_model": "ml.publish.assistant.wizard", "view_mode": "form", "res_id": self.publish_wizard_id.id, "target": "new"}
+            publish_wizard = self.env["ml.publish.assistant.wizard"].browse(self.publish_wizard_id).exists()
+            if publish_wizard:
+                publish_wizard.write({"step": "base", "ml_category_ref_id": category_record.id})
+                return {"type": "ir.actions.act_window", "res_model": "ml.publish.assistant.wizard", "view_mode": "form", "res_id": publish_wizard.id, "target": "new"}
         return {"type": "ir.actions.act_window_close"}

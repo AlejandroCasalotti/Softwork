@@ -7,9 +7,9 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
     _name = "ml.attribute.option.picker.wizard"
     _description = "Selector rápido de opción ML para atributo del asistente"
 
-    wizard_id = fields.Many2one("ml.publish.assistant.wizard", required=True, readonly=True)
+    wizard_id = fields.Integer(required=True, readonly=True)
     line_id = fields.Many2one("ml.publish.assistant.attribute.line", required=True, readonly=True)
-    account_id = fields.Many2one("sce.account", related="wizard_id.account_id", readonly=True)
+    account_id = fields.Many2one("sce.account", required=True, readonly=True)
     category_id = fields.Char(string="Categoría ML", readonly=True)
     attribute_id = fields.Char(string="Atributo", readonly=True)
     attribute_name = fields.Char(string="Nombre", readonly=True)
@@ -30,6 +30,6 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
             "type": "ir.actions.act_window",
             "res_model": "ml.publish.assistant.wizard",
             "view_mode": "form",
-            "res_id": self.wizard_id.id,
+            "res_id": self.wizard_id,
             "target": "new",
         }

@@ -495,6 +495,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             {
                 "wizard_id": self.id,
                 "line_id": line.id,
+                "account_id": self.account_id.id,
                 "category_id": self.ml_category_ref_id.category_id or "",
                 "attribute_id": line.attribute_id or "",
                 "attribute_name": line.attribute_name or "",
