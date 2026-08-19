@@ -11,7 +11,7 @@
         "softwork_ecommerce_conector_base",
         "sce_product_marketplace",
     ],
-    "data": [],
+    "data": ["security/ir.model.access.csv"],
     "installable": True,
     "application": False,
 }

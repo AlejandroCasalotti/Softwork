@@ -6,7 +6,7 @@
     "category": "Sales",
     "author": "Softwork",
     "license": "LGPL-3",
-    "depends": ["product", "stock", "softwork_ecommerce_conector_base", "sce_product_marketplace"],
+    "depends": ["product", "stock", "softwork_ecommerce_conector_base", "sce_product_marketplace", "sce_connector_ml"],
     "data": [
         "security/ir.model.access.csv",
         "views/product_template_views.xml",
