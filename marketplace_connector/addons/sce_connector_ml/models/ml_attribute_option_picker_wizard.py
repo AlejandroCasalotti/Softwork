@@ -8,7 +8,7 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
     _description = "Selector rápido de opción ML para atributo del asistente"
 
     wizard_id = fields.Integer(required=True, readonly=True)
-    line_id = fields.Many2one("ml.publish.assistant.attribute.line", required=True, readonly=True)
+    line_id = fields.Integer(required=True, readonly=True)
     account_id = fields.Many2one("sce.account", required=True, readonly=True)
     category_id = fields.Char(string="Categoría ML", readonly=True)
     attribute_id = fields.Char(string="Atributo", readonly=True)
@@ -23,9 +23,10 @@ class MlAttributeOptionPickerWizard(models.TransientModel):
         self.ensure_one()
         if not self.option_id:
             raise UserError("Selecciona una opción antes de aplicar.")
-        if not self.line_id.exists():
+        line = self.env["ml.publish.assistant.attribute.line"].browse(self.line_id).exists()
+        if not line:
             raise UserError("La línea de atributo ya no existe.")
-        self.line_id.write({"value_id": self.option_id.value_id or "", "value_name": self.option_id.value_name or ""})
+        line.write({"value_id": self.option_id.value_id or "", "value_name": self.option_id.value_name or ""})
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.publish.assistant.wizard",
