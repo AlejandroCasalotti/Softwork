@@ -533,12 +533,28 @@ class ProductTemplate(models.Model):
 
     def action_open_ml_publish_assistant_wizard(self):
         self.ensure_one()
+        account = self._get_ml_account()
+        publication = self.env["marketplace.publication"].search(
+            [("product_tmpl_id", "=", self.id), ("account_id", "=", account.id)], limit=1
+        )
+        if not publication:
+            publication = self.env["marketplace.publication"].create(
+                {
+                    "product_tmpl_id": self.id,
+                    "account_id": account.id,
+                    "title": self.ml_title or self.name or "",
+                    "category_ref": self.ml_category_id or "",
+                    "listing_type": self.ml_listing_type or "gold_special",
+                    "condition": self.ml_condition or "new",
+                    "shipping_mode": self.ml_shipping_mode or "me2",
+                }
+            )
         return {
             "type": "ir.actions.act_window",
-            "res_model": "ml.publish.assistant.wizard",
+            "res_model": "marketplace.publication",
             "view_mode": "form",
-            "target": "new",
-            "context": {"default_product_tmpl_id": self.id, "default_step": "base"},
+            "res_id": publication.id,
+            "target": "current",
         }
 
     def action_open_ml_category_search_wizard(self):

@@ -8,7 +8,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="MercadoLibre">
                     <group string="Publicación" col="6">
-                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Asistente ML (recomendado)" class="btn-primary" invisible="ml_item_id != False"/>
+                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Configurar publicación ML" class="btn-primary" invisible="ml_item_id != False"/>
                         <button name="action_modify_ml_listing" type="object" string="Modificar publicación en ML" class="btn-primary" invisible="ml_item_id == False"/>
                         <button name="action_update_ml" type="object" string="Actualizar publicación" class="btn-secondary" invisible="ml_item_id == False"/>
                         <button name="action_validate_ml_listing" type="object" string="Validar publicación" class="btn-secondary"/>
