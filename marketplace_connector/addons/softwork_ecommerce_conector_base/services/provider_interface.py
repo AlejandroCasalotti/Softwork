@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 
 
 class IProvider(ABC):
+    """Contract for all marketplace providers used by the SCE connector stack."""
+
     def capabilities(self):
         """
         Optional feature flags for provider behavior.
@@ -47,6 +49,10 @@ class IProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_item(self, external_id):
+        raise NotImplementedError
+
+    @abstractmethod
     def get_orders(self, params=None):
         raise NotImplementedError
 
@@ -72,6 +78,22 @@ class IProvider(ABC):
 
     @abstractmethod
     def upload_invoice(self, payload):
+        raise NotImplementedError
+
+    @abstractmethod
+    def search_categories(self, query, limit=20):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_category_attributes(self, category_id):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_category_required_fields(self, category_id):
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_listing_prices(self, category_id, price, listing_type_id):
         raise NotImplementedError
 
     @abstractmethod

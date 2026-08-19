@@ -4,6 +4,7 @@ import logging
 
 from odoo.exceptions import UserError
 
+from .provider_interface import IProvider
 from .providers.ml_provider import MercadoLibreProvider
 
 _logger = logging.getLogger(__name__)
@@ -18,6 +19,55 @@ class ProviderFactory:
     2) fallback externo por convención sce_connector_<provider_type>
     3) built-in core como compatibilidad legacy (deprecado)
     """
+
+    REQUIRED_METHODS = (
+        "authenticate",
+        "refresh_token",
+        "health",
+        "publish_product",
+        "update_product",
+        "delete_product",
+        "update_stock",
+        "update_price",
+        "get_item",
+        "get_orders",
+        "get_order",
+        "cancel_order",
+        "get_messages",
+        "answer_message",
+        "download_invoice",
+        "upload_invoice",
+        "search_categories",
+        "get_category_attributes",
+        "get_category_required_fields",
+        "get_listing_prices",
+        "sync",
+        "webhook",
+    )
+
+    @staticmethod
+    def _validate_provider_contract(provider, provider_type, source):
+        if provider is None:
+            raise UserError(f"La factory de provider '{source}' devolvió None para '{provider_type}'.")
+
+        missing = [
+            name for name in ProviderFactory.REQUIRED_METHODS if not callable(getattr(provider, name, None))
+        ]
+        if missing:
+            raise UserError(
+                "Provider inválido para tipo '%s' resuelto desde '%s'. "
+                "Faltan métodos del contrato: %s"
+                % (provider_type, source, ", ".join(missing))
+            )
+
+        capabilities = provider.capabilities() if hasattr(provider, "capabilities") else {}
+        if not isinstance(capabilities, dict):
+            raise UserError(
+                "Provider inválido para tipo '%s' resuelto desde '%s': capabilities() debe devolver un dict."
+                % (provider_type, source)
+            )
+
+        return provider
 
     @staticmethod
     def _load_external_provider(account, provider_type):
@@ -46,7 +96,11 @@ class ProviderFactory:
                 factory_func = getattr(module, func_name)
                 provider = factory_func(account.env, account)
                 if provider:
-                    return provider
+                    return ProviderFactory._validate_provider_contract(
+                        provider,
+                        provider_type,
+                        dotted,
+                    )
             except Exception as err:
                 attempted.append((dotted, str(err)))
                 continue
@@ -74,7 +128,8 @@ class ProviderFactory:
                 account.connector_id.id,
                 provider_type,
             )
-            return MercadoLibreProvider(account.env, account)
+            provider = MercadoLibreProvider(account.env, account)
+            return ProviderFactory._validate_provider_contract(provider, provider_type, "builtin")
         return None
 
     @staticmethod
