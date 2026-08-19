@@ -73,6 +73,7 @@ class MarketplacePublication(models.Model):
     attributes_json = fields.Text(string="Atributos JSON", default="[]")
     pictures_json = fields.Text(string="Imágenes JSON", default="[]")
     sale_terms_json = fields.Text(string="Sale terms JSON", default="[]")
+    provider_data_json = fields.Text(string="Datos específicos del proveedor", default="{}")
 
     published_date = fields.Datetime(string="Fecha de publicación", readonly=True)
     sync_date = fields.Datetime(string="Última sincronización", readonly=True)

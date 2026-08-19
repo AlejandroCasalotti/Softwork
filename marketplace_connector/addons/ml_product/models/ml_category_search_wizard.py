@@ -15,6 +15,7 @@ class MlCategorySearchWizard(models.TransientModel):
     _description = "Wizard de búsqueda de categoría MercadoLibre"
 
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
+    publication_id = fields.Many2one("marketplace.publication", readonly=True, ondelete="cascade")
     account_id = fields.Many2one(
         "sce.account",
         string="Cuenta ML",
@@ -152,7 +153,7 @@ class MlCategorySearchWizard(models.TransientModel):
             required = []
 
         current_attrs = []
-        raw_current = self.product_tmpl_id.ml_attributes_json or ""
+        raw_current = self.publication_id.attributes_json if self.publication_id else self.product_tmpl_id.ml_attributes_json
         if raw_current:
             try:
                 parsed = json.loads(raw_current)
@@ -181,10 +182,7 @@ class MlCategorySearchWizard(models.TransientModel):
             else:
                 merged.append({"id": aid, "value_name": ""})
 
-        vals = {
-            "ml_category_id": category_id,
-            "ml_attributes_json": json.dumps(merged, ensure_ascii=False),
-        }
+        attrs_json = json.dumps(merged, ensure_ascii=False)
 
         def _extract_value(attr_id):
             for item in merged:
@@ -194,12 +192,34 @@ class MlCategorySearchWizard(models.TransientModel):
 
         brand = _extract_value("BRAND")
         model = _extract_value("MODEL")
-        if brand:
-            vals["ml_brand"] = brand
-        if model:
-            vals["ml_model"] = model
-
-        self.product_tmpl_id.write(vals)
+        if self.publication_id:
+            provider_data = {}
+            try:
+                provider_data = json.loads(self.publication_id.provider_data_json or "{}")
+            except (TypeError, ValueError):
+                provider_data = {}
+            if not isinstance(provider_data, dict):
+                provider_data = {}
+            if brand:
+                provider_data["brand"] = brand
+            if model:
+                provider_data["model"] = model
+            self.publication_id.write(
+                {
+                    "category_ref": category_id,
+                    "category_name": self.category_name or category_id,
+                    "attributes_json": attrs_json,
+                    "provider_data_json": json.dumps(provider_data, ensure_ascii=False),
+                    "state": "category",
+                }
+            )
+        else:
+            vals = {"ml_category_id": category_id, "ml_attributes_json": attrs_json}
+            if brand:
+                vals["ml_brand"] = brand
+            if model:
+                vals["ml_model"] = model
+            self.product_tmpl_id.write(vals)
         self.category_attributes_json = json.dumps(attrs, ensure_ascii=False, indent=2)
         self.required_attributes_json = json.dumps(required, ensure_ascii=False, indent=2)
 

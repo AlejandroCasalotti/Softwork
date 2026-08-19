@@ -48,7 +48,10 @@ class MlPublishAssistantWizard(models.TransientModel):
     status = fields.Char(string="Estado")
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", required=True, readonly=True)
-    ml_item_id = fields.Char(related="product_tmpl_id.ml_item_id", string="ID publicación ML")
+    publication_id = fields.Many2one(
+        "marketplace.publication", string="Publicación", required=True, readonly=True, ondelete="cascade"
+    )
+    ml_item_id = fields.Char(related="publication_id.external_id", string="ID publicación ML")
     is_editing = fields.Boolean(string="Editando publicación existente", compute="_compute_is_editing")
 
     @api.depends("ml_item_id")
@@ -182,6 +185,55 @@ class MlPublishAssistantWizard(models.TransientModel):
         qty_source = product.qty_available if product else 0.0
         return int(max(0.0, qty_source - reserve))
 
+    @staticmethod
+    def _parse_provider_data(raw_data):
+        try:
+            parsed = json.loads(raw_data or "{}")
+        except (TypeError, ValueError):
+            parsed = {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    def _get_or_create_publication(self, product, account):
+        publication = self.env["marketplace.publication"].search(
+            [("product_tmpl_id", "=", product.id), ("account_id", "=", account.id)], limit=1
+        )
+        if publication:
+            return publication
+
+        return self.env["marketplace.publication"].create(
+            {
+                "product_tmpl_id": product.id,
+                "account_id": account.id,
+                "external_id": product.ml_item_id or False,
+                "external_url": product.ml_permalink or False,
+                "external_status": product.ml_status or False,
+                "title": product.ml_title or product.name or "",
+                "category_ref": product.ml_category_id or "",
+                "listing_type": product.ml_listing_type or "gold_special",
+                "condition": product.ml_condition or "new",
+                "shipping_mode": product.ml_shipping_mode or "me2",
+                "price": product.ml_price or 0.0,
+                "price_uom_id": product.ml_price_uom_id.id or product.uom_id.id,
+                "pricelist_id": product.ml_pricelist_id.id,
+                "use_pricelist_price": product.ml_use_pricelist_price,
+                "manual_price_override": product.ml_manual_price_override,
+                "stock_reserve_qty": product.ml_stock_reserve_qty,
+                "attributes_json": product.ml_attributes_json or "[]",
+                "pictures_json": product.ml_pictures_json or "[]",
+                "sale_terms_json": product.ml_sale_terms_json or "[]",
+                "provider_data_json": json.dumps(
+                    {
+                        "brand": product.ml_brand or "",
+                        "model": product.ml_model or "",
+                        "family_name": product.ml_family_name_id or "",
+                        "warranty": product.ml_warranty or "",
+                        "description_html": product.ml_description_html or "",
+                    },
+                    ensure_ascii=False,
+                ),
+            }
+        )
+
     @api.onchange("ml_category_ref_id")
     def _onchange_category_ref(self):
         """Auto-load metadata cuando se selecciona categoría"""
@@ -231,7 +283,14 @@ class MlPublishAssistantWizard(models.TransientModel):
         if not account:
             raise UserError("No hay cuenta SCE MercadoLibre activa configurada.")
 
-        self.env["ml.category"].refresh_for_account(account, query=product.ml_title or product.name or "")
+        publication = self.env["marketplace.publication"].browse(
+            self.env.context.get("default_publication_id")
+        ).exists()
+        if not publication:
+            publication = self._get_or_create_publication(product, account)
+        provider_data = self._parse_provider_data(publication.provider_data_json)
+
+        self.env["ml.category"].refresh_for_account(account, query=publication.title or product.name or "")
         provider = ProviderFactory.get_provider(account)
         listing_items = []
         try:
@@ -309,15 +368,19 @@ class MlPublishAssistantWizard(models.TransientModel):
                         raise
 
         selected_listing = self.env["ml.listing.type"].search(
-            [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
+            [("account_id", "=", account.id), ("listing_type_id", "=", (publication.listing_type or "").strip())],
             limit=1,
         )
 
-        suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False, product.ml_price_uom_id)
-        effective_qty = self._compute_effective_qty(product, product.ml_stock_reserve_qty)
+        suggested_price = self._compute_suggested_price(
+            product,
+            publication.pricelist_id if publication.use_pricelist_price else False,
+            publication.price_uom_id,
+        )
+        effective_qty = self._compute_effective_qty(product, publication.stock_reserve_qty)
 
         selected_category = self.env["ml.category"].search(
-            [("account_id", "=", account.id), ("category_id", "=", (product.ml_category_id or "").strip())],
+            [("account_id", "=", account.id), ("category_id", "=", (publication.category_ref or "").strip())],
             limit=1,
         )
 
@@ -325,26 +388,27 @@ class MlPublishAssistantWizard(models.TransientModel):
             {
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
+                "publication_id": publication.id,
                 "ml_category_ref_id": selected_category.id if selected_category else False,
-                "ml_title": product.ml_title or product.name or "",
+                "ml_title": publication.title or product.name or "",
                 "listing_type_id": selected_listing.id if selected_listing else False,
-                "ml_brand": product.ml_brand or "",
-                "ml_model": product.ml_model or "",
-                "ml_family_name_id": product.ml_family_name_id or "",
-                "ml_condition": product.ml_condition or "new",
-                "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
-                "ml_price_uom_id": product.ml_price_uom_id.id if product.ml_price_uom_id else product.uom_id.id,
-                "ml_use_pricelist_price": product.ml_use_pricelist_price,
-                "ml_manual_price_override": product.ml_manual_price_override,
-                "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
-                "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
+                "ml_brand": provider_data.get("brand") or "",
+                "ml_model": provider_data.get("model") or "",
+                "ml_family_name_id": provider_data.get("family_name") or "",
+                "ml_condition": publication.condition or "new",
+                "ml_pricelist_id": publication.pricelist_id.id,
+                "ml_price_uom_id": publication.price_uom_id.id or product.uom_id.id,
+                "ml_use_pricelist_price": publication.use_pricelist_price,
+                "ml_manual_price_override": publication.manual_price_override,
+                "ml_price": publication.price if publication.manual_price_override else suggested_price,
+                "ml_stock_reserve_qty": publication.stock_reserve_qty,
                 "ml_effective_qty": effective_qty,
-                "ml_shipping_mode": product.ml_shipping_mode or "me2",
+                "ml_shipping_mode": publication.shipping_mode or "me2",
                 "ml_sales_unit_value_id": False,
                 "ml_yield_value": 0.0,
                 "ml_yield_unit": "m2",
-                "ml_warranty": product.ml_warranty or "",
-                "ml_description_html": product.ml_description_html or "",
+                "ml_warranty": provider_data.get("warranty") or "",
+                "ml_description_html": provider_data.get("description_html") or "",
                 "ml_variant_notes": "",
             }
         )
@@ -352,7 +416,16 @@ class MlPublishAssistantWizard(models.TransientModel):
         picture_commands = []
         seq = 10
         seen = set()
-        for item in product._collect_ml_pictures(account=account):
+        try:
+            publication_pictures = json.loads(publication.pictures_json or "[]")
+        except (TypeError, ValueError):
+            publication_pictures = []
+        picture_items = publication_pictures if isinstance(publication_pictures, list) else []
+        if not picture_items:
+            picture_items = product._collect_ml_pictures(account=account)
+        for item in picture_items:
+            if not isinstance(item, dict):
+                continue
             source = (item.get("source") or "").strip()
             if not source or source in seen:
                 continue
@@ -393,9 +466,10 @@ class MlPublishAssistantWizard(models.TransientModel):
             {
                 "product_tmpl_id": product.id,
                 "account_id": self.account_id.id,
-                "query": product.ml_title or product.name or "",
+                "publication_id": self.publication_id.id,
+                "query": self.ml_title or product.name or "",
                 "selected_category_id": (
-                    self.ml_category_ref_id.category_id if self.ml_category_ref_id else (product.ml_category_id or "")
+                    self.ml_category_ref_id.category_id if self.ml_category_ref_id else (self.publication_id.category_ref or "")
                 ),
                 "publish_wizard_id": self.id,
             }
@@ -700,6 +774,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     def action_apply_to_product(self):
         self.ensure_one()
         product = self.product_tmpl_id
+        publication = self.publication_id
 
         sale_terms_payload = []
         for line in self.sale_term_line_ids.sorted("sequence"):
@@ -765,27 +840,43 @@ class MlPublishAssistantWizard(models.TransientModel):
             seen_sources.add(source)
             pictures_payload.append({"source": source})
 
-        product.write(
+        state_by_step = {
+            "base": "category",
+            "pricing_stock": "pricing",
+            "sale_format": "attributes",
+            "delivery": "shipping",
+            "attributes": "attributes",
+            "variants_photos": "pictures",
+            "review": "ready",
+        }
+        publication.write(
             {
-                "ml_title": (self.ml_title or product.name or "").strip(),
-                "ml_category_id": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
-                "ml_listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
-                "ml_brand": (self.ml_brand or "").strip(),
-                "ml_model": (self.ml_model or "").strip(),
-                "ml_family_name_id": (self.ml_family_name_id or "").strip(),
-                "ml_condition": self.ml_condition or "new",
-                "ml_pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
-                "ml_price_uom_id": self.ml_price_uom_id.id if self.ml_price_uom_id else product.uom_id.id,
-                "ml_use_pricelist_price": bool(self.ml_use_pricelist_price),
-                "ml_manual_price_override": bool(self.ml_manual_price_override),
-                "ml_price": self.ml_price if self.ml_manual_price_override else product.ml_price,
-                "ml_stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
-                "ml_shipping_mode": self.ml_shipping_mode or "me2",
-                "ml_sale_terms_json": json.dumps(sale_terms_payload, ensure_ascii=False),
-                "ml_warranty": (self.ml_warranty or "").strip(),
-                "ml_description_html": self.ml_description_html or False,
-                "ml_attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
-                "ml_pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
+                "title": (self.ml_title or product.name or "").strip(),
+                "category_ref": (self.ml_category_ref_id.category_id if self.ml_category_ref_id else "").strip(),
+                "category_name": self.ml_category_ref_id.category_name if self.ml_category_ref_id else "",
+                "listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else "gold_special",
+                "condition": self.ml_condition or "new",
+                "pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
+                "price_uom_id": self.ml_price_uom_id.id if self.ml_price_uom_id else product.uom_id.id,
+                "use_pricelist_price": bool(self.ml_use_pricelist_price),
+                "manual_price_override": bool(self.ml_manual_price_override),
+                "price": self.ml_price or 0.0,
+                "stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
+                "shipping_mode": self.ml_shipping_mode or "me2",
+                "sale_terms_json": json.dumps(sale_terms_payload, ensure_ascii=False),
+                "attributes_json": json.dumps(attrs_payload, ensure_ascii=False),
+                "pictures_json": json.dumps(pictures_payload, ensure_ascii=False),
+                "provider_data_json": json.dumps(
+                    {
+                        "brand": (self.ml_brand or "").strip(),
+                        "model": (self.ml_model or "").strip(),
+                        "family_name": (self.ml_family_name_id or "").strip(),
+                        "warranty": (self.ml_warranty or "").strip(),
+                        "description_html": self.ml_description_html or "",
+                    },
+                    ensure_ascii=False,
+                ),
+                "state": state_by_step.get(self.step, "draft"),
             }
         )
 
@@ -877,9 +968,9 @@ class MlPublishAssistantWizard(models.TransientModel):
             if not (effective_value_id or effective_value_name):
                 sale_terms_errors.append(f"Falta condición de venta requerida ML: {line.term_name or line.term_id}")
 
-        if not (product.ml_brand or "").strip():
+        if not (self.ml_brand or "").strip():
             warnings.append("Recomendado: completar Marca.")
-        if not (product.ml_model or "").strip():
+        if not (self.ml_model or "").strip():
             warnings.append("Recomendado: completar Modelo.")
         if not self.ml_family_name_id:
             warnings.append("Importante: MercadoLibre requiere 'Familia/Línea' para muchas categorías. Completa este campo en Paso 1 para evitar errores de publicación.")
@@ -918,6 +1009,39 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.validation_summary = "\n".join(lines)
         return self._reload_self()
 
+    def _sync_publication_to_legacy_product(self):
+        """Adapt the persistent publication to the current ML provider contract."""
+        self.ensure_one()
+        publication = self.publication_id
+        product = self.product_tmpl_id
+        provider_data = self._parse_provider_data(publication.provider_data_json)
+        product.write(
+            {
+                "ml_publish_enabled": True,
+                "ml_account_id": publication.account_id.id,
+                "ml_item_id": publication.external_id or False,
+                "ml_title": publication.title,
+                "ml_category_id": publication.category_ref,
+                "ml_listing_type": publication.listing_type,
+                "ml_condition": publication.condition,
+                "ml_pricelist_id": publication.pricelist_id.id,
+                "ml_price_uom_id": publication.price_uom_id.id,
+                "ml_use_pricelist_price": publication.use_pricelist_price,
+                "ml_manual_price_override": publication.manual_price_override,
+                "ml_price": publication.price,
+                "ml_stock_reserve_qty": publication.stock_reserve_qty,
+                "ml_shipping_mode": publication.shipping_mode,
+                "ml_sale_terms_json": publication.sale_terms_json,
+                "ml_attributes_json": publication.attributes_json,
+                "ml_pictures_json": publication.pictures_json,
+                "ml_brand": provider_data.get("brand") or "",
+                "ml_model": provider_data.get("model") or "",
+                "ml_family_name_id": provider_data.get("family_name") or "",
+                "ml_warranty": provider_data.get("warranty") or "",
+                "ml_description_html": provider_data.get("description_html") or False,
+            }
+        )
+
     def action_publish(self):
         self.ensure_one()
         self.action_validate_checklist()
@@ -928,8 +1052,22 @@ class MlPublishAssistantWizard(models.TransientModel):
             )
         try:
             self.action_apply_to_product()
+            self.publication_id.write({"state": "publishing", "error_message": False})
+            self._sync_publication_to_legacy_product()
             self.product_tmpl_id.action_publish_ml()
+            self.publication_id.write(
+                {
+                    "external_id": self.product_tmpl_id.ml_item_id,
+                    "external_url": self.product_tmpl_id.ml_permalink,
+                    "external_status": self.product_tmpl_id.ml_status,
+                    "published_date": self.product_tmpl_id.ml_publish_date,
+                    "sync_date": self.product_tmpl_id.ml_sync_date,
+                    "state": "published",
+                    "error_message": False,
+                }
+            )
         except UserError:
+            self.publication_id.write({"state": "failed", "error_message": "Error al publicar en MercadoLibre."})
             raise
         except Exception:
             _logger.exception(
@@ -937,6 +1075,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 self.product_tmpl_id.id if self.product_tmpl_id else False,
                 self.account_id.id if self.account_id else False,
             )
+            self.publication_id.write({"state": "failed", "error_message": "Error inesperado al publicar en MercadoLibre."})
             raise UserError(
                 "No se pudo publicar en MercadoLibre. "
                 "Verifica credenciales/permisos de la cuenta y revisa los logs del servidor."
