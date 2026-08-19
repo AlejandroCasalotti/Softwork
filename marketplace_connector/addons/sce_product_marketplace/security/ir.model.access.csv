@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 sce_product_marketplace.access_marketplace_publication,access_marketplace_publication,model_marketplace_publication,base.group_user,1,1,1,1
+sce_product_marketplace.access_marketplace_product_mapping,access_marketplace_product_mapping,model_marketplace_product_mapping,base.group_user,1,1,1,1

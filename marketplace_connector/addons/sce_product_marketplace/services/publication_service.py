@@ -189,8 +189,26 @@ class MarketplacePublicationService(models.AbstractModel):
         order_ref = "%s:%s" % (account.provider_type or "marketplace", external_id)
         order_model = self.env["sale.order"].sudo()
         existing = order_model.search([("client_order_ref", "=", order_ref)], limit=1)
+        previous_state = existing.marketplace_order_state if existing else None
+        previous_shipping_status = existing.marketplace_shipping_status if existing else None
+        order_values = {
+            "marketplace_external_order_id": str(external_id),
+            "marketplace_account_id": account.id,
+            "marketplace_order_state": self._normalize_order_state(order_data),
+            "marketplace_external_status": order_data.get("status") or False,
+            "marketplace_sync_date": fields.Datetime.now(),
+        }
         if existing:
-            return {"order_id": existing.id, "external_id": str(external_id), "created": False}
+            existing.write(order_values)
+            existing._apply_marketplace_logistics(order_data)
+            existing._apply_marketplace_transition()
+            existing._emit_marketplace_state_event(previous_state, previous_shipping_status)
+            return {
+                "order_id": existing.id,
+                "external_id": str(external_id),
+                "created": False,
+                "state": existing.marketplace_order_state,
+            }
 
         buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
         buyer_name = buyer.get("nickname") or buyer.get("first_name") or "Marketplace buyer"
@@ -205,13 +223,19 @@ class MarketplacePublicationService(models.AbstractModel):
                 "partner_id": partner.id,
                 "client_order_ref": order_ref,
                 "origin": "Marketplace %s" % external_id,
+                **order_values,
             }
         )
         missing_items = []
         for line in order_data.get("order_items") or []:
             item = line.get("item") if isinstance(line, dict) and isinstance(line.get("item"), dict) else {}
             item_id = str(item.get("id") or "")
-            product = self.env["product.product"].sudo().search([("default_code", "=", item_id)], limit=1)
+            mapping = self.env["marketplace.product.mapping"].sudo().search(
+                [("account_id", "=", account.id), ("external_id", "=", item_id)], limit=1
+            )
+            product = mapping.product_id if mapping and mapping.product_id else self.env["product.product"].sudo().search(
+                [("default_code", "=", item_id)], limit=1
+            )
             if not product:
                 missing_items.append(item_id or item.get("title") or "unknown")
                 continue
@@ -224,12 +248,35 @@ class MarketplacePublicationService(models.AbstractModel):
                     "name": item.get("title") or product.display_name,
                 }
             )
+            order._apply_marketplace_logistics(order_data)
+            order._apply_marketplace_transition()
+            order._emit_marketplace_state_event()
         return {
             "order_id": order.id,
             "external_id": str(external_id),
             "created": True,
+            "state": order.marketplace_order_state,
             "missing_items": missing_items,
         }
+
+    def _normalize_order_state(self, order_data):
+        status = str(order_data.get("status") or "").lower()
+        shipping = order_data.get("shipping") if isinstance(order_data.get("shipping"), dict) else {}
+        shipping_status = str(shipping.get("status") or "").lower()
+        if status in {"cancelled", "canceled", "invalid", "refunded", "partially_refunded"}:
+            return "cancelled"
+        if shipping_status in {"delivered", "delivered_to_buyer"}:
+            return "delivered"
+        if shipping_status in {"shipped", "in_transit", "ready_to_ship"}:
+            return "shipped"
+        payments = order_data.get("payments") if isinstance(order_data.get("payments"), list) else []
+        if status in {"paid", "confirmed"} or any(
+            str(payment.get("status") or "").lower() in {"approved", "paid"}
+            for payment in payments
+            if isinstance(payment, dict)
+        ):
+            return "paid"
+        return "pending"
 
     def _get_provider_for_account(self, account):
         if not account:

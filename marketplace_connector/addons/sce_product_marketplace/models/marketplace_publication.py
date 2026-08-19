@@ -129,6 +129,24 @@ class MarketplacePublication(models.Model):
         if published:
             values.update({"state": "published", "published_date": fields.Datetime.now()})
         self.write(values)
+        if external_id:
+            mapping_model = self.env["marketplace.product.mapping"]
+            mapping = mapping_model.search(
+                [("publication_id", "=", self.id), ("external_id", "=", str(external_id))],
+                limit=1,
+            )
+            mapping_values = {
+                "publication_id": self.id,
+                "product_tmpl_id": self.product_tmpl_id.id,
+                "product_id": self.product_tmpl_id.product_variant_id.id
+                if len(self.product_tmpl_id.product_variant_ids) == 1
+                else False,
+                "external_id": str(external_id),
+            }
+            if mapping:
+                mapping.write(mapping_values)
+            else:
+                mapping_model.create(mapping_values)
 
     def _publication_service(self):
         return self.env["marketplace.publication.service"]

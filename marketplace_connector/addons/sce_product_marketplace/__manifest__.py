@@ -21,6 +21,9 @@ extienden marketplace.publication con sus propios campos y servicios.
     "data": [
         "security/ir.model.access.csv",
         "views/marketplace_publication_views.xml",
+        "views/marketplace_product_mapping_views.xml",
+        "views/marketplace_account_views.xml",
+        "views/marketplace_sale_order_views.xml",
         "views/sce_job_marketplace_views.xml",
         "views/product_template_views.xml",
     ],
