@@ -5,7 +5,7 @@
         <field name="model">sce.account</field>
         <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@string='App MercadoLibre']" position="after">
+            <xpath expr="//field[@name='ml_redirect_uri']" position="after">
                 <group string="Reglas de órdenes marketplace" invisible="provider_type == 'odoo'">
                     <field name="marketplace_auto_confirm_paid"/>
                     <field name="marketplace_auto_cancelled"/>
