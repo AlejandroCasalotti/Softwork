@@ -17,7 +17,7 @@ class MarketplacePublication(models.Model):
     connector_id = fields.Many2one(
         "sce.connector", string="Conector", related="account_id.connector_id", store=True, readonly=True
     )
-    provider_type = fields.Char(
+    provider_type = fields.Selection(
         string="Tipo de proveedor", related="connector_id.provider_type", store=True, readonly=True
     )
 
@@ -76,13 +76,10 @@ class MarketplacePublication(models.Model):
     published_date = fields.Datetime(string="Fecha de publicación", readonly=True)
     sync_date = fields.Datetime(string="Última sincronización", readonly=True)
 
-    _sql_constraints = [
-        (
-            "uniq_product_account",
-            "UNIQUE(product_tmpl_id, account_id)",
-            "Ya existe una publicación de este producto para esta cuenta.",
-        ),
-    ]
+    _uniq_product_account = models.Constraint(
+        "UNIQUE(product_tmpl_id, account_id)",
+        "Ya existe una publicación de este producto para esta cuenta.",
+    )
 
     @api.depends("product_tmpl_id.qty_available", "stock_reserve_qty")
     def _compute_effective_qty(self):
