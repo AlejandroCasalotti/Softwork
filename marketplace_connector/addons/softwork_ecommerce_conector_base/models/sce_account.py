@@ -222,6 +222,40 @@ class SceAccount(models.Model):
             if vals:
                 rec.write(vals)
 
+    def _validate_odoo_connection(self):
+        self.ensure_one()
+        if self.connector_id.provider_type != "odoo":
+            raise UserError("Esta validación es solo para conectores tipo Odoo.")
+
+        missing = []
+        for label, value in [
+            ("Odoo Origen - URL", self.odoo_source_url),
+            ("Odoo Origen - Base de datos", self.odoo_source_db),
+            ("Odoo Origen - Usuario", self.odoo_source_user),
+            ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
+            ("Odoo Destino - URL", self.odoo_target_url),
+            ("Odoo Destino - Base de datos", self.odoo_target_db),
+            ("Odoo Destino - Usuario", self.odoo_target_user),
+            ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
+        ]:
+            if not value:
+                missing.append(label)
+
+        if missing:
+            raise UserError("Faltan datos para probar conexión Odoo->Odoo:\n- " + "\n- ".join(missing))
+
+        try:
+            from ..services.provider_factory import ProviderFactory
+
+            provider = ProviderFactory.get_provider(self)
+            result = provider.health()
+            if not result or not result.get("ok"):
+                raise UserError("El endpoint de Odoo respondió inválido durante la validación.")
+            return result
+        except Exception as err:
+            self.write({"state": "error", "last_error": str(err)})
+            raise UserError(f"No se pudo conectar a Odoo remoto: {err}") from err
+
     def action_start_onboarding_connection(self):
         self.ensure_one()
         provider = self.provider_type
@@ -252,30 +286,14 @@ class SceAccount(models.Model):
             return self.action_open_oauth_url()
 
         if provider == "odoo":
-            missing = []
-            for label, value in [
-                ("Odoo Origen - URL", self.odoo_source_url),
-                ("Odoo Origen - Base de datos", self.odoo_source_db),
-                ("Odoo Origen - Usuario", self.odoo_source_user),
-                ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
-                ("Odoo Destino - URL", self.odoo_target_url),
-                ("Odoo Destino - Base de datos", self.odoo_target_db),
-                ("Odoo Destino - Usuario", self.odoo_target_user),
-                ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
-            ]:
-                if not value:
-                    missing.append(label)
-
-            if missing:
-                raise UserError("Completá estos campos antes de conectar Odoo→Odoo:\n- " + "\n- ".join(missing))
-
+            self._validate_odoo_connection()
             self.write({"state": "connected", "last_error": False})
             return {
                 "type": "ir.actions.client",
                 "tag": "display_notification",
                 "params": {
                     "title": "Conexión validada",
-                    "message": "Cuenta Odoo Origen/Destino configurada correctamente.",
+                    "message": "Cuenta Odoo Origen/Destino configurada correctamente y conectada via XML-RPC.",
                     "type": "success",
                     "sticky": False,
                 },
@@ -287,27 +305,14 @@ class SceAccount(models.Model):
         self.ensure_one()
         if self.connector_id.provider_type != "odoo":
             raise UserError("Esta prueba es solo para conectores tipo Odoo.")
-        missing = []
-        for label, value in [
-            ("Odoo Origen - URL", self.odoo_source_url),
-            ("Odoo Origen - Base de datos", self.odoo_source_db),
-            ("Odoo Origen - Usuario", self.odoo_source_user),
-            ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
-            ("Odoo Destino - URL", self.odoo_target_url),
-            ("Odoo Destino - Base de datos", self.odoo_target_db),
-            ("Odoo Destino - Usuario", self.odoo_target_user),
-            ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
-        ]:
-            if not value:
-                missing.append(label)
-        if missing:
-            raise UserError("Faltan datos para probar conexión Odoo->Odoo:\n- " + "\n- ".join(missing))
+        self._validate_odoo_connection()
+        self.write({"state": "connected", "last_error": False})
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": "Conexión validada",
-                "message": "Configuración Odoo origen/destino cargada. En fase 2 se conectará por XML-RPC/JSON-RPC.",
+                "message": "Configuración Odoo origen/destino validada correctamente con XML-RPC.",
                 "type": "success",
                 "sticky": False,
             },
@@ -332,6 +337,11 @@ class SceAccount(models.Model):
 
     def action_test_and_confirm(self):
         for rec in self:
+            if rec.connector_id.provider_type == "odoo":
+                rec._validate_odoo_connection()
+                rec.write({"state": "connected", "last_error": False})
+                continue
+
             missing = []
             if not rec.odoo_base_url:
                 missing.append("URL de Odoo")

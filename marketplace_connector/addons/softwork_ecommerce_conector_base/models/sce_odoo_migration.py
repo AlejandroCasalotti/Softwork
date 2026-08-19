@@ -172,8 +172,24 @@ class SceOdooMigrationRun(models.Model):
             )
             raise
 
-    def _get_versions(self):
+    def _validate_source_target_connections(self):
         self.ensure_one()
+        missing = []
+        for label, value in [
+            ("Odoo Origen - URL", self.account_id.odoo_source_url),
+            ("Odoo Origen - Base de datos", self.account_id.odoo_source_db),
+            ("Odoo Origen - Usuario", self.account_id.odoo_source_user),
+            ("Odoo Origen - API Key / Password", self.account_id.odoo_source_api_key),
+            ("Odoo Destino - URL", self.account_id.odoo_target_url),
+            ("Odoo Destino - Base de datos", self.account_id.odoo_target_db),
+            ("Odoo Destino - Usuario", self.account_id.odoo_target_user),
+            ("Odoo Destino - API Key / Password", self.account_id.odoo_target_api_key),
+        ]:
+            if not value:
+                missing.append(label)
+        if missing:
+            raise UserError("Faltan datos de conexión Odoo Origen/Destino:\n- " + "\n- ".join(missing))
+
         src_uid, src_rpc = self._rpc_connect(
             self.account_id.odoo_source_url,
             self.account_id.odoo_source_db,
@@ -186,6 +202,26 @@ class SceOdooMigrationRun(models.Model):
             self.account_id.odoo_target_user,
             self.account_id.odoo_target_api_key,
         )
+
+        for label, rpc, db, uid, pwd in [
+            ("origen", src_rpc, self.account_id.odoo_source_db, src_uid, self.account_id.odoo_source_api_key),
+            ("destino", dst_rpc, self.account_id.odoo_target_db, dst_uid, self.account_id.odoo_target_api_key),
+        ]:
+            self._rpc_call(
+                rpc,
+                db,
+                uid,
+                pwd,
+                "ir.module.module",
+                "search_count",
+                [],
+            )
+
+        return src_uid, src_rpc, dst_uid, dst_rpc
+
+    def _get_versions(self):
+        self.ensure_one()
+        src_uid, src_rpc, dst_uid, dst_rpc = self._validate_source_target_connections()
         src_ver = self._rpc_call(
             src_rpc,
             self.account_id.odoo_source_db,
@@ -262,7 +298,8 @@ class SceOdooMigrationRun(models.Model):
             cp[cp_key] = record_id
             return True
         except Exception as err:
-            errors.append({"model": model_name, "id": record_id, "error": str(err)})
+            err_msg = str(err)
+            errors.append({"model": model_name, "id": record_id, "error": err_msg})
             self.error_count = (self.error_count or 0) + 1
             if not self.continue_on_error:
                 raise
@@ -1110,37 +1147,10 @@ class SceOdooMigrationRun(models.Model):
 
     def action_run_migration(self):
         for rec in self:
-            missing = []
-            for label, value in [
-                ("Odoo Origen - URL", rec.account_id.odoo_source_url),
-                ("Odoo Origen - Base de datos", rec.account_id.odoo_source_db),
-                ("Odoo Origen - Usuario", rec.account_id.odoo_source_user),
-                ("Odoo Origen - API Key / Password", rec.account_id.odoo_source_api_key),
-                ("Odoo Destino - URL", rec.account_id.odoo_target_url),
-                ("Odoo Destino - Base de datos", rec.account_id.odoo_target_db),
-                ("Odoo Destino - Usuario", rec.account_id.odoo_target_user),
-                ("Odoo Destino - API Key / Password", rec.account_id.odoo_target_api_key),
-            ]:
-                if not value:
-                    missing.append(label)
-            if missing:
-                raise UserError("Faltan datos de conexión Odoo Origen/Destino:\n- " + "\n- ".join(missing))
-
             rec.write({"state": "running", "started_at": fields.Datetime.now(), "last_error": False})
             cp = rec._load_checkpoint()
             try:
-                src_uid, src_rpc = rec._rpc_connect(
-                    rec.account_id.odoo_source_url,
-                    rec.account_id.odoo_source_db,
-                    rec.account_id.odoo_source_user,
-                    rec.account_id.odoo_source_api_key,
-                )
-                dst_uid, dst_rpc = rec._rpc_connect(
-                    rec.account_id.odoo_target_url,
-                    rec.account_id.odoo_target_db,
-                    rec.account_id.odoo_target_user,
-                    rec.account_id.odoo_target_api_key,
-                )
+                src_uid, src_rpc, dst_uid, dst_rpc = rec._validate_source_target_connections()
                 rec._get_versions()
 
                 errors = []
@@ -1196,6 +1206,7 @@ class SceOdooMigrationRun(models.Model):
                     errors += rec._sync_stock_location(src_rpc, src_uid, dst_rpc, dst_uid, cp) or []
                     rec._save_checkpoint(cp)
 
+                rec.error_count = len(errors) if errors else 0
                 rec.write(
                     {
                         "state": "done",
@@ -1314,6 +1325,7 @@ class SceOdooMigrationWizard(models.TransientModel):
                 "sync_stock_locations": self.sync_stock_locations,
             }
         )
+        run._validate_source_target_connections()
         run.action_run_migration()
         return {
             "type": "ir.actions.act_window",
