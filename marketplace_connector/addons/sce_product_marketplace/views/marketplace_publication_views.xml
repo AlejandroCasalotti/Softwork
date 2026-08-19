@@ -6,6 +6,16 @@
         <field name="arch" type="xml">
             <form string="Publicación en marketplace">
                 <header>
+                    <button name="action_publish" type="object" string="Publicar"
+                        class="btn-primary" invisible="state not in ('draft', 'ready', 'failed')"/>
+                    <button name="action_update_marketplace" type="object" string="Actualizar"
+                        invisible="state != 'published' or not external_id"/>
+                    <button name="action_sync_marketplace_price" type="object" string="Sincronizar precio"
+                        invisible="not external_id"/>
+                    <button name="action_sync_marketplace_stock" type="object" string="Sincronizar stock"
+                        invisible="not external_id"/>
+                    <button name="action_delete_marketplace" type="object" string="Retirar publicación"
+                        class="btn-secondary" invisible="not external_id" confirm="¿Retirar esta publicación del marketplace?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,category,attributes,pricing,shipping,pictures,ready,published"/>
                 </header>

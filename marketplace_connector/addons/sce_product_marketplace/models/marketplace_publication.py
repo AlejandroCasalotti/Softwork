@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class MarketplacePublication(models.Model):
@@ -97,3 +98,62 @@ class MarketplacePublication(models.Model):
             account_name = publication.account_id.display_name
             result.append((publication.id, f"{label} [{account_name}]"))
         return result
+
+    def _validate_for_operation(self):
+        self.ensure_one()
+        missing = []
+        if not self.product_tmpl_id:
+            missing.append("producto")
+        if not self.account_id:
+            missing.append("cuenta")
+        if not self.category_ref:
+            missing.append("categoría")
+        if not self.title:
+            missing.append("título")
+        if self.price <= 0:
+            missing.append("precio")
+        if missing:
+            raise UserError("La publicación no está lista. Completa: %s." % ", ".join(missing))
+
+    def _apply_provider_result(self, result, published=False):
+        self.ensure_one()
+        result = result if isinstance(result, dict) else {}
+        values = {"sync_date": fields.Datetime.now(), "error_message": False}
+        external_id = result.get("item_id") or result.get("external_id")
+        if external_id:
+            values["external_id"] = str(external_id)
+        if result.get("url") or result.get("external_url"):
+            values["external_url"] = result.get("url") or result.get("external_url")
+        if result.get("status"):
+            values["external_status"] = result["status"]
+        if published:
+            values.update({"state": "published", "published_date": fields.Datetime.now()})
+        self.write(values)
+
+    def _publication_service(self):
+        return self.env["marketplace.publication.service"]
+
+    def action_publish(self):
+        for publication in self:
+            publication._publication_service().publish(publication)
+        return True
+
+    def action_update_marketplace(self):
+        for publication in self:
+            publication._publication_service().update(publication)
+        return True
+
+    def action_sync_marketplace_stock(self):
+        for publication in self:
+            publication._publication_service().update_stock(publication)
+        return True
+
+    def action_sync_marketplace_price(self):
+        for publication in self:
+            publication._publication_service().update_price(publication)
+        return True
+
+    def action_delete_marketplace(self):
+        for publication in self:
+            publication._publication_service().delete(publication)
+        return True

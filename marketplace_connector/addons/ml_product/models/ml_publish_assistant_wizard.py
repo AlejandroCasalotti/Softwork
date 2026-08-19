@@ -1010,39 +1010,6 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.validation_summary = "\n".join(lines)
         return self._reload_self()
 
-    def _sync_publication_to_legacy_product(self):
-        """Adapt the persistent publication to the current ML provider contract."""
-        self.ensure_one()
-        publication = self.publication_id
-        product = self.product_tmpl_id
-        provider_data = self._parse_provider_data(publication.provider_data_json)
-        product.write(
-            {
-                "ml_publish_enabled": True,
-                "ml_account_id": publication.account_id.id,
-                "ml_item_id": publication.external_id or False,
-                "ml_title": publication.title,
-                "ml_category_id": publication.category_ref,
-                "ml_listing_type": publication.listing_type,
-                "ml_condition": publication.condition,
-                "ml_pricelist_id": publication.pricelist_id.id,
-                "ml_price_uom_id": publication.price_uom_id.id,
-                "ml_use_pricelist_price": publication.use_pricelist_price,
-                "ml_manual_price_override": publication.manual_price_override,
-                "ml_price": publication.price,
-                "ml_stock_reserve_qty": publication.stock_reserve_qty,
-                "ml_shipping_mode": publication.shipping_mode,
-                "ml_sale_terms_json": publication.sale_terms_json,
-                "ml_attributes_json": publication.attributes_json,
-                "ml_pictures_json": publication.pictures_json,
-                "ml_brand": provider_data.get("brand") or "",
-                "ml_model": provider_data.get("model") or "",
-                "ml_family_name_id": provider_data.get("family_name") or "",
-                "ml_warranty": provider_data.get("warranty") or "",
-                "ml_description_html": provider_data.get("description_html") or False,
-            }
-        )
-
     def action_publish(self):
         self.ensure_one()
         self.action_validate_checklist()
@@ -1053,20 +1020,7 @@ class MlPublishAssistantWizard(models.TransientModel):
             )
         try:
             self.action_apply_to_product()
-            self.publication_id.write({"state": "publishing", "error_message": False})
-            self._sync_publication_to_legacy_product()
-            self.product_tmpl_id.action_publish_ml()
-            self.publication_id.write(
-                {
-                    "external_id": self.product_tmpl_id.ml_item_id,
-                    "external_url": self.product_tmpl_id.ml_permalink,
-                    "external_status": self.product_tmpl_id.ml_status,
-                    "published_date": self.product_tmpl_id.ml_publish_date,
-                    "sync_date": self.product_tmpl_id.ml_sync_date,
-                    "state": "published",
-                    "error_message": False,
-                }
-            )
+            self.env["marketplace.publication.service"].publish(self.publication_id)
         except UserError:
             self.publication_id.write({"state": "failed", "error_message": "Error al publicar en MercadoLibre."})
             raise
