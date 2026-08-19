@@ -39,6 +39,21 @@ class MlPublishConfigWizard(models.TransientModel):
 
     ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
 
+    @staticmethod
+    def _normalize_shipping_mode(value):
+        normalized = (value or "").strip().lower()
+        return {
+            "me2": "me2",
+            "mercado envíos": "me2",
+            "mercado envios": "me2",
+            "custom": "custom",
+            "acordar con comprador": "custom",
+            "not_specified": "not_specified",
+            "no especificado": "not_specified",
+            "no": "not_specified",
+            "": "me2",
+        }.get(normalized, "me2")
+
     def _raise_if_access_denied_response(self, payload, operation):
         if isinstance(payload, str):
             text = payload.lower()
@@ -193,7 +208,7 @@ class MlPublishConfigWizard(models.TransientModel):
                 "ml_listing_type_id": selected_listing.id if selected_listing else False,
                 "ml_condition": product.ml_condition,
                 "ml_warranty": product.ml_warranty,
-                "ml_shipping_mode": product.ml_shipping_mode or "me2",
+                "ml_shipping_mode": self._normalize_shipping_mode(product.ml_shipping_mode),
                 "ml_pricelist_id": product.ml_pricelist_id.id if product.ml_pricelist_id else False,
                 "ml_use_pricelist_price": product.ml_use_pricelist_price,
                 "ml_manual_price_override": product.ml_manual_price_override,

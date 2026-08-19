@@ -120,6 +120,22 @@ class MlPublishAssistantWizard(models.TransientModel):
     validation_summary = fields.Text(string="Checklist", readonly=True)
     progress_indicator = fields.Char(string="Progreso", readonly=True, compute="_compute_progress_indicator")
 
+    @staticmethod
+    def _normalize_shipping_mode(value):
+        normalized = (value or "").strip().lower()
+        aliases = {
+            "me2": "me2",
+            "mercado envíos": "me2",
+            "mercado envios": "me2",
+            "custom": "custom",
+            "acordar con comprador": "custom",
+            "not_specified": "not_specified",
+            "no especificado": "not_specified",
+            "no": "not_specified",
+            "": "me2",
+        }
+        return aliases.get(normalized, "me2")
+
     @api.depends("step")
     def _compute_progress_indicator(self):
         step_order = [
@@ -403,7 +419,7 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "ml_price": publication.price if publication.manual_price_override else suggested_price,
                 "ml_stock_reserve_qty": publication.stock_reserve_qty,
                 "ml_effective_qty": effective_qty,
-                "ml_shipping_mode": publication.shipping_mode or "me2",
+                "ml_shipping_mode": self._normalize_shipping_mode(publication.shipping_mode),
                 "ml_sales_unit_value_id": False,
                 "ml_yield_value": 0.0,
                 "ml_yield_unit": "m2",
