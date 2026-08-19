@@ -16,6 +16,15 @@ class SceMarketplaceJob(models.Model):
             ("import_order", "Import Order"),
             ("delete_product", "Remove Product"),
         ],
+        ondelete={
+            "publish_product": "set default",
+            "update_product": "set default",
+            "sync_publication_stock": "set default",
+            "sync_publication_price": "set default",
+            "sync_publication": "set default",
+            "import_order": "set default",
+            "delete_product": "set default",
+        },
     )
     publication_id = fields.Many2one(
         "marketplace.publication", string="Publication", ondelete="cascade", index=True
