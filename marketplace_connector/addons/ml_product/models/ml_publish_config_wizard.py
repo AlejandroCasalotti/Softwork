@@ -16,6 +16,9 @@ class MlPublishConfigWizard(models.TransientModel):
 
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
     account_id = fields.Many2one("sce.account", string="Cuenta ML", readonly=True)
+    publication_id = fields.Many2one(
+        "marketplace.publication", string="Publicación", readonly=True, ondelete="cascade"
+    )
 
     ml_listing_type_id = fields.Many2one("ml.listing.type", string="Tipo de publicación")
     ml_condition = fields.Selection(
@@ -169,6 +172,17 @@ class MlPublishConfigWizard(models.TransientModel):
             [("account_id", "=", account.id), ("listing_type_id", "=", (product.ml_listing_type or "").strip())],
             limit=1,
         )
+        publication = self.env["marketplace.publication"].browse(
+            self.env.context.get("default_publication_id")
+        ).exists()
+        if not publication:
+            publication = self.env["marketplace.publication"].search(
+                [
+                    ("product_tmpl_id", "=", product.id),
+                    ("account_id", "=", account.id),
+                ],
+                limit=1,
+            )
 
         suggested_price = self._compute_suggested_price(product, product.ml_pricelist_id if product.ml_use_pricelist_price else False)
 
@@ -185,12 +199,28 @@ class MlPublishConfigWizard(models.TransientModel):
                 "ml_manual_price_override": product.ml_manual_price_override,
                 "ml_price": product.ml_price if product.ml_manual_price_override else suggested_price,
                 "ml_stock_reserve_qty": product.ml_stock_reserve_qty,
+                "publication_id": publication.id if publication else False,
             }
         )
         return vals
 
     def action_apply(self):
         self.ensure_one()
+        if self.publication_id:
+            self.publication_id.write(
+                {
+                    "account_id": self.account_id.id,
+                    "listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",
+                    "condition": self.ml_condition or "new",
+                    "shipping_mode": self.ml_shipping_mode or "me2",
+                    "pricelist_id": self.ml_pricelist_id.id if self.ml_pricelist_id else False,
+                    "use_pricelist_price": bool(self.ml_use_pricelist_price),
+                    "manual_price_override": bool(self.ml_manual_price_override),
+                    "price": self.ml_price if self.ml_manual_price_override else self.product_tmpl_id.list_price,
+                    "stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
+                    "state": "pricing",
+                }
+            )
         self.product_tmpl_id.write(
             {
                 "ml_listing_type": self.ml_listing_type_id.listing_type_id if self.ml_listing_type_id else "gold_special",

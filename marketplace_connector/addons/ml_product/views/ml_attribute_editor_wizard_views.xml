@@ -7,6 +7,7 @@
             <form string="Atributos MercadoLibre">
                 <group>
                     <field name="product_tmpl_id" readonly="1"/>
+                    <field name="publication_id" readonly="1"/>
                     <field name="account_id" readonly="1"/>
                     <field name="category_id" readonly="1"/>
                 </group>

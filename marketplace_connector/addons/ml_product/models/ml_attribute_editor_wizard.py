@@ -15,6 +15,9 @@ class MlAttributeEditorWizard(models.TransientModel):
     _description = "Editor dinámico de atributos MercadoLibre"
 
     product_tmpl_id = fields.Many2one("product.template", required=True, readonly=True)
+    publication_id = fields.Many2one(
+        "marketplace.publication", string="Publicación", readonly=True, ondelete="cascade"
+    )
     account_id = fields.Many2one(
         "sce.account",
         string="Cuenta ML",
@@ -70,14 +73,24 @@ class MlAttributeEditorWizard(models.TransientModel):
         )
         if not account:
             raise UserError("No hay una cuenta SCE MercadoLibre activa configurada.")
-        if not (product.ml_category_id or "").strip():
+        publication = self.env["marketplace.publication"].browse(
+            self.env.context.get("default_publication_id")
+        ).exists()
+        if not publication:
+            publication = self.env["marketplace.publication"].search(
+                [("product_tmpl_id", "=", product.id), ("account_id", "=", account.id)],
+                limit=1,
+            )
+        category_id = (publication.category_ref if publication else product.ml_category_id or "").strip()
+        if not category_id:
             raise UserError("Primero debes definir una categoría ML para cargar atributos requeridos.")
 
         vals.update(
             {
                 "product_tmpl_id": product.id,
+                "publication_id": publication.id if publication else False,
                 "account_id": account.id,
-                "category_id": (product.ml_category_id or "").strip(),
+                "category_id": category_id,
             }
         )
         return vals
@@ -112,7 +125,7 @@ class MlAttributeEditorWizard(models.TransientModel):
             all_attrs = []
 
         current_attrs = []
-        raw = self.product_tmpl_id.ml_attributes_json or ""
+        raw = self.publication_id.attributes_json if self.publication_id else self.product_tmpl_id.ml_attributes_json
         if raw:
             try:
                 parsed = json.loads(raw)
@@ -120,7 +133,7 @@ class MlAttributeEditorWizard(models.TransientModel):
                     current_attrs = [a for a in parsed if isinstance(a, dict)]
             except Exception:
                 _logger.exception(
-                    "Error parseando ml_attributes_json en editor de atributos para product_tmpl_id=%s",
+                    "Error parseando atributos en editor para product_tmpl_id=%s",
                     self.product_tmpl_id.id,
                 )
                 current_attrs = []
@@ -230,12 +243,31 @@ class MlAttributeEditorWizard(models.TransientModel):
                 item["value_name"] = (line.value_name or "").strip()
             attrs.append(item)
 
-        vals = {"ml_attributes_json": json.dumps(attrs, ensure_ascii=False)}
+        attributes_json = json.dumps(attrs, ensure_ascii=False)
+        provider_data = {}
+        if self.publication_id.provider_data_json:
+            try:
+                provider_data = json.loads(self.publication_id.provider_data_json)
+            except (TypeError, ValueError):
+                provider_data = {}
         for item in attrs:
             if item["id"] == "BRAND" and item.get("value_name"):
-                vals["ml_brand"] = item.get("value_name")
+                provider_data["brand"] = item.get("value_name")
             if item["id"] == "MODEL" and item.get("value_name"):
-                vals["ml_model"] = item.get("value_name")
+                provider_data["model"] = item.get("value_name")
+        if self.publication_id:
+            self.publication_id.write(
+                {
+                    "attributes_json": attributes_json,
+                    "provider_data_json": json.dumps(provider_data, ensure_ascii=False),
+                    "state": "attributes",
+                }
+            )
+        vals = {"ml_attributes_json": attributes_json}
+        if provider_data.get("brand"):
+            vals["ml_brand"] = provider_data["brand"]
+        if provider_data.get("model"):
+            vals["ml_model"] = provider_data["model"]
         self.product_tmpl_id.write(vals)
         return {"type": "ir.actions.act_window_close"}
 

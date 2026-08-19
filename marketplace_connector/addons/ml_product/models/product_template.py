@@ -78,6 +78,27 @@ class ProductTemplate(models.Model):
             raise UserError("No hay una cuenta SCE MercadoLibre activa configurada.")
         return account
 
+    def _get_or_create_ml_publication(self):
+        self.ensure_one()
+        account = self._get_ml_account()
+        publication = self.env["marketplace.publication"].search(
+            [("product_tmpl_id", "=", self.id), ("account_id", "=", account.id)],
+            limit=1,
+        )
+        if not publication:
+            publication = self.env["marketplace.publication"].create(
+                {
+                    "product_tmpl_id": self.id,
+                    "account_id": account.id,
+                    "title": self.ml_title or self.name or "",
+                    "category_ref": self.ml_category_id or "",
+                    "listing_type": self.ml_listing_type or "gold_special",
+                    "condition": self.ml_condition or "new",
+                    "shipping_mode": self.ml_shipping_mode or "me2",
+                }
+            )
+        return publication
+
     def _effective_title(self):
         self.ensure_one()
         return (self.ml_title or self.name or "").strip()
@@ -511,6 +532,7 @@ class ProductTemplate(models.Model):
         self.ensure_one()
         if not (self.ml_category_id or "").strip():
             raise UserError("Primero define una categoría ML.")
+        publication = self._get_or_create_ml_publication()
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.attribute.editor.wizard",
@@ -518,37 +540,27 @@ class ProductTemplate(models.Model):
             "target": "new",
             "context": {
                 "default_product_tmpl_id": self.id,
+                "default_publication_id": publication.id,
             },
         }
 
     def action_open_ml_publish_config_wizard(self):
         self.ensure_one()
+        publication = self._get_or_create_ml_publication()
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.publish.config.wizard",
             "view_mode": "form",
             "target": "new",
-            "context": {"default_product_tmpl_id": self.id},
+            "context": {
+                "default_product_tmpl_id": self.id,
+                "default_publication_id": publication.id,
+            },
         }
 
     def action_open_ml_publish_assistant_wizard(self):
         self.ensure_one()
-        account = self._get_ml_account()
-        publication = self.env["marketplace.publication"].search(
-            [("product_tmpl_id", "=", self.id), ("account_id", "=", account.id)], limit=1
-        )
-        if not publication:
-            publication = self.env["marketplace.publication"].create(
-                {
-                    "product_tmpl_id": self.id,
-                    "account_id": account.id,
-                    "title": self.ml_title or self.name or "",
-                    "category_ref": self.ml_category_id or "",
-                    "listing_type": self.ml_listing_type or "gold_special",
-                    "condition": self.ml_condition or "new",
-                    "shipping_mode": self.ml_shipping_mode or "me2",
-                }
-            )
+        publication = self._get_or_create_ml_publication()
         return {
             "type": "ir.actions.act_window",
             "res_model": "marketplace.publication",
@@ -560,12 +572,14 @@ class ProductTemplate(models.Model):
     def action_open_ml_category_search_wizard(self):
         self.ensure_one()
         account = self._get_ml_account()
+        publication = self._get_or_create_ml_publication()
         wizard = self.env["ml.category.search.wizard"].create(
             {
                 "product_tmpl_id": self.id,
+                "publication_id": publication.id,
                 "account_id": account.id,
                 "query": self.ml_title or self.name or "",
-                "selected_category_id": self.ml_category_id or "",
+                "selected_category_id": publication.category_ref or self.ml_category_id or "",
             }
         )
         return {
