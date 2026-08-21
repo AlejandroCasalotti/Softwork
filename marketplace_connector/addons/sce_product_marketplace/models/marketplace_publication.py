@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import json
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -112,6 +114,33 @@ class MarketplacePublication(models.Model):
             missing.append("título")
         if self.price <= 0:
             missing.append("precio")
+        for field_name, expected_type in (
+            ("attributes_json", list),
+            ("pictures_json", list),
+            ("sale_terms_json", list),
+            ("provider_data_json", dict),
+        ):
+            raw_value = getattr(self, field_name) or ("{}" if expected_type is dict else "[]")
+            try:
+                parsed_value = json.loads(raw_value)
+            except (TypeError, ValueError) as err:
+                raise UserError(
+                    "Los datos de '%s' no son JSON válido: %s" % (field_name, err)
+                ) from err
+            if not isinstance(parsed_value, expected_type):
+                raise UserError("Los datos de '%s' tienen un formato inválido." % field_name)
+        pictures = json.loads(self.pictures_json or "[]")
+        invalid_picture = next(
+            (
+                picture
+                for picture in pictures
+                if not isinstance(picture, dict)
+                or not str(picture.get("source") or "").strip().startswith(("http://", "https://"))
+            ),
+            None,
+        )
+        if invalid_picture:
+            missing.append("imágenes públicas válidas")
         if missing:
             raise UserError("La publicación no está lista. Completa: %s." % ", ".join(missing))
 

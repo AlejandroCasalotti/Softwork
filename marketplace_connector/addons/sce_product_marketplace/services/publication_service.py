@@ -31,6 +31,7 @@ class MarketplacePublicationService(models.AbstractModel):
             "product_tmpl_id": publication.product_tmpl_id.id,
             "account_id": publication.account_id.id,
             "external_id": publication.external_id or False,
+            "status": publication.external_status or False,
             "title": publication.title or publication.product_tmpl_id.name,
             "category_id": publication.category_ref or False,
             "listing_type": publication.listing_type or False,
@@ -59,6 +60,38 @@ class MarketplacePublicationService(models.AbstractModel):
         if not publication.account_id:
             raise UserError("La publicación necesita una cuenta de marketplace.")
         return self.env["sce.provider.factory"].get_provider(publication.account_id)
+
+    def diagnose_account(self, account):
+        if not account:
+            raise UserError("La publicación necesita una cuenta de marketplace.")
+        result = self.env["sce.provider.factory"].get_provider(account).health() or {}
+        if not isinstance(result, dict):
+            raise UserError("El provider devolvió una respuesta de diagnóstico inválida.")
+        return result
+
+    def validate_required_attributes(self, account, category_id, attributes):
+        if not account or not category_id:
+            return []
+        response = self.env["sce.provider.factory"].get_provider(account).get_category_required_fields(
+            category_id=category_id
+        )
+        required = response.get("items") if isinstance(response, dict) else []
+        if not isinstance(required, list):
+            return []
+        attribute_map = {
+            (attribute.get("id") or "").strip(): attribute
+            for attribute in attributes
+            if isinstance(attribute, dict) and (attribute.get("id") or "").strip()
+        }
+        issues = []
+        for item in required:
+            if not isinstance(item, dict):
+                continue
+            attribute_id = (item.get("id") or "").strip()
+            current = attribute_map.get(attribute_id, {})
+            if not (str(current.get("value_id") or "").strip() or str(current.get("value_name") or "").strip()):
+                issues.append("Falta atributo requerido ML: %s" % attribute_id)
+        return issues
 
     def enqueue(self, publication, operation):
         publication.ensure_one()
@@ -193,6 +226,25 @@ class MarketplacePublicationService(models.AbstractModel):
         if item.get("price") is not None:
             values["price"] = float(item["price"])
         publication.write(values)
+        return result
+
+    def refresh_for_edit(self, publication):
+        """Refresh editable publication data before opening a provider wizard."""
+        result = self.sync_from_marketplace(publication)
+        item = result.get("item") if isinstance(result, dict) else {}
+        if not isinstance(item, dict):
+            return result
+        values = {}
+        if isinstance(item.get("attributes"), list):
+            values["attributes_json"] = json.dumps(item["attributes"], ensure_ascii=False)
+        if isinstance(item.get("pictures"), list):
+            values["pictures_json"] = json.dumps(item["pictures"], ensure_ascii=False)
+        if item.get("category_id"):
+            values["category_ref"] = item["category_id"]
+        if item.get("listing_type_id"):
+            values["listing_type"] = item["listing_type_id"]
+        if values:
+            publication.write(values)
         return result
 
     def import_order(self, account, external_id):

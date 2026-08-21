@@ -8,10 +8,10 @@
             <xpath expr="//notebook" position="inside">
                 <page string="MercadoLibre">
                     <group string="Publicación" col="6">
-                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Configurar publicación ML" class="btn-primary" invisible="ml_item_id != False"/>
-                        <button name="action_modify_ml_listing" type="object" string="Modificar publicación en ML" class="btn-primary" invisible="ml_item_id == False"/>
-                        <button name="action_open_ml_attribute_editor_wizard" type="object" string="Editar atributos" class="btn-secondary" invisible="ml_item_id == False"/>
-                        <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link" invisible="ml_permalink == False"/>
+                        <button name="action_open_ml_publish_assistant_wizard" type="object" string="Configurar publicación ML" class="btn-primary" invisible="marketplace_publication_id != False"/>
+                        <button name="action_modify_ml_listing" type="object" string="Modificar publicación en ML" class="btn-primary" invisible="not marketplace_publication_id"/>
+                        <button name="action_open_ml_attribute_editor_wizard" type="object" string="Editar atributos" class="btn-secondary" invisible="marketplace_publication_id == False"/>
+                        <button name="action_view_ml" type="object" string="Ver publicación" class="btn-link" invisible="not marketplace_publication_id"/>
                     </group>
 
                     <group>
@@ -40,21 +40,12 @@
                             <field name="ml_brand"/>
                             <field name="ml_model"/>
                             <field name="ml_family_name_id"/>
-                            <field name="ml_required_completion" readonly="1"/>
                         </group>
 
                         <group string="Entrega y estado">
                             <field name="ml_shipping_mode"/>
-                            <field name="ml_status" readonly="1"/>
-                            <field name="ml_item_id" readonly="1"/>
-                            <field name="ml_permalink" readonly="1"/>
-                            <field name="ml_publish_date" readonly="1"/>
-                            <field name="ml_sync_date" readonly="1"/>
+                            <field name="marketplace_publication_id" readonly="1"/>
                         </group>
-                    </group>
-
-                    <group string="Cargo por vender y cuotas ML" invisible="ml_item_id == False">
-                        <field name="ml_listing_cost_summary" widget="text" readonly="1" nolabel="1" placeholder="Usá Modificar publicación para consultar los cargos y cuotas informados por MercadoLibre."/>
                     </group>
 
                     <group string="Descripción">

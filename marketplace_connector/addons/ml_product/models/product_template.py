@@ -6,8 +6,6 @@ import re
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
-from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
-
 _logger = logging.getLogger(__name__)
 
 
@@ -22,7 +20,6 @@ class ProductTemplate(models.Model):
     )
 
     ml_title = fields.Char(string="Título ML")
-    ml_subtitle = fields.Char(string="Subtítulo ML")
     ml_category_id = fields.Char(string="Categoría ML")
     ml_listing_type = fields.Char(string="Tipo de publicación", default="gold_special")
     ml_condition = fields.Selection(
@@ -48,25 +45,14 @@ class ProductTemplate(models.Model):
     ml_stock_reserve_qty = fields.Float(string="Stock reservado para Odoo", default=0.0)
 
     ml_price = fields.Float(string="Precio ML")
-    ml_quantity = fields.Float(string="Cantidad ML")
-    ml_video = fields.Char(string="Video")
     ml_description_html = fields.Html(string="Descripción HTML")
     ml_attributes_json = fields.Text(string="Atributos JSON")
     ml_sale_terms_json = fields.Text(string="Sale Terms JSON")
     ml_pictures_json = fields.Text(string="Pictures JSON")
-    ml_required_completion = fields.Float(
-        string="% Atributos requeridos",
-        compute="_compute_ml_required_completion",
-        digits=(16, 2),
-    )
-
     ml_status = fields.Char(string="Estado ML", readonly=True)
     ml_permalink = fields.Char(string="URL publicación", readonly=True)
     ml_item_id = fields.Char(string="ID Publicación", readonly=True)
     ml_catalog_managed = fields.Boolean(string="Título administrado por catálogo", readonly=True)
-    ml_listing_cost_summary = fields.Text(string="Cargo por vender y cuotas ML", readonly=True)
-    ml_publish_date = fields.Datetime(string="Fecha publicación", readonly=True)
-    ml_sync_date = fields.Datetime(string="Última sincronización", readonly=True)
 
     def _get_ml_account(self):
         self.ensure_one()
@@ -105,23 +91,24 @@ class ProductTemplate(models.Model):
 
     def _effective_price(self):
         self.ensure_one()
-        if self.ml_manual_price_override and self.ml_price > 0:
-            return self.ml_price
+        target_uom = self.ml_price_uom_id or self.uom_id
+        base_price = 0.0
         if self.ml_use_pricelist_price and self.ml_pricelist_id:
             try:
-                return self.ml_pricelist_id._get_product_price(
-                    self, 1.0, uom=self.ml_price_uom_id or self.uom_id
-                )
+                base_price = self.ml_pricelist_id._get_product_price(self, 1.0, uom=self.uom_id) or 0.0
             except Exception:
                 pass
-        source_uom = self.uom_id
-        target_uom = self.ml_price_uom_id or source_uom
-        if source_uom and target_uom:
-            try:
-                return source_uom._compute_price(self.list_price, target_uom)
-            except Exception:
-                pass
-        return self.ml_price if self.ml_price > 0 else self.list_price
+        if not base_price:
+            base_price = self.ml_price if self.ml_price > 0 else self.list_price
+        if self.ml_manual_price_override and self.ml_price > 0:
+            return self.ml_price
+        if target_uom == self.uom_id:
+            return base_price
+        try:
+            units_in_base = target_uom._compute_quantity(1.0, self.uom_id, round=False)
+            return base_price * units_in_base
+        except Exception:
+            return base_price
 
     def _effective_qty(self):
         self.ensure_one()
@@ -253,286 +240,21 @@ class ProductTemplate(models.Model):
             })
         return combinations
 
-    def _validate_ml_sale_terms(self):
-        self.ensure_one()
-        raw = (self.ml_sale_terms_json or "").strip()
-        if not raw:
-            return []
-        try:
-            parsed = json.loads(raw)
-        except Exception:
-            raise UserError("Sale Terms JSON inválido: debe ser JSON válido.")
-
-        if not isinstance(parsed, list):
-            raise UserError("Sale Terms JSON inválido: debe ser una lista de objetos.")
-
-        terms = []
-        for term in parsed:
-            if not isinstance(term, dict):
-                raise UserError("Sale Terms JSON inválido: cada elemento debe ser un objeto.")
-            term_id = (term.get("id") or "").strip()
-            if not term_id:
-                continue
-            clean = {"id": term_id}
-            if (term.get("value_id") or "").strip():
-                clean["value_id"] = (term.get("value_id") or "").strip()
-            if (term.get("value_name") or "").strip():
-                clean["value_name"] = (term.get("value_name") or "").strip()
-            if isinstance(term.get("value_struct"), dict):
-                clean["value_struct"] = term.get("value_struct")
-            terms.append(clean)
-        return terms
-
-    def _filter_ml_attributes_by_category(self, category_id, attrs):
-        self.ensure_one()
-        if not category_id:
-            return attrs
-        account = self._get_ml_account()
-        try:
-            provider = ProviderFactory.get_provider(account)
-            req_res = provider.get_category_required_fields(category_id=category_id)
-            required = req_res.get("items") if isinstance(req_res, dict) else []
-            if not isinstance(required, list):
-                required = []
-            allowed_ids = {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
-            allowed_ids.discard("")
-            if not allowed_ids:
-                return attrs
-            filtered = [a for a in attrs if (a.get("id") or "").strip() in allowed_ids]
-            required_ids = {rid for rid in allowed_ids}
-            present_ids = {(a.get("id") or "").strip() for a in filtered}
-            missing = sorted(required_ids - present_ids)
-            if missing:
-                _logger.info("Atributos requeridos ML no presentes para %s: %s", category_id, ", ".join(missing))
-            # BRAND y MODEL pueden no venir en los metadatos de categoría.
-            special_attrs = {"BRAND", "MODEL"}
-            for attr in attrs:
-                aid = (attr.get("id") or "").strip()
-                if aid in special_attrs and aid not in present_ids:
-                    filtered.append(attr)
-
-            return filtered
-        except Exception:
-            _logger.exception("No se pudo filtrar atributos por categoría ML")
-            return attrs
-
-    def _build_ml_payload(self):
-        self.ensure_one()
-        title = self._effective_title()
-        if not title:
-            raise UserError("Falta título para publicar en MercadoLibre.")
-        price = round(self._effective_price(), 2)
-        if price <= 0:
-            raise UserError("El precio debe ser mayor a cero.")
-        qty = self._effective_qty()
-
-        category = self.ml_category_id or "MLA3530"
-        listing_type = self.ml_listing_type or "gold_special"
-
-        sale_terms = self._validate_ml_sale_terms()
-        attrs = self._parse_ml_attributes()
-        try:
-            account = self._get_ml_account()
-            provider = ProviderFactory.get_provider(account)
-            req_res = provider.get_category_required_fields(category_id=category)
-            required = req_res.get("items") if isinstance(req_res, dict) else []
-            if not isinstance(required, list):
-                required = []
-            allowed_sale_terms = {(x.get("id") or "").strip() for x in required if isinstance(x, dict)}
-            allowed_sale_terms.discard("")
-            sale_terms = [t for t in sale_terms if (t.get("id") or "").strip() in allowed_sale_terms]
-            attrs = self._filter_ml_attributes_by_category(category, attrs)
-        except Exception:
-            _logger.exception("No se pudo filtrar sale_terms/attributes por categoría ML; se conserva payload original.")
-
-        pictures = []
-        for pic in self._collect_ml_pictures():
-            source = (pic.get("source") or "").strip() if isinstance(pic, dict) else ""
-            if self._is_valid_ml_picture_source(source):
-                pictures.append({"source": source})
-            else:
-                _logger.warning(
-                    "Foto descartada para publicación ML (source inválido/excede 1024 caracteres) product_tmpl_id=%s",
-                    self.id,
-                )
-
-        payload = {
-            "title": title,
-            "category_id": category,
-            "price": price,
-            "currency_id": "ARS",
-            "available_quantity": qty,
-            "buying_mode": "buy_it_now",
-            "condition": self.ml_condition or "new",
-            "listing_type_id": listing_type,
-            "family_name": (self.ml_family_name_id or "").strip(),
-            "seller_custom_field": (self.default_code or "").strip() or False,
-            "sale_terms": sale_terms,
-            "pictures": pictures,
-            "attributes": attrs,
-            "shipping": {"mode": self.ml_shipping_mode or "me2"},
-        }
-
-        if self.ml_warranty:
-            existing_term_ids = {(t.get("id") or "").strip() for t in payload["sale_terms"] if isinstance(t, dict)}
-            if "WARRANTY_TYPE" not in existing_term_ids:
-                payload["sale_terms"].append({"id": "WARRANTY_TYPE", "value_name": self.ml_warranty})
-
-        if self.ml_description_html:
-            payload["description_plain_text"] = self.ml_description_html
-
-        if self.image_1920:
-            payload["image_1920"] = self.image_1920.decode()
-
-        combinations = self._build_variant_combinations()
-        if combinations:
-            payload["attribute_combinations"] = combinations
-
-        if self.ml_video:
-            payload["video_id"] = self.ml_video
-
-        if self.ml_item_id:
-            payload["item_id"] = self.ml_item_id
-
-        return payload
-
-    def _get_ml_provider(self, account):
-        self.ensure_one()
-        if not account:
-            raise UserError(
-                "No hay cuenta SCE MercadoLibre activa. "
-                "Configura una cuenta en el conector base para usar provider unificado."
-            )
-        return ProviderFactory.get_provider(account)
-
-    def _apply_ml_response(self, response, default_status=False):
-        self.ensure_one()
-        raw = response.get("raw") if isinstance(response, dict) else {}
-        if not isinstance(raw, dict):
-            raw = {}
-        vals = {
-            "ml_item_id": raw.get("id") or response.get("item_id") or self.ml_item_id,
-            "ml_status": raw.get("status") or default_status or self.ml_status,
-            "ml_permalink": raw.get("permalink") or self.ml_permalink,
-            "ml_catalog_managed": bool(response.get("catalog_managed", self.ml_catalog_managed)),
-            "ml_publish_date": self.ml_publish_date or fields.Datetime.now(),
-            "ml_sync_date": fields.Datetime.now(),
-        }
-        if raw.get("title"):
-            vals["ml_title"] = raw["title"]
-        self.write(vals)
-
     def action_modify_ml_listing(self):
         self.ensure_one()
-        if not self.ml_item_id:
+        publication = self._get_or_create_ml_publication()
+        if not publication.external_id and self.ml_item_id:
+            publication.write({"external_id": self.ml_item_id})
+        if not publication.external_id:
             raise UserError("Primero publica el producto en MercadoLibre.")
-        account = self._get_ml_account()
-        provider = self._get_ml_provider(account)
-        result = provider.get_item(self.ml_item_id)
-        item = result.get("item") if isinstance(result, dict) else {}
-        if not isinstance(item, dict):
-            raise UserError("MercadoLibre no devolvió los datos de la publicación.")
-
-        attrs = item.get("attributes") if isinstance(item.get("attributes"), list) else []
-        pictures = item.get("pictures") if isinstance(item.get("pictures"), list) else []
-        cost_summary = "MercadoLibre no informó cargos ni cuotas para esta publicación."
-        if hasattr(provider, "get_listing_prices") and item.get("price"):
-            try:
-                quote = provider.get_listing_prices(
-                    category_id=item.get("category_id") or self.ml_category_id,
-                    price=item["price"],
-                    listing_type_id=item.get("listing_type_id") or self.ml_listing_type,
-                )
-                quotes = quote.get("items") if isinstance(quote, dict) else []
-                lines = []
-                for quote_item in quotes if isinstance(quotes, list) else []:
-                    details = quote_item.get("sale_fee_details") if isinstance(quote_item.get("sale_fee_details"), dict) else {}
-                    fee = quote_item.get("sale_fee_amount", details.get("gross_amount"))
-                    installment = quote_item.get("installments") or {}
-                    installment_text = "Sin cuotas informadas"
-                    if isinstance(installment, dict) and installment:
-                        installment_text = (
-                            f"{installment.get('quantity') or 0} cuotas de $ {installment.get('amount') or 0} "
-                            f"(tasa {installment.get('rate') or 0}%)"
-                        )
-                    lines.append(f"Comisión: $ {fee if fee is not None else 0}. {installment_text}.")
-                if lines:
-                    cost_summary = "\n".join(lines)
-            except Exception:
-                _logger.exception("No se pudo consultar la cotización ML para product_tmpl_id=%s", self.id)
-        vals = {
-            "ml_title": item.get("title") or self.ml_title,
-            "ml_price": float(item["price"]) if item.get("price") is not None else self.ml_price,
-            "ml_quantity": float(item["available_quantity"]) if item.get("available_quantity") is not None else self.ml_quantity,
-            "ml_status": item.get("status") or self.ml_status,
-            "ml_permalink": item.get("permalink") or self.ml_permalink,
-            "ml_attributes_json": json.dumps(attrs, ensure_ascii=False),
-            "ml_pictures_json": json.dumps(pictures, ensure_ascii=False),
-            "ml_catalog_managed": bool(item.get("catalog_product_id")) or self.ml_catalog_managed,
-            "ml_listing_cost_summary": cost_summary,
-            "ml_sync_date": fields.Datetime.now(),
-        }
-        self.with_context(ml_skip_bidirectional_sync=True).write(vals)
-
-        return self.action_open_ml_publish_assistant_wizard()
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "product.template",
-            "view_mode": "form",
-            "res_id": self.id,
-            "target": "current",
-        }
-
-    def _compute_ml_required_completion(self):
-        for product in self:
-            product.ml_required_completion = 0.0
-            category_id = (product.ml_category_id or "").strip()
-            if not category_id:
-                continue
-            account = product.ml_account_id or product.env["sce.account"].search(
-                [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
-                limit=1,
-            )
-            if not account:
-                continue
-            try:
-                provider = ProviderFactory.get_provider(account)
-                req_res = provider.get_category_required_fields(category_id=category_id)
-                required = req_res.get("items") if isinstance(req_res, dict) else []
-                if not isinstance(required, list):
-                    required = []
-                req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
-                req_ids.discard("")
-                total = len(req_ids)
-                if total == 0:
-                    product.ml_required_completion = 100.0
-                    continue
-                attrs = []
-                raw = product.ml_attributes_json or ""
-                if raw:
-                    try:
-                        parsed = json.loads(raw)
-                        if isinstance(parsed, list):
-                            attrs = [a for a in parsed if isinstance(a, dict)]
-                    except Exception:
-                        attrs = []
-                provided = set()
-                for a in attrs:
-                    aid = (a.get("id") or "").strip()
-                    if not aid:
-                        continue
-                    val = (a.get("value_name") or "").strip()
-                    if aid in req_ids and val:
-                        provided.add(aid)
-                product.ml_required_completion = (len(provided) * 100.0) / total
-            except Exception:
-                product.ml_required_completion = 0.0
+        self.env["marketplace.publication.service"].refresh_for_edit(publication)
+        return publication.action_open_ml_publish_assistant()
 
     def action_open_ml_attribute_editor_wizard(self):
         self.ensure_one()
-        if not (self.ml_category_id or "").strip():
-            raise UserError("Primero define una categoría ML.")
         publication = self._get_or_create_ml_publication()
+        if not (publication.category_ref or self.ml_category_id or "").strip():
+            raise UserError("Primero define una categoría ML.")
         return {
             "type": "ir.actions.act_window",
             "res_model": "ml.attribute.editor.wizard",
@@ -590,74 +312,10 @@ class ProductTemplate(models.Model):
             "target": "new",
         }
 
-    def _validate_ml_required_attributes(self, attrs):
-        self.ensure_one()
-        category_id = (self.ml_category_id or "").strip()
-        if not category_id:
-            return []
-
-        issues = []
-        account = self.ml_account_id or self.env["sce.account"].search(
-            [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
-            limit=1,
-        )
-        if not account:
-            return []
-
-        try:
-            provider = ProviderFactory.get_provider(account)
-            req_res = provider.get_category_required_fields(category_id=category_id)
-            required = req_res.get("items") if isinstance(req_res, dict) else []
-            if not isinstance(required, list):
-                required = []
-            req_ids = {(a.get("id") or "").strip() for a in required if isinstance(a, dict)}
-            req_ids.discard("")
-            attr_map = {(a.get("id") or "").strip(): a for a in attrs if isinstance(a, dict)}
-            for rid in req_ids:
-                v = attr_map.get(rid, {})
-                has_value = bool((v.get("value_id") or "").strip() or (v.get("value_name") or "").strip())
-                if not has_value:
-                    issues.append(f"Falta atributo requerido ML: {rid}")
-        except Exception:
-            return issues
-        return issues
-
     def action_validate_ml_listing(self):
         for product in self:
-            issues = []
-            title = (product.ml_title or product.name or "").strip()
-            if not title:
-                issues.append("Falta título.")
-            if not (product.ml_category_id or "").strip():
-                issues.append("Falta categoría ML.")
-            if product._effective_price() <= 0:
-                issues.append("El precio debe ser mayor a cero.")
-            if product._effective_qty() < 0:
-                issues.append("El stock no puede ser negativo.")
-            if not product.ml_account_id and not self.env["sce.account"].search(
-                [("provider_type", "=", "mercadolibre"), ("active", "=", True)],
-                limit=1,
-            ):
-                issues.append("No hay cuenta SCE MercadoLibre activa.")
-            pics = product._collect_ml_pictures()
-            if not pics:
-                issues.append("No hay imágenes públicas válidas para publicar (source debe ser URL http/https <= 1024).")
-            else:
-                for p in pics:
-                    src = (p.get("source") or "").strip()
-                    if not src.startswith(("http://", "https://")) or len(src) > 1024:
-                        issues.append("Hay imágenes con source inválido para MercadoLibre.")
-                        break
-            if not (product.ml_brand or "").strip():
-                issues.append("Falta marca.")
-            if not (product.ml_model or "").strip():
-                issues.append("Falta modelo.")
-
-            attrs = product._parse_ml_attributes()
-            issues.extend(product._validate_ml_required_attributes(attrs))
-
-            if issues:
-                raise UserError("Validación de publicación ML:\n- " + "\n- ".join(issues))
+            publication = product._get_or_create_ml_publication()
+            publication._validate_for_operation()
 
         return {
             "type": "ir.actions.client",
@@ -674,35 +332,12 @@ class ProductTemplate(models.Model):
         for product in self:
             if not product.ml_publish_enabled:
                 continue
-            account = product._get_ml_account()
-            provider = product._get_ml_provider(account)
-            payload = product._build_ml_payload()
-
-            try:
-                if product.ml_item_id:
-                    result = provider.update_product(payload)
-                else:
-                    result = provider.publish_product(payload)
-            except UserError as e:
-                msg = str(e)
-                if (
-                    (product.ml_shipping_mode or "me2") == "me2"
-                    and (
-                        "shipping.lost_me2" in msg
-                        or "shipping.lost_me1" in msg
-                        or "shipping.lost_me2_by_intersected_logistics" in msg
-                        or "shipping.lost_me1_by_user" in msg
-                    )
-                ):
-                    payload["shipping"] = {"mode": "custom"}
-                    if product.ml_item_id:
-                        result = provider.update_product(payload)
-                    else:
-                        result = provider.publish_product(payload)
-                else:
-                    raise
-
-            product._apply_ml_response(result)
+            publication = product._get_or_create_ml_publication()
+            if product.ml_item_id:
+                publication.write({"external_id": product.ml_item_id})
+                product.env["marketplace.publication.service"].enqueue(publication, "update")
+            else:
+                product.env["marketplace.publication.service"].enqueue(publication, "publish")
 
         return {
             "type": "ir.actions.client",
@@ -725,30 +360,27 @@ class ProductTemplate(models.Model):
         for product in self:
             if not product.ml_item_id:
                 continue
-            account = product._get_ml_account()
-            provider = product._get_ml_provider(account)
-            provider.update_product({"item_id": product.ml_item_id, "status": "paused", **product._build_ml_payload()})
-            product.write({"ml_status": "paused", "ml_sync_date": fields.Datetime.now()})
+            publication = product._get_or_create_ml_publication()
+            publication.write({"external_id": product.ml_item_id, "external_status": "paused"})
+            product.env["marketplace.publication.service"].enqueue(publication, "update")
         return True
 
     def action_reactivate_ml(self):
         for product in self:
             if not product.ml_item_id:
                 continue
-            account = product._get_ml_account()
-            provider = product._get_ml_provider(account)
-            provider.update_product({"item_id": product.ml_item_id, "status": "active", **product._build_ml_payload()})
-            product.write({"ml_status": "active", "ml_sync_date": fields.Datetime.now()})
+            publication = product._get_or_create_ml_publication()
+            publication.write({"external_id": product.ml_item_id, "external_status": "active"})
+            product.env["marketplace.publication.service"].enqueue(publication, "update")
         return True
 
     def action_close_ml(self):
         for product in self:
             if not product.ml_item_id:
                 continue
-            account = product._get_ml_account()
-            provider = product._get_ml_provider(account)
-            provider.delete_product({"item_id": product.ml_item_id})
-            product.write({"ml_status": "closed", "ml_sync_date": fields.Datetime.now()})
+            publication = product._get_or_create_ml_publication()
+            publication.write({"external_id": product.ml_item_id})
+            product.env["marketplace.publication.service"].enqueue(publication, "delete")
         return True
 
     def _sync_price_stock_to_ml(self):
@@ -829,55 +461,9 @@ class ProductTemplate(models.Model):
     def action_diagnose_ml_connection(self):
         self.ensure_one()
         account = self._get_ml_account()
-        provider = self._get_ml_provider(account)
-
-        operation = "unknown"
-        payload_type = "none"
-        summary = "Conexión ML OK"
-
         try:
-            if hasattr(provider, "get_listing_types"):
-                operation = "get_listing_types"
-                response = provider.get_listing_types()
-            elif hasattr(provider, "sync"):
-                operation = "sync:get_listing_types"
-                response = provider.sync({"operation": "get_listing_types", "payload": {}})
-            else:
-                raise UserError("El provider ML no implementa métodos de diagnóstico (get_listing_types/sync).")
-
-            payload_type = type(response).__name__
-
-            if isinstance(response, str):
-                low = response.lower()
-                if "<html" in low and "access denied" in low:
-                    raise UserError(
-                        "Diagnóstico ML: Access Denied detectado.\n"
-                        "Posible token inválido/expirado o autorización de app/callback incorrecta."
-                    )
-            elif isinstance(response, dict):
-                raw_text = json.dumps(response, ensure_ascii=False).lower()
-                if "access denied" in raw_text or "unauthorized" in raw_text or "forbidden" in raw_text:
-                    raise UserError(
-                        "Diagnóstico ML: respuesta no autorizada detectada (401/403/Access Denied).\n"
-                        "Reautorizá la cuenta ML y verificá callback/client_id/client_secret en esta rama."
-                    )
-
-                items = response.get("items")
-                if isinstance(items, list):
-                    summary = f"Conexión ML OK. Listing types recibidos: {len(items)}"
-                else:
-                    summary = "Conexión ML respondió, pero sin lista de tipos esperada."
-            else:
-                summary = f"Conexión ML respondió con tipo no esperado: {payload_type}"
-
-            _logger.info(
-                "Diagnóstico ML OK product_id=%s account_id=%s op=%s payload_type=%s summary=%s",
-                self.id,
-                account.id,
-                operation,
-                payload_type,
-                summary,
-            )
+            response = self.env["marketplace.publication.service"].diagnose_account(account)
+            summary = response.get("status") or response.get("message") or "Conexión ML OK"
 
             return {
                 "type": "ir.actions.client",
@@ -887,8 +473,7 @@ class ProductTemplate(models.Model):
                     "message": (
                         f"{summary}\n"
                         f"Cuenta: {account.display_name} (id={account.id})\n"
-                        f"Operación: {operation}\n"
-                        f"Tipo respuesta: {payload_type}"
+                        "Operación: health"
                     ),
                     "type": "success",
                     "sticky": False,
@@ -899,24 +484,26 @@ class ProductTemplate(models.Model):
             raise
         except Exception as e:
             _logger.exception(
-                "Diagnóstico ML error product_id=%s account_id=%s op=%s",
+                "Diagnóstico ML error product_id=%s account_id=%s",
                 self.id,
                 account.id if account else False,
-                operation,
             )
             raise UserError(
                 "Diagnóstico ML falló.\n"
                 f"Cuenta: {account.display_name} (id={account.id})\n"
-                f"Operación: {operation}\n"
+                "Operación: health\n"
                 f"Detalle: {str(e)}"
             )
 
     def action_view_ml(self):
         self.ensure_one()
-        if not self.ml_permalink:
+        publication = self._get_or_create_ml_publication()
+        if not publication.external_url and self.ml_permalink:
+            publication.write({"external_url": self.ml_permalink})
+        if not publication.external_url:
             raise UserError("Este producto no tiene URL de publicación.")
         return {
             "type": "ir.actions.act_url",
-            "url": self.ml_permalink,
+            "url": publication.external_url,
             "target": "new",
         }
