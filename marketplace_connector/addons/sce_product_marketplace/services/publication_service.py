@@ -22,7 +22,11 @@ class MarketplacePublicationService(models.AbstractModel):
                 ) from err
             return parsed
 
-        return {
+        provider_data = load_json(publication.provider_data_json, {})
+        if not isinstance(provider_data, dict):
+            provider_data = {}
+
+        payload = {
             "publication_id": publication.id,
             "product_tmpl_id": publication.product_tmpl_id.id,
             "account_id": publication.account_id.id,
@@ -30,15 +34,26 @@ class MarketplacePublicationService(models.AbstractModel):
             "title": publication.title or publication.product_tmpl_id.name,
             "category_id": publication.category_ref or False,
             "listing_type": publication.listing_type or False,
+            "listing_type_id": publication.listing_type or False,
             "condition": publication.condition or "new",
             "shipping_mode": publication.shipping_mode or False,
             "price": publication.price,
             "stock": publication.effective_qty,
+            "available_quantity": publication.effective_qty,
             "attributes": load_json(publication.attributes_json, []),
             "pictures": load_json(publication.pictures_json, []),
             "sale_terms": load_json(publication.sale_terms_json, []),
-            "provider_data": load_json(publication.provider_data_json, {}),
+            "provider_data": provider_data,
         }
+        payload.update(
+            {
+                "family_name": provider_data.get("family_name") or "",
+                "description_html": provider_data.get("description_html") or "",
+                "description_plain_text": provider_data.get("description_plain_text") or "",
+                "warranty": provider_data.get("warranty") or "",
+            }
+        )
+        return payload
 
     def _get_provider(self, publication):
         if not publication.account_id:
