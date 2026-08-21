@@ -26,7 +26,7 @@
 
                 <group invisible="step != 'base'" string="Paso 1: Base - Configuración inicial">
                     <group>
-                        <field name="ml_title" placeholder="Título que verá el comprador" required="1"/>
+                        <field name="ml_title" placeholder="Título que verá el comprador"/>
                     </group>
                     <group>
                         <div class="o_form_label">Categoría ML</div>
@@ -37,8 +37,8 @@
                         <div class="text-muted" invisible="not is_editing">La categoría no se puede cambiar una vez publicado.</div>
                     </group>
                     <group>
-                        <field name="listing_type_id" string="Tipo de publicación" required="1"/>
-                        <field name="ml_condition" required="1"/>
+                        <field name="listing_type_id" string="Tipo de publicación"/>
+                        <field name="ml_condition"/>
                     </group>
                     <group string="Datos clave del producto (opcional)" col="2">
                         <field name="ml_brand" placeholder="Ej: Cerámica Alberdi"/>
@@ -60,7 +60,7 @@
                     </group>
                     <group col="2">
                         <field name="ml_manual_price_override" string="Usar precio personalizado"/>
-                        <field name="ml_price" readonly="not ml_manual_price_override" string="Precio ML" required="1"/>
+                        <field name="ml_price" readonly="not ml_manual_price_override" string="Precio ML"/>
                     </group>
                     <group string="Stock" col="2">
                         <field name="ml_stock_reserve_qty" string="Reservado (no vender)"/>
@@ -93,7 +93,7 @@
 
                 <group invisible="step != 'delivery'" string="Paso 4: Forma de entrega">
                     <group>
-                        <field name="ml_shipping_mode" required="1"/>
+                        <field name="ml_shipping_mode"/>
                     </group>
                 </group>
 
