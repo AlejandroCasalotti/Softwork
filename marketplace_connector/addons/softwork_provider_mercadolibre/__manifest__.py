@@ -13,6 +13,7 @@ Expone factory externa compatible con softwork_ecommerce_conector_base.
     "license": "LGPL-3",
     "depends": [
         "softwork_ecommerce_conector_base",
+        "sce_connector_ml",
     ],
     "data": [],
     "installable": True,

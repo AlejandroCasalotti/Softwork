@@ -4,7 +4,7 @@
 from odoo.exceptions import UserError
 
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_interface import IProvider
-from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import MercadoLibreProvider
+from .ml_provider import MercadoLibreProvider
 
 
 class MercadoLibreExternalProvider(IProvider):
