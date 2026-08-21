@@ -230,27 +230,53 @@ class MarketplacePublicationService(models.AbstractModel):
         for line in order_data.get("order_items") or []:
             item = line.get("item") if isinstance(line, dict) and isinstance(line.get("item"), dict) else {}
             item_id = str(item.get("id") or "")
-            mapping = self.env["marketplace.product.mapping"].sudo().search(
-                [("account_id", "=", account.id), ("external_id", "=", item_id)], limit=1
+            variant_id = str(
+                line.get("variation_id")
+                or line.get("item", {}).get("variation_id")
+                or item.get("variation_id")
+                or ""
             )
-            product = mapping.product_id if mapping and mapping.product_id else self.env["product.product"].sudo().search(
-                [("default_code", "=", item_id)], limit=1
-            )
+            mapping_domain = [("account_id", "=", account.id), ("external_id", "=", item_id)]
+            if variant_id:
+                mapping_domain.append(("external_variant_id", "=", variant_id))
+            mapping = self.env["marketplace.product.mapping"].sudo().search(mapping_domain, limit=1)
+            if mapping and mapping.product_id:
+                product = mapping.product_id
+            else:
+                product = self.env["product.product"].sudo().search(
+                    [("default_code", "=", item_id)], limit=1
+                )
+            if not product and mapping and mapping.sku:
+                product = self.env["product.product"].sudo().search(
+                    [("default_code", "=", mapping.sku)], limit=1
+                )
             if not product:
                 missing_items.append(item_id or item.get("title") or "unknown")
                 continue
-            order.env["sale.order.line"].sudo().create(
-                {
-                    "order_id": order.id,
-                    "product_id": product.id,
-                    "product_uom_qty": float(line.get("quantity") or 1.0),
-                    "price_unit": float(line.get("unit_price") or 0.0),
-                    "name": item.get("title") or product.display_name,
-                }
-            )
-            order._apply_marketplace_logistics(order_data)
-            order._apply_marketplace_transition()
-            order._emit_marketplace_state_event()
+            external_line_id = str(line.get("id") or "") or False
+            line_domain = [("order_id", "=", order.id), ("product_id", "=", product.id)]
+            if external_line_id:
+                line_domain = [
+                    ("order_id", "=", order.id),
+                    ("marketplace_external_line_id", "=", external_line_id),
+                ]
+            order_line = order.env["sale.order.line"].sudo().search(line_domain, limit=1)
+            line_values = {
+                "order_id": order.id,
+                "product_id": product.id,
+                "product_uom_qty": float(line.get("quantity") or 1.0),
+                "price_unit": float(line.get("unit_price") or line.get("sale_fee") or 0.0),
+                "name": item.get("title") or product.display_name,
+                "marketplace_external_line_id": external_line_id,
+                "marketplace_external_variant_id": variant_id or False,
+            }
+            if order_line:
+                order_line.write(line_values)
+            else:
+                order.env["sale.order.line"].sudo().create(line_values)
+        order._apply_marketplace_logistics(order_data)
+        order._apply_marketplace_transition()
+        order._emit_marketplace_state_event()
         return {
             "order_id": order.id,
             "external_id": str(external_id),

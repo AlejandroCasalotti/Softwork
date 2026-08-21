@@ -99,6 +99,7 @@ class MarketplaceSaleOrder(models.Model):
                     if order.marketplace_shipping_status == "delivered"
                     else "ShipmentCreated"
                 )
+
             self.env["sce.event"].sudo().emit_event(
                 name="Marketplace order %s" % (order.marketplace_external_order_id or order.name),
                 event_type=event_type,
@@ -129,20 +130,33 @@ class MarketplaceSaleOrder(models.Model):
                 picking.action_assign()
         return True
 
+
+class MarketplaceSaleOrderLine(models.Model):
+    _inherit = "sale.order.line"
+
+    marketplace_external_line_id = fields.Char(string="ID línea externa", index=True, copy=False)
+    marketplace_external_variant_id = fields.Char(string="ID variante externa", index=True, copy=False)
+
     def action_marketplace_mark_shipped(self):
         for order in self:
             order._marketplace_pickings()
+            previous_shipping_status = order.marketplace_shipping_status
             order.write(
                 {
                     "marketplace_shipping_status": "shipped",
                     "marketplace_shipping_sync_date": fields.Datetime.now(),
                 }
             )
+            order._emit_marketplace_state_event(
+                previous_state=order.marketplace_order_state,
+                previous_shipping_status=previous_shipping_status,
+            )
         return True
 
     def action_marketplace_validate_delivery(self):
         for order in self:
             pickings = order._marketplace_pickings()
+            previous_shipping_status = order.marketplace_shipping_status
             for picking in pickings.filtered(lambda record: record.state not in ("done", "cancel")):
                 result = picking.button_validate()
                 if isinstance(result, dict):
@@ -153,5 +167,9 @@ class MarketplaceSaleOrder(models.Model):
                         "marketplace_shipping_status": "delivered",
                         "marketplace_shipping_sync_date": fields.Datetime.now(),
                     }
+                )
+                order._emit_marketplace_state_event(
+                    previous_state=order.marketplace_order_state,
+                    previous_shipping_status=previous_shipping_status,
                 )
         return True
