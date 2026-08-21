@@ -186,15 +186,22 @@ class MlPublishAssistantWizard(models.TransientModel):
     def _compute_suggested_price(self, product, pricelist, price_uom=False):
         if not product:
             return 0.0
+        base_price = 0.0
         if pricelist:
             try:
-                return float(pricelist._get_product_price(product, 1.0, uom=price_uom or product.uom_id) or 0.0)
+                base_price = float(pricelist._get_product_price(product, 1.0, uom=product.uom_id) or 0.0)
             except Exception:
                 pass
+        if not base_price:
+            base_price = float(product.ml_price or product.list_price or 0.0)
+        target_uom = price_uom or product.uom_id
+        if target_uom == product.uom_id:
+            return base_price
         try:
-            return float(product.uom_id._compute_price(product.list_price, price_uom or product.uom_id) or 0.0)
+            units_in_base = target_uom._compute_quantity(1.0, product.uom_id, round=False)
+            return float(base_price * units_in_base)
         except Exception:
-            return float(product.ml_price or product.list_price or 0.0)
+            return base_price
 
     def _compute_effective_qty(self, product, reserve_qty):
         reserve = max(0.0, reserve_qty or 0.0)
@@ -897,7 +904,15 @@ class MlPublishAssistantWizard(models.TransientModel):
                 "price_uom_id": self.ml_price_uom_id.id if self.ml_price_uom_id else product.uom_id.id,
                 "use_pricelist_price": bool(self.ml_use_pricelist_price),
                 "manual_price_override": bool(self.ml_manual_price_override),
-                "price": self.ml_price or 0.0,
+                "price": (
+                    self.ml_price
+                    if self.ml_manual_price_override
+                    else self._compute_suggested_price(
+                        product,
+                        self.ml_pricelist_id if self.ml_use_pricelist_price else False,
+                        self.ml_price_uom_id,
+                    )
+                ),
                 "stock_reserve_qty": max(0.0, self.ml_stock_reserve_qty or 0.0),
                 "shipping_mode": self.ml_shipping_mode or "me2",
                 "sale_terms_json": json.dumps(sale_terms_payload, ensure_ascii=False),
