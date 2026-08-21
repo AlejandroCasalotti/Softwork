@@ -48,11 +48,20 @@ class MarketplacePublicationService(models.AbstractModel):
         }
         variants = publication.product_tmpl_id.product_variant_ids.filtered("active")
         if len(variants) > 1:
+            target_uom = publication.price_uom_id or publication.product_tmpl_id.uom_id
+            try:
+                uom_factor = target_uom._compute_quantity(
+                    1.0,
+                    publication.product_tmpl_id.uom_id,
+                    round=False,
+                )
+            except Exception:
+                uom_factor = 1.0
             payload["variations"] = [
                 {
                     "seller_custom_field": variant.default_code or False,
                     "available_quantity": int(max(0.0, variant.qty_available)),
-                    "price": float(variant.lst_price or publication.price),
+                    "price": float((variant.lst_price or publication.price) * uom_factor),
                     "attribute_combinations": [
                         {
                             "name": value.attribute_id.name,

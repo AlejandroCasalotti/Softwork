@@ -242,24 +242,9 @@ class MercadoLibreProvider(IProvider):
         if attributes:
             item["attributes"] = attributes
 
-        variations = payload.get("variations")
-        if isinstance(variations, list):
-            normalized_variations = []
-            for variation in variations:
-                if not isinstance(variation, dict):
-                    continue
-                normalized = {
-                    "available_quantity": max(0, self._to_int(variation.get("available_quantity"), 0)),
-                    "price": self._to_float(variation.get("price"), 0.0),
-                    "attribute_combinations": variation.get("attribute_combinations") or [],
-                }
-                if variation.get("seller_custom_field"):
-                    normalized["seller_custom_field"] = str(variation["seller_custom_field"])
-                if normalized["price"] <= 0:
-                    normalized.pop("price")
-                normalized_variations.append(normalized)
-            if normalized_variations:
-                item["variations"] = normalized_variations
+        normalized_variations = self._normalize_variations(payload)
+        if normalized_variations:
+            item["variations"] = normalized_variations
 
         family_name = (payload.get("family_name") or "").strip()
         if family_name:
@@ -285,6 +270,26 @@ class MercadoLibreProvider(IProvider):
 
         return item
 
+    def _normalize_variations(self, payload):
+        variations = payload.get("variations") if isinstance(payload, dict) else []
+        if not isinstance(variations, list):
+            return []
+        normalized_variations = []
+        for variation in variations:
+            if not isinstance(variation, dict):
+                continue
+            normalized = {
+                "available_quantity": max(0, self._to_int(variation.get("available_quantity"), 0)),
+                "price": self._to_float(variation.get("price"), 0.0),
+                "attribute_combinations": variation.get("attribute_combinations") or [],
+            }
+            if variation.get("seller_custom_field"):
+                normalized["seller_custom_field"] = str(variation["seller_custom_field"])
+            if normalized["price"] <= 0:
+                normalized.pop("price")
+            normalized_variations.append(normalized)
+        return normalized_variations
+
     def _build_item_update_payload(self, payload):
         payload = payload or {}
         item = {}
@@ -299,6 +304,10 @@ class MercadoLibreProvider(IProvider):
         attributes = self._normalize_attributes(payload)
         if attributes:
             item["attributes"] = attributes
+
+        normalized_variations = self._normalize_variations(payload)
+        if normalized_variations:
+            item["variations"] = normalized_variations
 
         pictures = self._normalize_pictures(payload)
         if pictures:
