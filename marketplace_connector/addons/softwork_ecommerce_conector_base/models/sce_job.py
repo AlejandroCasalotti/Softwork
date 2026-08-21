@@ -139,6 +139,7 @@ class SceJob(models.Model):
                 details_json=self.result_json,
             )
         except Exception as err:
+            self._on_execution_failed(err)
             end_dt = fields.Datetime.now()
             duration = int((end_dt - start_dt).total_seconds() * 1000)
             self.write({
@@ -172,6 +173,10 @@ class SceJob(models.Model):
                 job=self,
                 details_json=str(err),
             )
+
+    def _on_execution_failed(self, error):
+        """Hook for specialized jobs to synchronize domain error state."""
+        return None
 
     def _execute_provider_operation(self, provider, payload):
         """Execute the default provider sync operation.

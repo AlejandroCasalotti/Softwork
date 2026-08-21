@@ -9,3 +9,4 @@ from . import sce_subscription
 from . import sce_integration_status_wizard
 from . import sce_integration_status_snapshot
 from . import sce_odoo_migration
+from . import sce_provider_factory

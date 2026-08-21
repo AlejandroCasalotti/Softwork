@@ -69,3 +69,16 @@ class SceMarketplaceJob(models.Model):
             "delete_product": service.delete,
         }
         return operations[self.job_type](self.publication_id)
+
+    def _on_execution_failed(self, error):
+        super()._on_execution_failed(error)
+        for job in self:
+            if job.publication_id and job.job_type in {
+                "publish_product",
+                "update_product",
+                "sync_publication_stock",
+                "sync_publication_price",
+                "sync_publication",
+                "delete_product",
+            }:
+                job.publication_id.write({"state": "failed", "error_message": str(error)})

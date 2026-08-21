@@ -476,7 +476,7 @@ class MlPublishAssistantWizard(models.TransientModel):
         self.ensure_one()
         if self.is_editing:
             raise UserError("La categoría no se puede modificar una vez publicado el producto en MercadoLibre.")
-        self.action_apply_to_product()
+        self._save_publication_draft()
         product = self.product_tmpl_id
         wizard = self.env["ml.category.search.wizard"].create(
             {
@@ -588,6 +588,8 @@ class MlPublishAssistantWizard(models.TransientModel):
         category_id = (category.category_id or "").strip() if category else ""
         if not category_id:
             raise UserError("Define categoría ML para cargar metadatos.")
+
+        self._save_publication_draft()
 
         self.env["ml.category"].refresh_for_account(self.account_id, query="")
         provider = ProviderFactory.get_provider(self.account_id)
@@ -787,6 +789,24 @@ class MlPublishAssistantWizard(models.TransientModel):
         )
         self.ml_recommended_attributes_json = json.dumps(recommended, ensure_ascii=False, indent=2)
         return self._reload_self()
+
+    def _save_publication_draft(self):
+        """Persist only the data already available before loading remote metadata."""
+        self.ensure_one()
+        publication = self.publication_id
+        if not publication:
+            raise UserError("No se encontró la publicación asociada al asistente.")
+        publication.write(
+            {
+                "title": (self.ml_title or self.product_tmpl_id.name or "").strip(),
+                "category_ref": self.ml_category_ref_id.category_id if self.ml_category_ref_id else publication.category_ref,
+                "category_name": self.ml_category_ref_id.category_name if self.ml_category_ref_id else publication.category_name,
+                "listing_type": self.listing_type_id.listing_type_id if self.listing_type_id else publication.listing_type or "gold_special",
+                "condition": self.ml_condition or publication.condition or "new",
+                "shipping_mode": self._normalize_shipping_mode(self.ml_shipping_mode or publication.shipping_mode),
+                "state": "category" if self.ml_category_ref_id else publication.state,
+            }
+        )
 
     def action_apply_to_product(self):
         self.ensure_one()
