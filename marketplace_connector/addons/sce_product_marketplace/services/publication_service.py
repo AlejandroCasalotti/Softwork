@@ -46,6 +46,24 @@ class MarketplacePublicationService(models.AbstractModel):
             "sale_terms": load_json(publication.sale_terms_json, []),
             "provider_data": provider_data,
         }
+        variants = publication.product_tmpl_id.product_variant_ids.filtered("active")
+        if len(variants) > 1:
+            payload["variations"] = [
+                {
+                    "seller_custom_field": variant.default_code or False,
+                    "available_quantity": int(max(0.0, variant.qty_available)),
+                    "price": float(variant.lst_price or publication.price),
+                    "attribute_combinations": [
+                        {
+                            "name": value.attribute_id.name,
+                            "value_name": value.product_attribute_value_id.name,
+                        }
+                        for value in variant.product_template_attribute_value_ids
+                        if value.attribute_id and value.product_attribute_value_id
+                    ],
+                }
+                for variant in variants
+            ]
         payload.update(
             {
                 "family_name": provider_data.get("family_name") or "",
@@ -112,6 +130,18 @@ class MarketplacePublicationService(models.AbstractModel):
             publication.write({"state": "publishing", "error_message": False})
         elif not publication.external_id:
             raise UserError("La publicación necesita un ID externo para la operación '%s'." % operation)
+        pending_job = self.env["sce.job"].search(
+            [
+                ("account_id", "=", publication.account_id.id),
+                ("publication_id", "=", publication.id),
+                ("job_type", "=", job_type),
+                ("state", "in", ["queued", "running"]),
+            ],
+            order="create_date asc",
+            limit=1,
+        )
+        if pending_job:
+            return pending_job
         job = self.env["sce.job"].create(
             {
                 "name": "%s - %s" % (operation.replace("_", " ").title(), publication.display_name),

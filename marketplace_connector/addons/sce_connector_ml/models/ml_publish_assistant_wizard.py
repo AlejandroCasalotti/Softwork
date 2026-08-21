@@ -227,9 +227,9 @@ class MlPublishAssistantWizard(models.TransientModel):
             {
                 "product_tmpl_id": product.id,
                 "account_id": account.id,
-                "external_id": product.ml_item_id or False,
-                "external_url": product.ml_permalink or False,
-                "external_status": product.ml_status or False,
+                "external_id": False,
+                "external_url": False,
+                "external_status": False,
                 "title": product.ml_title or product.name or "",
                 "category_ref": product.ml_category_id or "",
                 "listing_type": product.ml_listing_type or "gold_special",

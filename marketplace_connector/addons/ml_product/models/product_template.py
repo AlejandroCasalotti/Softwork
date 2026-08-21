@@ -85,6 +85,70 @@ class ProductTemplate(models.Model):
             )
         return publication
 
+    def _migrate_legacy_marketplace_data(self):
+        self.ensure_one()
+        if not any(
+            [
+                self.ml_item_id,
+                self.ml_category_id,
+                self.ml_title,
+                self.ml_attributes_json,
+                self.ml_pictures_json,
+            ]
+        ):
+            return False
+        publication = self._get_or_create_ml_publication()
+        provider_data = {}
+        try:
+            provider_data = json.loads(publication.provider_data_json or "{}")
+        except (TypeError, ValueError):
+            provider_data = {}
+        provider_data.update(
+            {
+                "brand": self.ml_brand or provider_data.get("brand", ""),
+                "model": self.ml_model or provider_data.get("model", ""),
+                "family_name": self.ml_family_name_id or provider_data.get("family_name", ""),
+                "warranty": self.ml_warranty or provider_data.get("warranty", ""),
+                "description_html": self.ml_description_html or provider_data.get("description_html", ""),
+            }
+        )
+        publication.write(
+            {
+                "external_id": self.ml_item_id or publication.external_id,
+                "external_url": self.ml_permalink or publication.external_url,
+                "external_status": self.ml_status or publication.external_status,
+                "title": self.ml_title or publication.title or self.name,
+                "category_ref": self.ml_category_id or publication.category_ref,
+                "listing_type": self.ml_listing_type or publication.listing_type or "gold_special",
+                "condition": self.ml_condition or publication.condition or "new",
+                "shipping_mode": self.ml_shipping_mode or publication.shipping_mode or "me2",
+                "pricelist_id": self.ml_pricelist_id.id or publication.pricelist_id.id,
+                "price_uom_id": self.ml_price_uom_id.id or publication.price_uom_id.id or self.uom_id.id,
+                "use_pricelist_price": self.ml_use_pricelist_price,
+                "manual_price_override": self.ml_manual_price_override,
+                "price": self._effective_price(),
+                "stock_reserve_qty": self.ml_stock_reserve_qty,
+                "attributes_json": self.ml_attributes_json or publication.attributes_json or "[]",
+                "pictures_json": self.ml_pictures_json or publication.pictures_json or "[]",
+                "sale_terms_json": self.ml_sale_terms_json or publication.sale_terms_json or "[]",
+                "provider_data_json": json.dumps(provider_data, ensure_ascii=False),
+            }
+        )
+        return True
+
+    def action_migrate_legacy_marketplace_data(self):
+        migrated = sum(1 for product in self if product._migrate_legacy_marketplace_data())
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Marketplace",
+                "message": "%s producto(s) migrado(s) a publicaciones." % migrated,
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
     def _effective_title(self):
         self.ensure_one()
         return (self.ml_title or self.name or "").strip()
@@ -333,8 +397,7 @@ class ProductTemplate(models.Model):
             if not product.ml_publish_enabled:
                 continue
             publication = product._get_or_create_ml_publication()
-            if product.ml_item_id:
-                publication.write({"external_id": product.ml_item_id})
+            if publication.external_id:
                 product.env["marketplace.publication.service"].enqueue(publication, "update")
             else:
                 product.env["marketplace.publication.service"].enqueue(publication, "publish")
@@ -352,46 +415,47 @@ class ProductTemplate(models.Model):
 
     def action_update_ml(self):
         for product in self:
-            if not product.ml_item_id:
+            publication = product._get_or_create_ml_publication()
+            if not publication.external_id:
                 raise UserError("Primero publica el producto en MercadoLibre.")
         return self.action_publish_ml()
 
     def action_pause_ml(self):
         for product in self:
-            if not product.ml_item_id:
-                continue
             publication = product._get_or_create_ml_publication()
-            publication.write({"external_id": product.ml_item_id, "external_status": "paused"})
+            if not publication.external_id:
+                continue
+            publication.write({"external_status": "paused"})
             product.env["marketplace.publication.service"].enqueue(publication, "update")
         return True
 
     def action_reactivate_ml(self):
         for product in self:
-            if not product.ml_item_id:
-                continue
             publication = product._get_or_create_ml_publication()
-            publication.write({"external_id": product.ml_item_id, "external_status": "active"})
+            if not publication.external_id:
+                continue
+            publication.write({"external_status": "active"})
             product.env["marketplace.publication.service"].enqueue(publication, "update")
         return True
 
     def action_close_ml(self):
         for product in self:
-            if not product.ml_item_id:
-                continue
             publication = product._get_or_create_ml_publication()
-            publication.write({"external_id": product.ml_item_id})
+            if not publication.external_id:
+                continue
             product.env["marketplace.publication.service"].enqueue(publication, "delete")
         return True
 
     def _sync_price_stock_to_ml(self):
         for product in self:
-            if not product.ml_publish_enabled or not product.ml_item_id:
+            if not product.ml_publish_enabled:
                 continue
             try:
                 publication = product._get_or_create_ml_publication()
+                if not publication.external_id:
+                    continue
                 publication.write(
                     {
-                        "external_id": product.ml_item_id,
                         "title": product._effective_title(),
                         "price": product._effective_price(),
                         "stock_reserve_qty": max(0.0, product.ml_stock_reserve_qty or 0.0),
@@ -451,10 +515,9 @@ class ProductTemplate(models.Model):
 
     def action_sync_from_ml(self):
         for product in self:
-            if not product.ml_item_id:
-                continue
             publication = product._get_or_create_ml_publication()
-            publication.write({"external_id": product.ml_item_id})
+            if not publication.external_id:
+                continue
             self.env["marketplace.publication.service"].enqueue(publication, "sync")
         return True
 

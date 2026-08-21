@@ -242,6 +242,25 @@ class MercadoLibreProvider(IProvider):
         if attributes:
             item["attributes"] = attributes
 
+        variations = payload.get("variations")
+        if isinstance(variations, list):
+            normalized_variations = []
+            for variation in variations:
+                if not isinstance(variation, dict):
+                    continue
+                normalized = {
+                    "available_quantity": max(0, self._to_int(variation.get("available_quantity"), 0)),
+                    "price": self._to_float(variation.get("price"), 0.0),
+                    "attribute_combinations": variation.get("attribute_combinations") or [],
+                }
+                if variation.get("seller_custom_field"):
+                    normalized["seller_custom_field"] = str(variation["seller_custom_field"])
+                if normalized["price"] <= 0:
+                    normalized.pop("price")
+                normalized_variations.append(normalized)
+            if normalized_variations:
+                item["variations"] = normalized_variations
+
         family_name = (payload.get("family_name") or "").strip()
         if family_name:
             item["family_name"] = family_name

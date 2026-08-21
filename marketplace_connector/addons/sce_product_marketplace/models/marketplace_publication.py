@@ -176,6 +176,53 @@ class MarketplacePublication(models.Model):
                 mapping.write(mapping_values)
             else:
                 mapping_model.create(mapping_values)
+            self._apply_variant_mappings(result, str(external_id))
+
+    def _apply_variant_mappings(self, result, external_id):
+        self.ensure_one()
+        raw = result.get("raw") if isinstance(result, dict) else {}
+        variations = raw.get("variations") if isinstance(raw, dict) else []
+        if not isinstance(variations, list):
+            return
+        mapping_model = self.env["marketplace.product.mapping"]
+        variant_model = self.env["product.product"]
+        for variation in variations:
+            if not isinstance(variation, dict) or not variation.get("id"):
+                continue
+            variation_id = str(variation["id"])
+            sku = str(
+                variation.get("seller_custom_field")
+                or variation.get("sku")
+                or variation.get("seller_sku")
+                or ""
+            ).strip()
+            product = variant_model.search(
+                [
+                    ("product_tmpl_id", "=", self.product_tmpl_id.id),
+                    ("default_code", "=", sku),
+                ],
+                limit=1,
+            ) if sku else variant_model.browse()
+            mapping = mapping_model.search(
+                [
+                    ("publication_id", "=", self.id),
+                    ("external_id", "=", external_id),
+                    ("external_variant_id", "=", variation_id),
+                ],
+                limit=1,
+            )
+            values = {
+                "publication_id": self.id,
+                "product_tmpl_id": self.product_tmpl_id.id,
+                "product_id": product.id if product else False,
+                "external_id": external_id,
+                "external_variant_id": variation_id,
+                "sku": sku or False,
+            }
+            if mapping:
+                mapping.write(values)
+            else:
+                mapping_model.create(values)
 
     def _publication_service(self):
         return self.env["marketplace.publication.service"]

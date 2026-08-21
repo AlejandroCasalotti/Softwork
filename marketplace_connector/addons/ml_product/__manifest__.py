@@ -8,8 +8,10 @@
     "license": "LGPL-3",
     "depends": ["product", "stock", "softwork_ecommerce_conector_base", "sce_product_marketplace", "sce_connector_ml"],
     "data": [
+        "data/migration_actions.xml",
         "views/product_template_views.xml",
     ],
     "installable": True,
-    "application": False
+    "application": False,
+    "post_init_hook": "post_init_migrate_legacy_marketplace",
 }
