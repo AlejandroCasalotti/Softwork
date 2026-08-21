@@ -130,13 +130,6 @@ class MarketplaceSaleOrder(models.Model):
                 picking.action_assign()
         return True
 
-
-class MarketplaceSaleOrderLine(models.Model):
-    _inherit = "sale.order.line"
-
-    marketplace_external_line_id = fields.Char(string="ID línea externa", index=True, copy=False)
-    marketplace_external_variant_id = fields.Char(string="ID variante externa", index=True, copy=False)
-
     def action_marketplace_mark_shipped(self):
         for order in self:
             order._marketplace_pickings()
@@ -173,3 +166,10 @@ class MarketplaceSaleOrderLine(models.Model):
                     previous_shipping_status=previous_shipping_status,
                 )
         return True
+
+
+class MarketplaceSaleOrderLine(models.Model):
+    _inherit = "sale.order.line"
+
+    marketplace_external_line_id = fields.Char(string="ID línea externa", index=True, copy=False)
+    marketplace_external_variant_id = fields.Char(string="ID variante externa", index=True, copy=False)
