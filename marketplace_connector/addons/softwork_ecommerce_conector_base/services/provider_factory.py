@@ -5,7 +5,6 @@ import logging
 from odoo.exceptions import UserError
 
 from .provider_interface import IProvider
-from .providers.ml_provider import MercadoLibreProvider
 
 _logger = logging.getLogger(__name__)
 
@@ -120,8 +119,10 @@ class ProviderFactory:
     @staticmethod
     def _get_builtin_provider(account, provider_type):
         if provider_type == "mercadolibre":
+            from .providers.ml_provider import MercadoLibreProvider
+
             _logger.warning(
-                "Using deprecated built-in provider for '%s' on connector '%s' (%s). "
+                "Using deprecated legacy built-in provider for '%s' on connector '%s' (%s). "
                 "Recommended: configure connector.provider_impl_path or install sce_connector_%s.",
                 provider_type,
                 account.connector_id.display_name,

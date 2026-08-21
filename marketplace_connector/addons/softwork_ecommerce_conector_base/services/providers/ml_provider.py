@@ -1,3 +1,8 @@
+"""Legacy MercadoLibre provider kept only for backward compatibility.
+
+The active implementation lives in ``sce_connector_ml.services.ml_provider``.
+Do not add new MercadoLibre behavior here.
+"""
 # -*- coding: utf-8 -*-
 import base64
 import json
@@ -20,6 +25,9 @@ _logger = logging.getLogger(__name__)
 
 
 class MercadoLibreProvider(IProvider):
+    """Deprecated fallback provider for installations without sce_connector_ml."""
+
+    LEGACY_FALLBACK = True
     BASE_AUTH_URL = "https://api.mercadolibre.com/oauth/token"
     BASE_API_URL = "https://api.mercadolibre.com"
     """

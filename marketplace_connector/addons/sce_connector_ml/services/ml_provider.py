@@ -1,19 +1,22 @@
-# -*- coding: utf-8 -*-
-import base64
-import json
 """MercadoLibre implementation owned by the connector addon.
 
 The base implementation is inherited temporarily while the remaining ML API
 helpers are extracted from the core provider module.
 """
+# -*- coding: utf-8 -*-
+import base64
+import json
 
 from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import (
     MercadoLibreProvider as CoreMercadoLibreProvider,
 )
 from odoo.exceptions import UserError
 
+from .http_transport import MercadoLibreHttpTransport
+from .oauth import MercadoLibreOAuth
 
-class MercadoLibreProvider(CoreMercadoLibreProvider):
+
+class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMercadoLibreProvider):
     """Connector-owned entry point for MercadoLibre provider behavior."""
 
     def _build_item_payload(self, payload):
@@ -299,3 +302,34 @@ class MercadoLibreProvider(CoreMercadoLibreProvider):
             payload=body or {"note": "invoice_uploaded_from_odoo"},
         )
         return self._ok(action="upload_invoice", order_id=order_id, raw=data)
+
+    def sync(self, params=None):
+        params = params or {}
+        operation = params.get("operation", "sync_products")
+        payload = params.get("payload", {})
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except (TypeError, ValueError):
+                payload = {"raw": payload}
+
+        operations = {
+            "sync_products": lambda: self.update_product(payload) if payload.get("id") or payload.get("item_id") or payload.get("ml_item_id") else self.publish_product(payload),
+            "sync_stock": lambda: self.update_stock(payload),
+            "sync_prices": lambda: self.update_price(payload),
+            "import_orders": lambda: self.get_orders(params),
+            "import_order": lambda: self.get_order(params.get("external_id")),
+            "health_check": self.health,
+            "sync_messages": lambda: self.get_messages(params),
+            "close_product": lambda: self.delete_product(payload),
+            "import_item": lambda: self.get_item(
+                params.get("external_id")
+                or payload.get("id")
+                or payload.get("item_id")
+                or payload.get("ml_item_id")
+            ),
+        }
+        operation_handler = operations.get(operation)
+        if operation_handler:
+            return operation_handler()
+        return self._ok(action="sync", params=params)
