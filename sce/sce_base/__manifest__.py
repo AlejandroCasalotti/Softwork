@@ -77,7 +77,6 @@ Main Features
     "views/menu.xml",
 
     # Wizards
-    "wizard/connection_wizard_views.xml",
 
     # Reports
     # "report/report.xml",

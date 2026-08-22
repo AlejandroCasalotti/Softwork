@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Wizard views are defined by the connector modules that own the wizard models. -->
+</odoo>
