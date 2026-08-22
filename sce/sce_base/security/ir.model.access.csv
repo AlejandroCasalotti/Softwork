@@ -21,6 +21,11 @@ access_sce_queue_manager,sce.queue.manager,model_sce_queue,sce_base.group_sce_ma
 
 access_sce_log_user,sce.log.user,model_sce_log,sce_base.group_sce_user,1,0,0,0
 
+access_sce_cache_user,sce.cache.user,model_sce_cache,sce_base.group_sce_user,1,0,0,0
+access_sce_cache_manager,sce.cache.manager,model_sce_cache,sce_base.group_sce_manager,1,1,1,1
+
+access_sce_plugin_capability_user,sce.plugin.capability.user,model_sce_plugin_capability,sce_base.group_sce_user,1,0,0,0
+access_sce_plugin_capability_manager,sce.plugin.capability.manager,model_sce_plugin_capability,sce_base.group_sce_manager,1,1,1,1
 
 access_sce_webhook_manager,sce.webhook.manager,model_sce_webhook,sce_base.group_sce_manager,1,1,1,1
 
