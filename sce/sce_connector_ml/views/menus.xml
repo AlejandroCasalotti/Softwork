@@ -9,7 +9,7 @@
     <menuitem
         id="menu_sce_ml_root"
         name="Mercado Libre"
-        parent="sce_base.menu_sce_connectors_root"
+        parent="sce_base.menu_sce_root"
         sequence="10"
         groups="sce_connector_ml.group_sce_ml_user"/>
 
