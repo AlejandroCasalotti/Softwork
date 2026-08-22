@@ -356,6 +356,134 @@ class SCEAccount(models.Model):
 
 
     # -------------------------------------------------------------------------
+    # Synchronization Settings
+    # -------------------------------------------------------------------------
+
+    auto_sync = fields.Boolean(
+
+        string="Auto Sync",
+
+        default=True,
+
+    )
+
+
+    sync_interval = fields.Integer(
+
+        string="Sync Interval (minutes)",
+
+        default=60,
+
+    )
+
+
+    sync_products = fields.Boolean(
+
+        string="Sync Products",
+
+        default=True,
+
+    )
+
+
+    sync_orders = fields.Boolean(
+
+        string="Sync Orders",
+
+        default=True,
+
+    )
+
+
+    sync_stock = fields.Boolean(
+
+        string="Sync Stock",
+
+        default=True,
+
+    )
+
+
+    sync_prices = fields.Boolean(
+
+        string="Sync Prices",
+
+        default=True,
+
+    )
+
+
+    sync_shipments = fields.Boolean(
+
+        string="Sync Shipments",
+
+        default=True,
+
+    )
+
+
+    products_synced = fields.Integer(
+
+        string="Products Synced",
+
+        default=0,
+
+        readonly=True,
+
+    )
+
+
+    orders_synced = fields.Integer(
+
+        string="Orders Synced",
+
+        default=0,
+
+        readonly=True,
+
+    )
+
+
+    shipments_synced = fields.Integer(
+
+        string="Shipments Synced",
+
+        default=0,
+
+        readonly=True,
+
+    )
+
+
+    last_sync_status = fields.Selection(
+
+        [
+
+            ("success", "Success"),
+
+            ("warning", "Warning"),
+
+            ("error", "Error"),
+
+        ],
+
+        string="Last Sync Status",
+
+        readonly=True,
+
+    )
+
+
+    last_sync_message = fields.Text(
+
+        string="Last Sync Message",
+
+        readonly=True,
+
+    )
+
+
+    # -------------------------------------------------------------------------
     # Statistics
     # -------------------------------------------------------------------------
 
@@ -389,6 +517,15 @@ class SCEAccount(models.Model):
     webhook_count = fields.Integer(
 
         string="Webhooks",
+
+        compute="_compute_statistics",
+
+    )
+
+
+    error_count = fields.Integer(
+
+        string="Errors",
 
         compute="_compute_statistics",
 
