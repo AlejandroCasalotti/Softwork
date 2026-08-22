@@ -24,8 +24,7 @@
         <field name="auto_delete"
                eval="True"/>
 
-        <field name="body_html"
-               type="html"><![CDATA[
+        <field name="body_html"><![CDATA[
 
 <div style="font-family:Arial,sans-serif;font-size:14px;">
 
@@ -120,8 +119,7 @@ SCE - OAuth Expired
         <field name="auto_delete"
                eval="True"/>
 
-        <field name="body_html"
-               type="html"><![CDATA[
+        <field name="body_html"><![CDATA[
 
 <div style="font-family:Arial,sans-serif;">
 
@@ -186,8 +184,7 @@ SCE - Connector Error
         <field name="auto_delete"
                eval="True"/>
 
-        <field name="body_html"
-               type="html"><![CDATA[
+        <field name="body_html"><![CDATA[
 
 <div style="font-family:Arial,sans-serif;">
 
@@ -258,8 +255,7 @@ SCE - System Alert
         <field name="auto_delete"
                eval="True"/>
 
-        <field name="body_html"
-               type="html"><![CDATA[
+        <field name="body_html"><![CDATA[
 
 <div style="font-family:Arial,sans-serif;">
 
