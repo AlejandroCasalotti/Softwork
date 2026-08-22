@@ -356,6 +356,46 @@ class SCEAccount(models.Model):
 
 
     # -------------------------------------------------------------------------
+    # Statistics
+    # -------------------------------------------------------------------------
+
+    job_count = fields.Integer(
+
+        string="Jobs",
+
+        compute="_compute_statistics",
+
+    )
+
+
+    queue_count = fields.Integer(
+
+        string="Queue Items",
+
+        compute="_compute_statistics",
+
+    )
+
+
+    log_count = fields.Integer(
+
+        string="Logs",
+
+        compute="_compute_statistics",
+
+    )
+
+
+    webhook_count = fields.Integer(
+
+        string="Webhooks",
+
+        compute="_compute_statistics",
+
+    )
+
+
+    # -------------------------------------------------------------------------
     # Compute Statistics
     # -------------------------------------------------------------------------
 
