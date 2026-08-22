@@ -6,11 +6,13 @@ set -euo pipefail
 #   ML_APP_ID=xxx ML_CLIENT_SECRET=yyy ./marketplace_connector/scripts/create_ml_test_users.sh
 # Optional:
 #   SITE_ID=MLA (default)
+#   OUTPUT_ENV_FILE=./marketplace_connector/.ml_test_users.env
 
 ML_API_BASE="https://api.mercadolibre.com"
 SITE_ID="${SITE_ID:-MLA}"
 APP_ID="${ML_APP_ID:-${CLIENT_ID:-}}"
 APP_SECRET="${ML_CLIENT_SECRET:-${CLIENT_SECRET:-}}"
+OUTPUT_ENV_FILE="${OUTPUT_ENV_FILE:-}"
 
 if [[ -z "$APP_ID" || -z "$APP_SECRET" ]]; then
   echo "Error: missing credentials." >&2
@@ -95,3 +97,20 @@ echo "SELLER_TEST_PASSWORD=$seller_pass"
 echo "BUYER_TEST_ID=$buyer_id"
 echo "BUYER_TEST_NICKNAME=$buyer_nick"
 echo "BUYER_TEST_PASSWORD=$buyer_pass"
+
+if [[ -n "$OUTPUT_ENV_FILE" ]]; then
+  mkdir -p "$(dirname "$OUTPUT_ENV_FILE")"
+  # Keep test credentials private in local environments.
+  umask 077
+  cat > "$OUTPUT_ENV_FILE" <<EOF
+SITE_ID=$SITE_ID
+SELLER_TEST_ID=$seller_id
+SELLER_TEST_NICKNAME=$seller_nick
+SELLER_TEST_PASSWORD=$seller_pass
+BUYER_TEST_ID=$buyer_id
+BUYER_TEST_NICKNAME=$buyer_nick
+BUYER_TEST_PASSWORD=$buyer_pass
+EOF
+  echo
+  echo "Saved credentials to $OUTPUT_ENV_FILE"
+fi
