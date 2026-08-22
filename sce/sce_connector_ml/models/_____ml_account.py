@@ -53,7 +53,6 @@ class MLAccount(models.Model):
     client_secret = fields.Char(
         string="Client Secret",
         required=True,
-        password=True,
     )
 
     redirect_uri = fields.Char(

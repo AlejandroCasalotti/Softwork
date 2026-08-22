@@ -37,9 +37,9 @@ Main features:
     # Master Data
     "data/ml_site_data.xml",
     # Views
+    "views/account_views.xml",
+    "views/site_views.xml",
     "views/menus.xml",
-    "views/ml_site_views.xml",
-    "views/ml_account_views.xml",
     # Scheduled Actions
     "data/ir_cron.xml",
 ],
