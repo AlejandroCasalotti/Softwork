@@ -62,9 +62,6 @@ Main Features
     # Dashboard
     "views/dashboard_views.xml",
 
-    # Menus
-    "views/menu.xml",
-
     # Models
     "views/sce_connector_views.xml",
     "views/sce_account_views.xml",
@@ -75,6 +72,9 @@ Main Features
 
     # Settings
     "views/settings_views.xml",
+
+    # Menus
+    "views/menu.xml",
 
     # Wizards
     "wizard/connection_wizard_views.xml",

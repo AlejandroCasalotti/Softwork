@@ -34,7 +34,6 @@
         name="Providers"
         parent="menu_sce_root"
         sequence="20"
-        action="action_sce_provider"
         groups="sce_base.group_sce_manager"
     />
 
@@ -142,7 +141,6 @@
         name="Kernel"
         parent="menu_sce_technical"
         sequence="10"
-        action="action_sce_kernel"
         groups="sce_base.group_sce_manager"
     />
 
