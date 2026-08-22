@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
+<odoo>
+<data noupdate="1">
 
     <!-- ========================================================= -->
     <!-- Queue Processor -->
@@ -176,4 +177,5 @@ env["sce.cache.service"].cleanup()
 
     </record>
 
+</data>
 </odoo>
