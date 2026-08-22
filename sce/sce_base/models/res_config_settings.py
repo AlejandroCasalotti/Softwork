@@ -104,18 +104,18 @@ class ResConfigSettings(models.TransientModel):
         default=100,
     )
 
-     # -------------------------------------------------------------------------
-# HTTP
-# -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # HTTP
+    # -------------------------------------------------------------------------
 
-sce_http_timeout = fields.Integer(
-    string="HTTP Timeout (seconds)",
-    config_parameter="sce.http_timeout",
-    default=60,
-)
+    sce_http_timeout = fields.Integer(
+        string="HTTP Timeout (seconds)",
+        config_parameter="sce.http_timeout",
+        default=60,
+    )
 
-sce_http_retries = fields.Integer(
-    string="HTTP Retry Attempts",
-    config_parameter="sce.http_retries",
-    default=3,
-)
+    sce_http_retries = fields.Integer(
+        string="HTTP Retry Attempts",
+        config_parameter="sce.http_retries",
+        default=3,
+    )

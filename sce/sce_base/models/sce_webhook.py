@@ -103,6 +103,117 @@ class SCEWebhook(models.Model):
     )
 
 
+    state = fields.Selection(
+        [
+            ("received", "Received"),
+            ("processing", "Processing"),
+            ("processed", "Processed"),
+            ("failed", "Failed"),
+            ("ignored", "Ignored"),
+        ],
+        string="Status",
+        default="received",
+        required=True,
+        index=True,
+        tracking=True,
+    )
+
+
+    external_resource = fields.Char(
+        string="External Resource",
+        index=True,
+    )
+
+
+    external_type = fields.Char(
+        string="External Type",
+        index=True,
+    )
+
+
+    received_at = fields.Datetime(
+        string="Received At",
+        readonly=True,
+    )
+
+
+    processed_at = fields.Datetime(
+        string="Processed At",
+        readonly=True,
+    )
+
+
+    processing_time = fields.Float(
+        string="Processing Time (seconds)",
+        readonly=True,
+    )
+
+
+    response_status = fields.Integer(
+        string="Response Status",
+        readonly=True,
+    )
+
+
+    payload = fields.Json(
+        string="Payload",
+        default=dict,
+    )
+
+
+    headers = fields.Json(
+        string="Headers",
+        default=dict,
+    )
+
+
+    query_params = fields.Json(
+        string="Query Params",
+        default=dict,
+    )
+
+
+    signature = fields.Char(
+        string="Signature",
+        copy=False,
+    )
+
+
+    signature_valid = fields.Boolean(
+        string="Signature Valid",
+        readonly=True,
+        default=False,
+    )
+
+
+    source_ip = fields.Char(
+        string="Source IP",
+    )
+
+
+    user_agent = fields.Char(
+        string="User Agent",
+    )
+
+
+    response_body = fields.Text(
+        string="Response Body",
+        readonly=True,
+    )
+
+
+    error_message = fields.Text(
+        string="Error Message",
+        readonly=True,
+    )
+
+
+    error_traceback = fields.Text(
+        string="Error Traceback",
+        readonly=True,
+    )
+
+
     # -------------------------------------------------------------------------
     # Webhook Processing
     # -------------------------------------------------------------------------
