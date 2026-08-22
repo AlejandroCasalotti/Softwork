@@ -20,7 +20,6 @@
 
     <record id="group_sce_ml_user" model="res.groups">
         <field name="name">User</field>
-        <field name="category_id" ref="module_category_sce_ml"/>
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
@@ -30,7 +29,6 @@
 
     <record id="group_sce_ml_manager" model="res.groups">
         <field name="name">Manager</field>
-        <field name="category_id" ref="module_category_sce_ml"/>
         <field name="implied_ids" eval="[
             (4, ref('group_sce_ml_user')),
             (4, ref('base.group_system'))

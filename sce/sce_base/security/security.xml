@@ -27,9 +27,6 @@
             SCE Manager
         </field>
 
-        <field name="category_id"
-                ref="module_category_sce"/>
-
     </record>
 
     <!-- ============================================================= -->
@@ -41,9 +38,6 @@
         <field name="name">
             SCE User
         </field>
-
-        <field name="category_id"
-                ref="module_category_sce"/>
 
         <field name="implied_ids"
                eval="[(4, ref('base.group_user'))]"/>
@@ -59,9 +53,6 @@
         <field name="name">
             SCE Read Only
         </field>
-
-        <field name="category_id"
-                ref="module_category_sce"/>
 
         <field name="implied_ids"
                eval="[(4, ref('base.group_user'))]"/>
