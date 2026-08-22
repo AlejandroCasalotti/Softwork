@@ -310,7 +310,7 @@ class SCEConnector(models.Model):
 
     account_count = fields.Integer(
 
-        string="Accounts",
+        string="Account Count",
 
         compute="_compute_statistics",
 

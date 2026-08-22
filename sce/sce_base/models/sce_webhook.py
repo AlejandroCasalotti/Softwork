@@ -50,6 +50,13 @@ class SCEWebhook(models.Model):
     )
 
 
+    external_id = fields.Char(
+        string="External ID",
+        index=True,
+        tracking=True,
+    )
+
+
     description = fields.Text()
 
 

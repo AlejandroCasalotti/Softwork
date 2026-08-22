@@ -216,8 +216,6 @@ class SCEPlugin(models.Model):
     @api.depends(
         "connector_ids",
         "connector_ids.account_ids",
-        "connector_ids.account_ids.job_ids",
-        "connector_ids.account_ids.log_ids",
         "capability_ids",
     )
     def _compute_statistics(self):

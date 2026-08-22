@@ -292,8 +292,6 @@ class SCEAccount(models.Model):
 
         string="Client Secret",
 
-        password=True,
-
         copy=False,
 
     )
@@ -322,8 +320,6 @@ class SCEAccount(models.Model):
 
         string="Password",
 
-        password=True,
-
         copy=False,
 
     )
@@ -338,8 +334,6 @@ class SCEAccount(models.Model):
 
         string="Access Token",
 
-        password=True,
-
         copy=False,
 
     )
@@ -348,8 +342,6 @@ class SCEAccount(models.Model):
     refresh_token_value = fields.Char(
 
         string="Refresh Token",
-
-        password=True,
 
         copy=False,
 
@@ -368,10 +360,7 @@ class SCEAccount(models.Model):
     # -------------------------------------------------------------------------
 
     @api.depends(
-        "job_ids",
-        "queue_ids",
-        "log_ids",
-        "webhook_ids",
+        "connector_id",
     )
     def _compute_statistics(self):
 
@@ -827,10 +816,7 @@ class SCEAccount(models.Model):
     # -------------------------------------------------------------------------
 
     @api.depends(
-        "job_ids",
-        "queue_ids",
-        "log_ids",
-        "webhook_ids",
+        "connector_id",
     )
     def _compute_statistics(self):
 
