@@ -35,4 +35,5 @@ from .connector import (
 from .queue import (
     SCEQueueError,
     SCEJobError,
+    SCERetryLimitError,
 )
