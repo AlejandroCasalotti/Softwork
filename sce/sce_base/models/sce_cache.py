@@ -316,16 +316,7 @@ class SCECache(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-
-            "sce_cache_unique_key_account",
-
-            "unique(key, account_id)",
-
-            "Cache key must be unique per account.",
-
-        ),
-
-    ]
+    _key_account_unique = models.Constraint(
+        "UNIQUE(key, account_id)",
+        "Cache key must be unique per account.",
+    )

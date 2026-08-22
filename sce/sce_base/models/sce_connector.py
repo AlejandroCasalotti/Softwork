@@ -1267,30 +1267,15 @@ class SCEConnector(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
+    _company_code_unique = models.Constraint(
+        "UNIQUE(company_id, code)",
+        "Connector code must be unique per company.",
+    )
 
-        (
-
-            "sce_connector_company_code_unique",
-
-            "unique(company_id, code)",
-
-            "Connector code must be unique per company.",
-
-        ),
-
-
-        (
-
-            "sce_connector_company_name_unique",
-
-            "unique(company_id, name)",
-
-            "Connector name must be unique per company.",
-
-        ),
-
-    ]
+    _company_name_unique = models.Constraint(
+        "UNIQUE(company_id, name)",
+        "Connector name must be unique per company.",
+    )
 
 
 

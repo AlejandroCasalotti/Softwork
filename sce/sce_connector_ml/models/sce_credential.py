@@ -147,10 +147,7 @@ class SCECredential(models.Model):
     # Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_credential_version_positive",
-            "CHECK(version > 0)",
-            "Credential version must be greater than zero.",
-        ),
-    ]
+    _version_positive = models.Constraint(
+        "CHECK(version > 0)",
+        "Credential version must be greater than zero.",
+    )

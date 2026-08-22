@@ -174,13 +174,10 @@ class MLOrder(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_ml_order_unique",
-            "unique(order_id)",
-            "The Mercado Libre Order already exists.",
-        ),
-    ]
+    _order_unique = models.Constraint(
+        "UNIQUE(order_id)",
+        "The Mercado Libre Order already exists.",
+    )
 
     # -------------------------------------------------------------------------
     # Statistics

@@ -189,13 +189,10 @@ class MLPublication(models.Model):
     # SQL
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_ml_publication_unique_item",
-            "unique(item_id)",
-            "The Mercado Libre Item ID already exists.",
-        ),
-    ]
+    _item_unique = models.Constraint(
+        "UNIQUE(item_id)",
+        "The Mercado Libre Item ID already exists.",
+    )
 
     # -------------------------------------------------------------------------
     # Computed

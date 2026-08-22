@@ -194,13 +194,10 @@ class MLShipment(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_ml_shipment_unique",
-            "unique(shipment_id)",
-            "Shipment already exists.",
-        ),
-    ]
+    _shipment_unique = models.Constraint(
+        "UNIQUE(shipment_id)",
+        "Shipment already exists.",
+    )
 
     # -------------------------------------------------------------------------
     # Display

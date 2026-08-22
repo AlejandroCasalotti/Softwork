@@ -625,15 +625,7 @@ class SCEEventListener(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-            "sce_event_record_required",
-
-            "CHECK(record_id IS NOT NULL)",
-
-            "Event record identifier is required.",
-
-        ),
-
-    ]
+    _event_record_required = models.Constraint(
+        "CHECK(record_id IS NOT NULL)",
+        "Event record identifier is required.",
+    )

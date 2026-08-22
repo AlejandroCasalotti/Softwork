@@ -927,16 +927,7 @@ class SCEWebhook(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-
-            "sce_webhook_external_unique",
-
-            "unique(account_id, external_id)",
-
-            "External webhook event already exists.",
-
-        ),
-
-    ]
+    _external_unique = models.Constraint(
+        "UNIQUE(account_id, external_id)",
+        "External webhook event already exists.",
+    )

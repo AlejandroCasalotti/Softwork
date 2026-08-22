@@ -80,13 +80,10 @@ class MLSite(models.Model):
     # Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_ml_site_code_unique",
-            "unique(code)",
-            "The site code must be unique.",
-        ),
-    ]
+    _code_unique = models.Constraint(
+        "UNIQUE(code)",
+        "The site code must be unique.",
+    )
 
     # -------------------------------------------------------------------------
     # Computes

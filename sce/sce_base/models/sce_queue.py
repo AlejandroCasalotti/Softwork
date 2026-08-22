@@ -819,16 +819,7 @@ class SCEQueue(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-
-            "sce_queue_job_action_unique",
-
-            "unique(job_id, action)",
-
-            "A queue item with the same action already exists for this job.",
-
-        ),
-
-    ]
+    _job_action_unique = models.Constraint(
+        "UNIQUE(job_id, action)",
+        "A queue item with the same action already exists for this job.",
+    )

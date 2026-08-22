@@ -999,27 +999,12 @@ class SCEPlugin(models.Model):
     # -------------------------------------------------------------------------
 
 
-    _sql_constraints = [
+    _code_unique = models.Constraint(
+        "UNIQUE(code)",
+        "Plugin code must be unique.",
+    )
 
-        (
-
-            "sce_plugin_code_unique",
-
-            "unique(code)",
-
-            "Plugin code must be unique.",
-
-        ),
-
-
-        (
-
-            "sce_plugin_connector_unique",
-
-            "unique(connector_code)",
-
-            "Connector code must be unique.",
-
-        ),
-
-    ]
+    _connector_code_unique = models.Constraint(
+        "UNIQUE(connector_code)",
+        "Connector code must be unique.",
+    )

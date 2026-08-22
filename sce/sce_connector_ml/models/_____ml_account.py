@@ -146,13 +146,10 @@ class MLAccount(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-        (
-            "sce_ml_account_unique",
-            "unique(account_id)",
-            "Each SCE Account can only have one Mercado Libre configuration.",
-        ),
-    ]
+    _account_unique = models.Constraint(
+        "UNIQUE(account_id)",
+        "Each SCE Account can only have one Mercado Libre configuration.",
+    )
 
     # -------------------------------------------------------------------------
     # Helpers

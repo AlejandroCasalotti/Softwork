@@ -970,16 +970,7 @@ class SCELog(models.Model):
     # SQL Constraints
     # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-
-            "sce_log_message_required",
-
-            "CHECK(message IS NOT NULL)",
-
-            "Log message is required.",
-
-        ),
-
-    ]
+    _message_required = models.Constraint(
+        "CHECK(message IS NOT NULL)",
+        "Log message is required.",
+    )

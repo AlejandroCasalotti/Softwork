@@ -962,16 +962,7 @@ class SCEJob(models.Model):
 # SQL Constraints
 # -------------------------------------------------------------------------
 
-    _sql_constraints = [
-
-        (
-
-            "sce_job_execution_unique",
-
-            "unique(execution_id)",
-
-            "Execution ID must be unique.",
-
-        ),
-
-    ]
+    _execution_unique = models.Constraint(
+        "UNIQUE(execution_id)",
+        "Execution ID must be unique.",
+    )

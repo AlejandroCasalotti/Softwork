@@ -3,6 +3,7 @@
 from . import sce_connector
 from . import sce_provider
 from . import sce_plugin
+from . import sce_plugin_capability
 from . import sce_kernel
 from . import sce_cache
 from . import sce_account
