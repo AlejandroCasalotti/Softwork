@@ -204,11 +204,7 @@
 
                                 <group>
 
-                                    <field name="api_url"/>
-
                                     <field name="redirect_uri"/>
-
-                                    <field name="sandbox"/>
 
                                 </group>
 
