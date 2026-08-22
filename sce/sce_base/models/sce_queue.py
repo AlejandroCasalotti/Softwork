@@ -205,6 +205,7 @@ class SCEQueue(models.Model):
 
     can_retry = fields.Boolean(
         compute="_compute_can_retry",
+        store=True,
     )
 
 
