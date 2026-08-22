@@ -24,7 +24,7 @@ class SCEMainController(http.Controller):
 
     @http.route(
         "/sce",
-        type="json",
+        type="jsonrpc",
         auth="public",
         methods=["GET"],
         csrf=False,
@@ -47,7 +47,7 @@ class SCEMainController(http.Controller):
 
     @http.route(
         "/sce/ping",
-        type="json",
+        type="jsonrpc",
         auth="public",
         methods=["GET"],
         csrf=False,
@@ -67,7 +67,7 @@ class SCEMainController(http.Controller):
 
     @http.route(
         "/sce/info",
-        type="json",
+        type="jsonrpc",
         auth="user",
         methods=["GET"],
         csrf=False,
@@ -92,7 +92,7 @@ class SCEMainController(http.Controller):
 
     @http.route(
         "/sce/health",
-        type="json",
+        type="jsonrpc",
         auth="user",
         methods=["GET"],
         csrf=False,

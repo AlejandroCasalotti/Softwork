@@ -7,12 +7,12 @@ Base Provider
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from odoo import fields, models
 
 
-class SCEProvider(models.AbstractModel, ABC):
+class SCEProvider(models.AbstractModel):
     """
     Base provider for all marketplace integrations.
     """
