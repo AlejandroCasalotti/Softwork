@@ -17,8 +17,6 @@
 
         <field name="interval_type">minutes</field>
 
-        <field name="numbercall">-1</field>
-
         <field name="priority">5</field>
 
         <field name="state">code</field>
@@ -45,7 +43,6 @@ env["sce.queue.service"].process_pending()
 
         <field name="interval_type">minutes</field>
 
-        <field name="numbercall">-1</field>
 
         <field name="priority">10</field>
 
@@ -73,7 +70,6 @@ env["sce.job.service"].retry_failed_jobs()
 
         <field name="interval_type">hours</field>
 
-        <field name="numbercall">-1</field>
 
         <field name="priority">20</field>
 
@@ -101,7 +97,6 @@ env["sce.cache.service"].cleanup()
 
         <field name="interval_type">days</field>
 
-        <field name="numbercall">-1</field>
 
         <field name="priority">30</field>
 
@@ -129,7 +124,6 @@ env["sce.log.service"].cleanup()
 
         <field name="interval_type">days</field>
 
-        <field name="numbercall">-1</field>
 
         <field name="priority">40</field>
 
@@ -157,7 +151,6 @@ env["sce.webhook.service"].cleanup()
 
         <field name="interval_type">days</field>
 
-        <field name="numbercall">-1</field>
 
         <field name="priority">50</field>
 
