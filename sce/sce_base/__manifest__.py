@@ -59,11 +59,11 @@ Main Features
     "data/ir_cron.xml",
     "data/mail_template.xml",
 
-    # Menus
-    "views/menu.xml",
-
     # Dashboard
     "views/dashboard_views.xml",
+
+    # Menus
+    "views/menu.xml",
 
     # Models
     "views/sce_connector_views.xml",
