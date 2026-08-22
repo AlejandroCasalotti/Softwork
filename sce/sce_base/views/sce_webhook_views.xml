@@ -317,15 +317,19 @@
                        expand="0">
 
                     <filter string="Connector"
+                            name="group_by_connector"
                             context="{'group_by':'connector_id'}"/>
 
                     <filter string="Account"
+                            name="group_by_account"
                             context="{'group_by':'account_id'}"/>
 
                     <filter string="Event"
+                            name="group_by_event"
                             context="{'group_by':'event'}"/>
 
                     <filter string="State"
+                            name="group_by_state"
                             context="{'group_by':'state'}"/>
 
                 </group>

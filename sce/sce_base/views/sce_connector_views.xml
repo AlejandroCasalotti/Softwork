@@ -254,12 +254,15 @@
                        expand="0">
 
                     <filter string="State"
+                            name="group_by_state"
                             context="{'group_by':'state'}"/>
 
                     <filter string="Company"
+                            name="group_by_company"
                             context="{'group_by':'company_id'}"/>
 
                     <filter string="Type"
+                            name="group_by_type"
                             context="{'group_by':'connector_type'}"/>
 
                 </group>

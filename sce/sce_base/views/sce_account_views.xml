@@ -355,12 +355,15 @@
                        expand="0">
 
                     <filter string="Connector"
+                            name="group_by_connector"
                             context="{'group_by':'connector_id'}"/>
 
                     <filter string="Company"
+                            name="group_by_company"
                             context="{'group_by':'company_id'}"/>
 
                     <filter string="Status"
+                            name="group_by_state"
                             context="{'group_by':'state'}"/>
 
                 </group>

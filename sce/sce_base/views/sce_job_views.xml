@@ -271,15 +271,19 @@
                        expand="0">
 
                     <filter string="State"
+                            name="group_by_state"
                             context="{'group_by':'state'}"/>
 
                     <filter string="Connector"
+                            name="group_by_connector"
                             context="{'group_by':'connector_id'}"/>
 
                     <filter string="Account"
+                            name="group_by_account"
                             context="{'group_by':'account_id'}"/>
 
                     <filter string="Priority"
+                            name="group_by_priority"
                             context="{'group_by':'priority'}"/>
 
                 </group>

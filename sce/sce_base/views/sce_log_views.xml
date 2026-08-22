@@ -190,26 +190,33 @@
                 <separator/>
 
                 <filter string="Errors"
+                    name="errors"
                         domain="[('level','in',('error','critical'))]"/>
 
                 <filter string="Warnings"
+                    name="warnings"
                         domain="[('level','=','warning')]"/>
 
                 <filter string="Info"
+                    name="info"
                         domain="[('level','=','info')]"/>
 
                 <group string="Group By">
 
                     <filter string="Level"
+                            name="group_by_level"
                             context="{'group_by':'level'}"/>
 
                     <filter string="Category"
+                            name="group_by_category"
                             context="{'group_by':'category'}"/>
 
                     <filter string="Connector"
+                            name="group_by_connector"
                             context="{'group_by':'connector_id'}"/>
 
                     <filter string="Account"
+                            name="group_by_account"
                             context="{'group_by':'account_id'}"/>
 
                 </group>
