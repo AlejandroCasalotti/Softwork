@@ -2,6 +2,22 @@
 <odoo>
 
     <!-- ============================================================= -->
+    <!-- Category -->
+    <!-- ============================================================= -->
+
+    <record id="module_category_sce" model="ir.module.category">
+
+        <field name="name">Softwork Commerce Engine</field>
+
+        <field name="description">
+            Security groups for the Softwork Commerce Engine.
+        </field>
+
+        <field name="sequence">50</field>
+
+    </record>
+
+    <!-- ============================================================= -->
     <!-- SCE Administrator -->
     <!-- ============================================================= -->
 
@@ -12,7 +28,7 @@
         </field>
 
         <field name="category_id"
-               ref="base.module_category_sales_management"/>
+                ref="module_category_sce"/>
 
     </record>
 
@@ -27,7 +43,7 @@
         </field>
 
         <field name="category_id"
-               ref="base.module_category_sales_management"/>
+                ref="module_category_sce"/>
 
         <field name="implied_ids"
                eval="[(4, ref('base.group_user'))]"/>
@@ -45,7 +61,7 @@
         </field>
 
         <field name="category_id"
-               ref="base.module_category_sales_management"/>
+                ref="module_category_sce"/>
 
         <field name="implied_ids"
                eval="[(4, ref('base.group_user'))]"/>
