@@ -19,6 +19,8 @@
 
         <field name="priority">5</field>
 
+        <field name="model_id" ref="model_sce_queue_service"/>
+
         <field name="state">code</field>
 
         <field name="code">
@@ -46,10 +48,14 @@ env["sce.queue.service"].process_pending()
 
         <field name="priority">10</field>
 
+        <field name="model_id" ref="model_sce_job"/>
+
         <field name="state">code</field>
 
         <field name="code">
-env["sce.job.service"].retry_failed_jobs()
+    for job in env["sce.job"].search([("state", "=", "failed")]):
+        if job.can_retry:
+            job.retry()
         </field>
 
     </record>
@@ -72,6 +78,8 @@ env["sce.job.service"].retry_failed_jobs()
 
 
         <field name="priority">20</field>
+
+        <field name="model_id" ref="model_sce_cache_service"/>
 
         <field name="state">code</field>
 
@@ -100,10 +108,12 @@ env["sce.cache.service"].cleanup()
 
         <field name="priority">30</field>
 
+        <field name="model_id" ref="model_sce_log"/>
+
         <field name="state">code</field>
 
         <field name="code">
-env["sce.log.service"].cleanup()
+    env["sce.log"].cleanup_old_logs()
         </field>
 
     </record>
@@ -127,10 +137,12 @@ env["sce.log.service"].cleanup()
 
         <field name="priority">40</field>
 
+        <field name="model_id" ref="model_sce_webhook"/>
+
         <field name="state">code</field>
 
         <field name="code">
-env["sce.webhook.service"].cleanup()
+    env["sce.webhook"].cleanup_old_webhooks()
         </field>
 
     </record>
@@ -154,10 +166,12 @@ env["sce.webhook.service"].cleanup()
 
         <field name="priority">50</field>
 
+        <field name="model_id" ref="model_sce_kernel"/>
+
         <field name="state">code</field>
 
         <field name="code">
-env["sce.kernel.service"].maintenance()
+    env["sce.kernel"].cleanup()
         </field>
 
     </record>
