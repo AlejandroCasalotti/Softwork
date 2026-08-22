@@ -1,2 +1,3 @@
 # Local MercadoLibre test credentials
 .ml_test_users.env
+.ml_test_users.odoo.params

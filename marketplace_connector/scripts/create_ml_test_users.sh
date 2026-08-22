@@ -7,12 +7,16 @@ set -euo pipefail
 # Optional:
 #   SITE_ID=MLA (default)
 #   OUTPUT_ENV_FILE=./marketplace_connector/.ml_test_users.env
+#   OUTPUT_ODOO_PARAMS=1
+#   OUTPUT_ODOO_FILE=./marketplace_connector/.ml_test_users.odoo.params
 
 ML_API_BASE="https://api.mercadolibre.com"
 SITE_ID="${SITE_ID:-MLA}"
 APP_ID="${ML_APP_ID:-${CLIENT_ID:-}}"
 APP_SECRET="${ML_CLIENT_SECRET:-${CLIENT_SECRET:-}}"
 OUTPUT_ENV_FILE="${OUTPUT_ENV_FILE:-}"
+OUTPUT_ODOO_PARAMS="${OUTPUT_ODOO_PARAMS:-0}"
+OUTPUT_ODOO_FILE="${OUTPUT_ODOO_FILE:-}"
 
 if [[ -z "$APP_ID" || -z "$APP_SECRET" ]]; then
   echo "Error: missing credentials." >&2
@@ -98,6 +102,17 @@ echo "BUYER_TEST_ID=$buyer_id"
 echo "BUYER_TEST_NICKNAME=$buyer_nick"
 echo "BUYER_TEST_PASSWORD=$buyer_pass"
 
+odoo_params_block=$(cat <<EOF
+sce_connector_ml.test.site_id=$SITE_ID
+sce_connector_ml.test.seller_id=$seller_id
+sce_connector_ml.test.seller_nickname=$seller_nick
+sce_connector_ml.test.seller_password=$seller_pass
+sce_connector_ml.test.buyer_id=$buyer_id
+sce_connector_ml.test.buyer_nickname=$buyer_nick
+sce_connector_ml.test.buyer_password=$buyer_pass
+EOF
+)
+
 if [[ -n "$OUTPUT_ENV_FILE" ]]; then
   mkdir -p "$(dirname "$OUTPUT_ENV_FILE")"
   # Keep test credentials private in local environments.
@@ -113,4 +128,19 @@ BUYER_TEST_PASSWORD=$buyer_pass
 EOF
   echo
   echo "Saved credentials to $OUTPUT_ENV_FILE"
+fi
+
+if [[ "$OUTPUT_ODOO_PARAMS" == "1" ]]; then
+  echo
+  echo "Odoo system parameters (key=value):"
+  echo "$odoo_params_block"
+fi
+
+if [[ -n "$OUTPUT_ODOO_FILE" ]]; then
+  mkdir -p "$(dirname "$OUTPUT_ODOO_FILE")"
+  # Keep test credentials private in local environments.
+  umask 077
+  printf '%s\n' "$odoo_params_block" > "$OUTPUT_ODOO_FILE"
+  echo
+  echo "Saved Odoo params to $OUTPUT_ODOO_FILE"
 fi
