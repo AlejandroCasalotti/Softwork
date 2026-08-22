@@ -351,8 +351,7 @@
                         name="disabled"
                         domain="[('state','=','disabled')]"/>
 
-                <group string="Group By"
-                       expand="0">
+                  <group>
 
                     <filter string="Connector"
                             name="group_by_connector"

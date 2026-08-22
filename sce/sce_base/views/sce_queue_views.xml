@@ -270,8 +270,7 @@
                         name="retry"
                         domain="[('can_retry','=',True)]"/>
 
-                <group string="Group By"
-                       expand="0">
+                  <group>
 
                     <filter string="State"
                             name="group_by_state"

@@ -313,8 +313,7 @@
                         name="signature"
                         domain="[('signature_valid','=',True)]"/>
 
-                <group string="Group By"
-                       expand="0">
+                  <group>
 
                     <filter string="Connector"
                             name="group_by_connector"

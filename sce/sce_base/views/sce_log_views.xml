@@ -201,7 +201,7 @@
                     name="info"
                         domain="[('level','=','info')]"/>
 
-                <group string="Group By">
+                <group>
 
                     <filter string="Level"
                             name="group_by_level"

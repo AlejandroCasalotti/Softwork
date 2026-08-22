@@ -250,8 +250,7 @@
                         name="inactive"
                         domain="[('active','=',False)]"/>
 
-                <group string="Group By"
-                       expand="0">
+                  <group>
 
                     <filter string="State"
                             name="group_by_state"
