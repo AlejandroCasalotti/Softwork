@@ -185,7 +185,7 @@
                                     <field name="access_token"
                                            password="True"/>
 
-                                    <field name="refresh_token"
+                                     <field name="refresh_token_value"
                                            password="True"/>
 
                                     <field name="token_expiration"/>

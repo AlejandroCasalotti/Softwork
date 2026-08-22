@@ -815,7 +815,7 @@ class SCEAccount(models.Model):
 
 
             "refresh_token":
-                self.refresh_token,
+                self.refresh_token_value,
 
 
             "token_expiration":
@@ -1271,7 +1271,7 @@ class SCEAccount(models.Model):
 
 
             "refresh_token":
-                self.refresh_token,
+                self.refresh_token_value,
 
 
             "token_expiration":
