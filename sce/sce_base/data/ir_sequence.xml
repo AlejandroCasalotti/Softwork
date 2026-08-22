@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<data noupdate="1">
 
     <!-- ====================================================== -->
     <!-- SCE Job -->
@@ -77,5 +76,4 @@
         <field name="company_id" eval="False"/>
     </record>
 
-</data>
 </odoo>

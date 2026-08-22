@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-<data noupdate="1">
 
     <!-- ===================================================== -->
     <!-- Job Failed -->
@@ -294,5 +293,4 @@ Generated automatically by
 
     </record>
 
-</data>
 </odoo>

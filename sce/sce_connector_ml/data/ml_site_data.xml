@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <odoo>
-<data noupdate="1">
 
     <!-- ========================================================== -->
     <!-- Argentina -->
@@ -115,5 +114,4 @@
         <field name="auth_base_url">https://auth.mercadolibre.com</field>
     </record>
 
-</data>
 </odoo>
