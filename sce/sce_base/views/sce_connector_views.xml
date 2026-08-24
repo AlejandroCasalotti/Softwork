@@ -153,6 +153,8 @@
 
                             <field name="code"/>
 
+                            <field name="plugin_id"/>
+
                             <field name="connector_type"/>
 
                             <field name="version"/>

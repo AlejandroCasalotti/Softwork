@@ -63,6 +63,7 @@ Main Features
     "views/dashboard_views.xml",
 
     # Models
+    "views/sce_plugin_views.xml",
     "views/sce_connector_views.xml",
     "views/sce_account_views.xml",
     "views/sce_job_views.xml",

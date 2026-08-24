@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ========================================================= -->
+    <!-- Tree View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_plugin_tree" model="ir.ui.view">
+        <field name="name">sce.plugin.tree</field>
+        <field name="model">sce.plugin</field>
+        <field name="arch" type="xml">
+
+            <list string="Plugins">
+
+                <field name="name"/>
+
+                <field name="code"/>
+
+                <field name="connector_code"/>
+
+                <field name="version"/>
+
+                <field name="state"
+                       widget="badge"
+                       decoration-success="state == 'enabled'"
+                       decoration-warning="state == 'installed'"
+                       decoration-danger="state == 'disabled'"/>
+
+                <field name="active"/>
+
+            </list>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Form View -->
+    <!-- ========================================================= -->
+
+    <record id="view_sce_plugin_form" model="ir.ui.view">
+        <field name="name">sce.plugin.form</field>
+        <field name="model">sce.plugin</field>
+        <field name="arch" type="xml">
+
+            <form string="Plugin">
+
+                <header>
+                    <field name="state"
+                           widget="statusbar"
+                           statusbar_visible="draft,installed,enabled,disabled"/>
+                </header>
+
+                <sheet>
+
+                    <div class="oe_button_box" name="button_box">
+
+                        <button name="action_open_connectors"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-plug">
+
+                            <field name="connector_count"
+                                   widget="statinfo"
+                                   string="Connectors"/>
+
+                        </button>
+
+                    </div>
+
+                    <group>
+
+                        <group>
+
+                            <field name="name"/>
+
+                            <field name="code"/>
+
+                            <field name="connector_code"/>
+
+                            <field name="provider_model"/>
+
+                        </group>
+
+                        <group>
+
+                            <field name="version"/>
+
+                            <field name="author"/>
+
+                            <field name="website"/>
+
+                            <field name="active"/>
+
+                        </group>
+
+                    </group>
+
+                    <notebook>
+
+                        <page string="Description">
+
+                            <field name="description" nolabel="1"/>
+
+                        </page>
+
+                        <page string="Connectors">
+
+                            <field name="connector_ids">
+
+                                <list>
+
+                                    <field name="name"/>
+
+                                    <field name="state"/>
+
+                                </list>
+
+                            </field>
+
+                        </page>
+
+                    </notebook>
+
+                </sheet>
+
+                <chatter/>
+
+            </form>
+
+        </field>
+    </record>
+
+    <!-- ========================================================= -->
+    <!-- Action -->
+    <!-- ========================================================= -->
+
+    <record id="action_sce_plugin" model="ir.actions.act_window">
+
+        <field name="name">Plugins</field>
+
+        <field name="res_model">sce.plugin</field>
+
+        <field name="view_mode">list,form</field>
+
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Register your first SCE plugin.
+            </p>
+            <p>
+                Plugins provide the technical implementation
+                used by marketplace connectors.
+            </p>
+        </field>
+
+    </record>
+
+</odoo>

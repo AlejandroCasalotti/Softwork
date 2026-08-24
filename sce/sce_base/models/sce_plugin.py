@@ -578,6 +578,30 @@ class SCEPlugin(models.Model):
 
 
     # -------------------------------------------------------------------------
+    # Navigation Actions
+    # -------------------------------------------------------------------------
+
+
+    def action_open_connectors(self):
+
+        self.ensure_one()
+
+        return {
+
+            "type": "ir.actions.act_window",
+
+            "name": "Connectors",
+
+            "res_model": "sce.connector",
+
+            "view_mode": "list,form",
+
+            "domain": [("plugin_id", "=", self.id)],
+
+        }
+
+
+    # -------------------------------------------------------------------------
     # Actions
     # -------------------------------------------------------------------------
 
