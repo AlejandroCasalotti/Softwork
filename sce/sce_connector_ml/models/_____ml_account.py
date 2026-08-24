@@ -8,7 +8,10 @@ Mercado Libre Account.
 
 from __future__ import annotations
 
-from odoo import fields, models
+from odoo import _, fields, models
+from odoo.exceptions import UserError
+
+from ..services.ml_auth_service import MLAuthService
 
 
 class MLAccount(models.Model):
@@ -171,3 +174,58 @@ class MLAccount(models.Model):
         self.write({
             "connected": False,
         })
+
+    # -------------------------------------------------------------------------
+    # Actions
+    # -------------------------------------------------------------------------
+
+    def action_connect(self):
+        """
+        Opens the generic SCE connection wizard for this account.
+        """
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Connect Mercado Libre Account"),
+            "res_model": "sce.connection.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_connector_id": self.account_id.connector_id.id,
+            },
+        }
+
+    def action_disconnect(self):
+        """
+        Disconnects the account and clears its stored credential.
+        """
+        self.ensure_one()
+        MLAuthService(self.env).disconnect(self)
+        self.mark_disconnected()
+
+    def action_test_connection(self):
+        """
+        Verifies the stored credential is still valid.
+        """
+        self.ensure_one()
+        try:
+            MLAuthService(self.env).ensure_valid_token(self)
+        except ValueError as error:
+            raise UserError(str(error)) from error
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Connection Test"),
+                "message": _("Connection is valid."),
+                "type": "success",
+            },
+        }
+
+    def action_sync_now(self):
+        """
+        Triggers an immediate synchronization for this account.
+        """
+        self.ensure_one()
+        self.env["sce.ml.sync.service"].synchronize(self)
