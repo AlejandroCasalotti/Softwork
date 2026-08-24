@@ -5,3 +5,4 @@ access_sce_ml_site_manager,sce.ml.site.manager,model_sce_ml_site,sce_connector_m
 
 access_sce_ml_account_user,sce.ml.account.user,model_sce_ml_account,sce_connector_ml.group_sce_ml_user,1,0,0,0
 access_sce_ml_account_manager,sce.ml.account.manager,model_sce_ml_account,sce_connector_ml.group_sce_ml_manager,1,1,1,1
+access_sce_ml_cron_manager,sce.ml.cron.manager,model_sce_ml_cron,sce_connector_ml.group_sce_ml_manager,1,0,0,0
