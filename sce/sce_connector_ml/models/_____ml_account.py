@@ -11,8 +11,6 @@ from __future__ import annotations
 from odoo import _, fields, models
 from odoo.exceptions import UserError
 
-from ..services.ml_auth_service import MLAuthService
-
 
 class MLAccount(models.Model):
     _name = "sce.ml.account"
@@ -200,6 +198,7 @@ class MLAccount(models.Model):
         Disconnects the account and clears its stored credential.
         """
         self.ensure_one()
+        from ..services.ml_auth_service import MLAuthService
         MLAuthService(self.env).disconnect(self)
         self.mark_disconnected()
 
@@ -208,6 +207,7 @@ class MLAccount(models.Model):
         Verifies the stored credential is still valid.
         """
         self.ensure_one()
+        from ..services.ml_auth_service import MLAuthService
         try:
             MLAuthService(self.env).ensure_valid_token(self)
         except ValueError as error:
