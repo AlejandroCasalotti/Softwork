@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_mercadolibre_account_list" model="ir.ui.view">
+        <field name="name">sce.mercadolibre.account.list</field>
+        <field name="model">sce.mercadolibre.account</field>
+        <field name="arch" type="xml">
+            <list string="MercadoLibre Accounts">
+                <field name="name"/>
+                <field name="tenant_id"/>
+                <field name="seller_user_id"/>
+                <field name="seller_nickname"/>
+                <field name="status" widget="badge"/>
+                <field name="scopes"/>
+                <field name="expires_at"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sce_mercadolibre_account_form" model="ir.ui.view">
+        <field name="name">sce.mercadolibre.account.form</field>
+        <field name="model">sce.mercadolibre.account</field>
+        <field name="arch" type="xml">
+            <form string="MercadoLibre Account">
+                <header>
+                    <button name="action_connect_mercadolibre" type="object" string="Conectar MercadoLibre" class="btn-primary" invisible="status in ('connected', 'token_refreshing')"/>
+                    <button name="action_reconnect_mercadolibre" type="object" string="Reconectar" class="btn-primary" invisible="status not in ('auth_required', 'disconnected', 'error')"/>
+                    <button name="action_test_mercadolibre_connection" type="object" string="Probar conexión" class="btn-secondary" invisible="status != 'connected'"/>
+                    <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" invisible="status in ('draft', 'disconnected')"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,auth_pending,connected,auth_required,disconnected,error"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-info" role="alert" invisible="status == 'connected'">
+                        El vendedor autoriza la aplicación oficial de SoftWork mediante OAuth de MercadoLibre.
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="status != 'connected'">
+                        MercadoLibre conectado. Los tokens se almacenan cifrados y nunca se muestran.
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="tenant_id"/>
+                            <field name="status" invisible="1"/>
+                            <field name="seller_user_id" readonly="1"/>
+                            <field name="seller_nickname" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="scopes" readonly="1"/>
+                            <field name="expires_at" readonly="1"/>
+                            <field name="connected_at" readonly="1"/>
+                            <field name="last_connection_test_at" readonly="1"/>
+                            <field name="disconnected_at" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Último error" invisible="not last_error">
+                        <field name="last_error" readonly="1" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sce_mercadolibre_account" model="ir.actions.act_window">
+        <field name="name">MercadoLibre Accounts</field>
+        <field name="res_model">sce.mercadolibre.account</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_sce_connect_mercadolibre_account" name="MercadoLibre Accounts" parent="menu_sce_connect_root" action="action_sce_mercadolibre_account" sequence="25" groups="sce_connect.group_sce_connect_user"/>
+</odoo>

@@ -16,6 +16,7 @@
         "views/sce_secret_views.xml",
         "views/sce_secret_set_wizard_views.xml",
         "views/sce_external_connection_views.xml",
+        "views/sce_mercadolibre_account_views.xml",
     ],
     "demo": [],
     "installable": True,
