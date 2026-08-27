@@ -32,8 +32,8 @@ class TestSceOAuthState(TransactionCase):
         )
         self.storage = FakeSecretStorage()
 
-    @patch("sce_connect.services.oauth_state.SecretStorage.from_environment")
-    @patch("sce_connect.models.sce_secret.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.services.oauth_state.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.models.sce_secret.SecretStorage.from_environment")
     def test_state_is_bound_and_single_use(self, model_storage_factory, storage_factory):
         model_storage_factory.return_value = self.storage
         storage_factory.return_value = self.storage
@@ -48,8 +48,8 @@ class TestSceOAuthState(TransactionCase):
         with self.assertRaises(UserError):
             OAuthStateService(self.env).validate_and_consume(state, self.user)
 
-    @patch("sce_connect.services.oauth_state.SecretStorage.from_environment")
-    @patch("sce_connect.models.sce_secret.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.services.oauth_state.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.models.sce_secret.SecretStorage.from_environment")
     def test_state_rejects_wrong_user(self, model_storage_factory, storage_factory):
         model_storage_factory.return_value = self.storage
         storage_factory.return_value = self.storage
@@ -59,8 +59,8 @@ class TestSceOAuthState(TransactionCase):
         with self.assertRaises(AccessError):
             OAuthStateService(self.env).validate_and_consume(state, self.other_user)
 
-    @patch("sce_connect.services.oauth_state.SecretStorage.from_environment")
-    @patch("sce_connect.models.sce_secret.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.services.oauth_state.SecretStorage.from_environment")
+    @patch("odoo.addons.sce_connect.models.sce_secret.SecretStorage.from_environment")
     def test_expired_state_is_rejected(self, model_storage_factory, storage_factory):
         model_storage_factory.return_value = self.storage
         storage_factory.return_value = self.storage

@@ -24,8 +24,8 @@ class ConnectionServiceTests(unittest.TestCase):
         connection.sudo.return_value = connection
         return connection
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_connected(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
@@ -34,8 +34,8 @@ class ConnectionServiceTests(unittest.TestCase):
         self.assertEqual(result["status"], "connected")
         connection.sudo.assert_called()
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_authentication_error(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
@@ -43,8 +43,8 @@ class ConnectionServiceTests(unittest.TestCase):
         result = ConnectionService(connection).test_connection()
         self.assertEqual(result["status"], "authentication_error")
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_invalid_configuration(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
@@ -52,8 +52,8 @@ class ConnectionServiceTests(unittest.TestCase):
         result = ConnectionService(connection).test_connection()
         self.assertEqual(result["status"], "invalid_configuration")
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_permission_error(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
@@ -61,8 +61,8 @@ class ConnectionServiceTests(unittest.TestCase):
         result = ConnectionService(connection).test_connection()
         self.assertEqual(result["status"], "permission_error")
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_network_error(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
@@ -70,8 +70,8 @@ class ConnectionServiceTests(unittest.TestCase):
         result = ConnectionService(connection).test_connection()
         self.assertEqual(result["status"], "network_error")
 
-    @patch("sce_connect.services.connection_service.Odoo19Json2Adapter")
-    @patch("sce_connect.services.connection_service.SecretStorage")
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
     def test_api_error(self, storage_class, adapter_class):
         connection = self.connection()
         storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
