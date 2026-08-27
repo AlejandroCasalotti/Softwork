@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sce_tenant_user,access.sce.tenant.user,model_sce_tenant,sce_connect.group_sce_connect_user,1,1,1,0
+access_sce_external_connection_user,access.sce.external.connection.user,model_sce_external_connection,sce_connect.group_sce_connect_user,1,1,1,0
+access_sce_secret_user,access.sce.secret.user,model_sce_secret,sce_connect.group_sce_connect_user,1,0,0,0
+access_sce_secret_set_wizard_user,access.sce.secret.set.wizard.user,model_sce_secret_set_wizard,sce_connect.group_sce_connect_admin,1,1,1,1
+access_sce_tenant_admin,access.sce.tenant.admin,model_sce_tenant,sce_connect.group_sce_connect_admin,1,1,1,1
+access_sce_external_connection_admin,access.sce.external.connection.admin,model_sce_external_connection,sce_connect.group_sce_connect_admin,1,1,1,1
+access_sce_secret_admin,access.sce.secret.admin,model_sce_secret,sce_connect.group_sce_connect_admin,1,1,1,1

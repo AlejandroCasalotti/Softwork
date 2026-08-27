@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_external_connection_list" model="ir.ui.view">
+        <field name="name">sce.external.connection.list</field>
+        <field name="model">sce.external.connection</field>
+        <field name="arch" type="xml">
+            <list string="External Odoo Connections">
+                <field name="name"/>
+                <field name="tenant_id"/>
+                <field name="url"/>
+                <field name="database"/>
+                <field name="odoo_version"/>
+                <field name="api_type"/>
+                <field name="state" widget="badge"/>
+                <field name="last_test_at"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sce_external_connection_form" model="ir.ui.view">
+        <field name="name">sce.external.connection.form</field>
+        <field name="model">sce.external.connection</field>
+        <field name="arch" type="xml">
+            <form string="External Odoo Connection">
+                <header>
+                    <button name="action_test_connection" type="object" string="Test Connection" class="btn-primary"/>
+                    <button name="action_read_metadata" type="object" string="Read Metadata" class="btn-secondary"/>
+                    <button name="action_test_controlled_write" type="object" string="Test Controlled Write" class="btn-secondary" groups="sce_connect.group_sce_connect_admin"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,connected,authentication_error,permission_error,database_error,network_error,api_error,invalid_configuration"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Test Connection es de solo lectura. La escritura controlada requiere una acción administrativa explícita.
+                    </div>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="tenant_id"/>
+                            <field name="url" placeholder="https://cliente.odoo.com"/>
+                            <field name="database"/>
+                            <field name="user"/>
+                        </group>
+                        <group>
+                            <field name="odoo_version"/>
+                            <field name="api_type"/>
+                            <field name="secret_id" domain="[('tenant_id', '=', tenant_id)]"/>
+                            <field name="timeout_seconds"/>
+                            <field name="last_test_at" readonly="1"/>
+                            <field name="last_test_status" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Development-only exceptions">
+                        <field name="allow_insecure_http"/>
+                        <field name="allow_private_network"/>
+                    </group>
+                    <group string="Last error" invisible="not last_error">
+                        <field name="last_error" readonly="1" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sce_external_connection" model="ir.actions.act_window">
+        <field name="name">External Odoo Connections</field>
+        <field name="res_model">sce.external.connection</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_sce_connect_connection" name="Odoo Connections" parent="menu_sce_connect_root" action="action_sce_external_connection" sequence="20" groups="sce_connect.group_sce_connect_user"/>
+</odoo>
