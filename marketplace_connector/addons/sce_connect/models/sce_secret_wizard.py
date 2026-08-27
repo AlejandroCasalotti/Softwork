@@ -6,7 +6,7 @@ class SceSecretSetWizard(models.TransientModel):
     _description = "Set SCE Connect Secret"
 
     secret_id = fields.Many2one("sce.secret", required=True, readonly=True)
-    value = fields.Char(required=True, password=True)
+    value = fields.Char(required=True)
 
     def action_set_secret(self):
         self.ensure_one()

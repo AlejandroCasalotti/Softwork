@@ -32,7 +32,6 @@ class SceExternalConnection(models.Model):
         ],
         default="draft",
         required=True,
-        tracking=True,
     )
     last_test_at = fields.Datetime(readonly=True)
     last_test_status = fields.Char(readonly=True)
