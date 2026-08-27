@@ -16,7 +16,7 @@ class SceTenant(models.Model):
         "sce.external.connection", "tenant_id", string="External Connections"
     )
 
-    code_unique = models.Constraint(
+    _code_unique = models.Constraint(
         "UNIQUE(code)",
         "El código del tenant debe ser único.",
     )
