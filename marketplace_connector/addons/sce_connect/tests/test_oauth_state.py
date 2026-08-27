@@ -56,6 +56,26 @@ class TestSceOAuthState(TransactionCase):
             OAuthStateService(self.env).validate_and_consume(state, self.other_user)
 
     @patch("odoo.addons.sce_connect.models.sce_secret.SecretStorage.from_environment")
+    def test_state_rejects_wrong_tenant(self, model_storage_factory):
+        model_storage_factory.return_value = self.storage
+        other_tenant = self.env["sce.tenant"].create(
+            {"name": "OAuth Tenant B", "code": "oauth-tenant-b", "user_ids": [(6, 0, [self.user.id])]}
+        )
+        state, _challenge, transaction = OAuthStateService(self.env).create(
+            self.tenant, self.account, self.user
+        )
+        self.assertEqual(transaction.tenant_id, self.tenant)
+        with self.assertRaises(AccessError):
+            OAuthStateService(self.env).validate_and_consume(
+                state, self.user, expected_tenant=other_tenant
+            )
+        # The state must remain usable for its real tenant afterwards.
+        consumed = OAuthStateService(self.env).validate_and_consume(
+            state, self.user, expected_tenant=self.tenant
+        )
+        self.assertEqual(consumed, transaction)
+
+    @patch("odoo.addons.sce_connect.models.sce_secret.SecretStorage.from_environment")
     def test_expired_state_is_rejected(self, model_storage_factory):
         model_storage_factory.return_value = self.storage
         state, _challenge, transaction = OAuthStateService(self.env).create(

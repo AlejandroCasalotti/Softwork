@@ -44,7 +44,7 @@ class OAuthStateService:
         account.sudo().write({"status": "auth_pending", "last_error": False})
         return state, self._challenge(verifier), transaction
 
-    def validate_and_consume(self, state, user):
+    def validate_and_consume(self, state, user, expected_tenant=None):
         if not state:
             raise UserError("Falta el estado OAuth.")
         state_hash = hashlib.sha256(state.encode()).hexdigest()
@@ -53,7 +53,10 @@ class OAuthStateService:
         )
         if not transaction:
             raise UserError("El estado OAuth no es válido o ya expiró.")
+        # Never disclose which check failed: user and tenant mismatches share one generic error.
         if transaction.user_id.id != user.id:
-            raise AccessError("El estado OAuth no pertenece al usuario actual.")
+            raise AccessError("El estado OAuth no es válido para el contexto actual.")
+        if expected_tenant is not None and transaction.tenant_id.id != expected_tenant.id:
+            raise AccessError("El estado OAuth no es válido para el contexto actual.")
         transaction.consume()
         return transaction
