@@ -11,7 +11,7 @@ class TestSceConnectTenantIsolation(TransactionCase):
                 "name": "SCE Connect User A",
                 "login": "sce-connect-user-a",
                 "email": "sce-connect-user-a@example.test",
-                "groups_id": [(6, 0, [cls.connect_group.id])],
+                "group_ids": [(6, 0, [cls.connect_group.id])],
             }
         )
         cls.user_b = cls.env["res.users"].create(
@@ -19,7 +19,7 @@ class TestSceConnectTenantIsolation(TransactionCase):
                 "name": "SCE Connect User B",
                 "login": "sce-connect-user-b",
                 "email": "sce-connect-user-b@example.test",
-                "groups_id": [(6, 0, [cls.connect_group.id])],
+                "group_ids": [(6, 0, [cls.connect_group.id])],
             }
         )
         cls.tenant_a = cls.env["sce.tenant"].create(
