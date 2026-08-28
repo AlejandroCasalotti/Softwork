@@ -18,7 +18,7 @@ class SecretStorage:
         self._master_key = master_key or self._environ.get(self.ENV_MASTER_KEY)
         if not self._master_key:
             raise SecretStorageError(
-                f"Falta la clave maestra {self.ENV_MASTER_KEY} fuera de la base de datos."
+                f"Falta la clave maestra {self.ENV_MASTER_KEY} en el entorno del proceso Odoo."
             )
         if Fernet is None:
             raise SecretStorageError(
@@ -27,7 +27,9 @@ class SecretStorage:
         try:
             self._cipher = Fernet(self._master_key.encode() if isinstance(self._master_key, str) else self._master_key)
         except (TypeError, ValueError) as error:
-            raise SecretStorageError("La clave maestra de SCE Connect no es válida.") from error
+            raise SecretStorageError(
+                f"La clave maestra {self.ENV_MASTER_KEY} tiene un formato inválido (debe ser una clave Fernet válida)."
+            ) from error
 
     @classmethod
     def from_environment(cls):
