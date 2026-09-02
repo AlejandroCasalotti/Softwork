@@ -10,3 +10,5 @@ access_sce_oauth_transaction_user,access.sce.oauth.transaction.user,model_sce_oa
 access_sce_mercadolibre_account_user,access.sce.mercadolibre.account.user,model_sce_mercadolibre_account,sce_connect.group_sce_connect_user,1,1,1,0
 access_sce_oauth_transaction_admin,access.sce.oauth.transaction.admin,model_sce_oauth_transaction,sce_connect.group_sce_connect_admin,1,1,1,1
 access_sce_mercadolibre_account_admin,access.sce.mercadolibre.account.admin,model_sce_mercadolibre_account,sce_connect.group_sce_connect_admin,1,1,1,1
+access_sce_external_product_mapping_user,access.sce.external.product.mapping.user,model_sce_external_product_mapping,sce_connect.group_sce_connect_user,1,0,0,0
+access_sce_external_product_mapping_admin,access.sce.external.product.mapping.admin,model_sce_external_product_mapping,sce_connect.group_sce_connect_admin,1,1,1,1

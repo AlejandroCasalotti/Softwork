@@ -46,6 +46,7 @@
                             <field name="timeout_seconds"/>
                             <field name="last_test_at" readonly="1"/>
                             <field name="last_test_status" readonly="1"/>
+                            <field name="last_product_sync" readonly="1"/>
                         </group>
                     </group>
                     <group string="Development-only exceptions">

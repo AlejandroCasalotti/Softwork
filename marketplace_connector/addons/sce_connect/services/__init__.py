@@ -4,6 +4,7 @@ from . import secret_storage
 from . import odoo_adapter
 from . import odoo19_json2_adapter
 from . import connection_service
+from . import odoo_external_product_service
 from . import oauth_state
 from . import mercadolibre_transport
 from . import mercadolibre_oauth

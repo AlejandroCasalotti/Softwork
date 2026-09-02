@@ -40,6 +40,7 @@ class SceExternalConnection(models.Model):
     allow_insecure_http = fields.Boolean(default=False)
     allow_private_network = fields.Boolean(default=False)
     last_metadata_at = fields.Datetime(readonly=True)
+    last_product_sync = fields.Datetime(readonly=True, help="Checkpoint incremental de sincronización de productos.")
 
     @api.constrains("tenant_id", "secret_id")
     def _check_secret_tenant(self):
