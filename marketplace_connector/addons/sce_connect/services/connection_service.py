@@ -70,6 +70,11 @@ class ConnectionService:
     def read(self, model, ids, fields=None):
         return self._adapter().read(model, ids, fields)
 
+    def search(self, model, domain=None, offset=0, limit=None, order=None):
+        return self._adapter().search(
+            model, domain=domain, offset=offset, limit=limit, order=order
+        )
+
     def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None):
         return self._adapter().search_read(
             model, domain=domain, fields=fields, offset=offset, limit=limit, order=order
