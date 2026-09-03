@@ -27,6 +27,14 @@ class MercadoLibreExternalProvider(IProvider):
     def health(self):
         return self._delegate.health()
 
+    def get_authenticated_user_id(self):
+        return self._delegate.get_authenticated_user_id()
+
+    def list_item_ids(self, user_id, offset=0, limit=100, scroll_id=None):
+        return self._delegate.list_item_ids(
+            user_id, offset=offset, limit=limit, scroll_id=scroll_id
+        )
+
     def publish_product(self, payload):
         return self._delegate.publish_product(payload)
 
@@ -42,8 +50,8 @@ class MercadoLibreExternalProvider(IProvider):
     def update_price(self, payload):
         return self._delegate.update_price(payload)
 
-    def get_item(self, external_id):
-        return self._delegate.get_item(external_id)
+    def get_item(self, external_id, params=None):
+        return self._delegate.get_item(external_id, params=params)
 
     def get_orders(self, params=None):
         return self._delegate.get_orders(params=params)

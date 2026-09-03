@@ -39,6 +39,23 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
             user_id=user.get("id") if isinstance(user, dict) else False,
         )
 
+    def get_authenticated_user_id(self):
+        if self.account.external_user_id:
+            return str(self.account.external_user_id)
+        result = self.health()
+        user_id = result.get("user_id") if isinstance(result, dict) else False
+        if not user_id:
+            raise UserError("No se pudo identificar al vendedor autenticado de MercadoLibre.")
+        return str(user_id)
+
+    def list_item_ids(self, user_id, offset=0, limit=100, scroll_id=None):
+        params = {"limit": limit}
+        if scroll_id:
+            params.update({"search_type": "scan", "scroll_id": scroll_id})
+        else:
+            params["offset"] = offset
+        return self._request("GET", f"/users/{user_id}/items/search", params=params)
+
     def webhook(self, payload):
         return self._ok(action="webhook", payload=payload or {})
 
@@ -205,11 +222,11 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
         data = self._request("PUT", f"/items/{item_id}", payload={"price": price})
         return self._ok(action="update_price", item_id=item_id, price=price, raw=data)
 
-    def get_item(self, external_id):
+    def get_item(self, external_id, params=None):
         external_id = str(external_id or "").strip()
         if not external_id:
             raise UserError("Falta external_id/item_id para consultar publicación.")
-        data = self._request("GET", f"/items/{external_id}")
+        data = self._request("GET", f"/items/{external_id}", params=params)
         return self._ok(action="get_item", external_id=external_id, item=data, raw=data)
 
     def get_order(self, external_id):
