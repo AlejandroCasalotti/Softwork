@@ -117,6 +117,33 @@ class SceAccount(models.Model):
     sync_stock = fields.Boolean(string="Sincronizar Stock", default=True)
     sync_prices = fields.Boolean(string="Sincronizar Precios", default=True)
     last_sync = fields.Datetime(string="Última sincronización")
+    odoo_diagnostic_status = fields.Selection(
+        [("OK", "OK"), ("ERROR", "Error")], readonly=True
+    )
+    odoo_diagnostic_at = fields.Datetime(readonly=True)
+    odoo_diagnostic_latency_ms = fields.Integer(readonly=True)
+    odoo_diagnostic_message = fields.Char(readonly=True)
+    odoo_diagnostic_products = fields.Integer(readonly=True)
+    ml_diagnostic_status = fields.Selection(
+        [("OK", "OK"), ("ERROR", "Error")], readonly=True
+    )
+    ml_diagnostic_at = fields.Datetime(readonly=True)
+    ml_diagnostic_latency_ms = fields.Integer(readonly=True)
+    ml_diagnostic_message = fields.Char(readonly=True)
+    ml_diagnostic_publications = fields.Integer(readonly=True)
+    reconciliation_at = fields.Datetime(readonly=True)
+    reconciliation_latency_ms = fields.Integer(readonly=True)
+    reconciliation_odoo_total = fields.Integer(readonly=True)
+    reconciliation_odoo_with_sku = fields.Integer(readonly=True)
+    reconciliation_odoo_without_sku = fields.Integer(readonly=True)
+    reconciliation_ml_total = fields.Integer(readonly=True)
+    reconciliation_ml_with_sku = fields.Integer(readonly=True)
+    reconciliation_ml_without_sku = fields.Integer(readonly=True)
+    reconciliation_match = fields.Integer(readonly=True)
+    reconciliation_no_match = fields.Integer(readonly=True)
+    reconciliation_conflict = fields.Integer(readonly=True)
+    reconciliation_invalid = fields.Integer(readonly=True)
+    reconciliation_error = fields.Char(readonly=True)
 
     @api.onchange("connector_id")
     def _onchange_connector_id_set_provider_type(self):
@@ -333,6 +360,124 @@ class SceAccount(models.Model):
                 "default_migration_mode": self.migration_mode or "full",
                 "default_since_datetime": self.migration_since,
             },
+        }
+
+    def _diagnostic_notification(self, title, message, notification_type="success"):
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": title,
+                "message": message,
+                "type": notification_type,
+                "sticky": False,
+            },
+        }
+
+    def action_test_external_odoo_connection(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre":
+            raise UserError("La prueba de Odoo aplica a una cuenta MercadoLibre.")
+        from odoo.addons.sce_connector_ml.services.product_reconciliation import ProductReconciliationService
+
+        try:
+            result = ProductReconciliationService(self.env, self).test_odoo_connection()
+        except Exception:
+            self.sudo().write({
+                "odoo_diagnostic_status": "ERROR",
+                "odoo_diagnostic_at": fields.Datetime.now(),
+                "odoo_diagnostic_message": "No se pudo conectar con Odoo.",
+            })
+            return self._diagnostic_notification("Conexión Odoo", "ERROR", "danger")
+        self.sudo().write({
+            "odoo_diagnostic_status": result["status"],
+            "odoo_diagnostic_at": result["timestamp"],
+            "odoo_diagnostic_latency_ms": result["latency_ms"],
+            "odoo_diagnostic_message": result["message"],
+            "odoo_diagnostic_products": int(bool(result["products_accessible"])),
+        })
+        return self._diagnostic_notification("Conexión Odoo", "OK")
+
+    def action_test_external_mercadolibre_connection(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre":
+            raise UserError("La prueba de MercadoLibre requiere una cuenta MercadoLibre.")
+        from odoo.addons.sce_connector_ml.services.product_reconciliation import ProductReconciliationService
+
+        try:
+            result = ProductReconciliationService(self.env, self).test_mercadolibre_connection()
+        except Exception:
+            self.sudo().write({
+                "ml_diagnostic_status": "ERROR",
+                "ml_diagnostic_at": fields.Datetime.now(),
+                "ml_diagnostic_message": "No se pudo conectar con MercadoLibre.",
+            })
+            return self._diagnostic_notification("Conexión MercadoLibre", "ERROR", "danger")
+        self.sudo().write({
+            "ml_diagnostic_status": result["status"],
+            "ml_diagnostic_at": result["timestamp"],
+            "ml_diagnostic_latency_ms": result["latency_ms"],
+            "ml_diagnostic_message": result["message"],
+            "ml_diagnostic_publications": result["publications_accessible"] or 0,
+        })
+        return self._diagnostic_notification("Conexión MercadoLibre", "OK")
+
+    def action_analyze_products(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre":
+            raise UserError("El análisis requiere una cuenta MercadoLibre.")
+        from odoo.addons.sce_connector_ml.services.product_reconciliation import ProductReconciliationService
+
+        try:
+            result = ProductReconciliationService(self.env, self).analyze()
+        except Exception:
+            self.sudo().write({
+                "reconciliation_error": "No se pudo completar el análisis.",
+                "reconciliation_at": fields.Datetime.now(),
+            })
+            return self._diagnostic_notification("Análisis de productos", "ERROR", "danger")
+        stats = result["stats"]
+        self.sudo().write({
+            "reconciliation_at": result["timestamp"],
+            "reconciliation_latency_ms": result["latency_ms"],
+            "reconciliation_odoo_total": stats["odoo_total_products"],
+            "reconciliation_odoo_with_sku": stats["odoo_products_with_sku"],
+            "reconciliation_odoo_without_sku": stats["odoo_products_without_sku"],
+            "reconciliation_ml_total": stats["ml_total_publications"],
+            "reconciliation_ml_with_sku": stats["ml_publications_with_sku"],
+            "reconciliation_ml_without_sku": stats["ml_publications_without_sku"],
+            "reconciliation_match": stats["match"],
+            "reconciliation_no_match": stats["no_match"],
+            "reconciliation_conflict": stats["conflict"],
+            "reconciliation_invalid": stats["invalid"],
+            "reconciliation_error": False,
+        })
+        wizard = self.env["sce.product.reconciliation.wizard"].create({
+            "account_id": self.id,
+            "status": result["status"],
+            "analyzed_at": result["timestamp"],
+            "latency_ms": result["latency_ms"],
+            **{
+                "odoo_total_products": stats["odoo_total_products"],
+                "odoo_products_with_sku": stats["odoo_products_with_sku"],
+                "odoo_products_without_sku": stats["odoo_products_without_sku"],
+                "ml_total_publications": stats["ml_total_publications"],
+                "ml_publications_with_sku": stats["ml_publications_with_sku"],
+                "ml_publications_without_sku": stats["ml_publications_without_sku"],
+                "match_count": stats["match"],
+                "no_match_count": stats["no_match"],
+                "conflict_count": stats["conflict"],
+                "invalid_count": stats["invalid"],
+            },
+            "line_ids": [(0, 0, line) for line in result["details"]],
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Análisis de productos",
+            "res_model": "sce.product.reconciliation.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
         }
 
     def action_test_and_confirm(self):

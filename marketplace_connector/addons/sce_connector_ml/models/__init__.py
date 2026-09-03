@@ -12,3 +12,4 @@ from . import ml_publish_assistant_wizard
 from . import ml_publish_assistant_attribute_line
 from . import ml_publish_assistant_saleterm_line
 from . import ml_publish_assistant_picture_line
+from . import product_reconciliation_wizard

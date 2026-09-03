@@ -10,6 +10,7 @@
     "depends": [
         "softwork_ecommerce_conector_base",
         "sce_product_marketplace",
+        "softwork_provider_odoo",
     ],
     "data": [
         "security/ir.model.access.csv",
@@ -19,6 +20,7 @@
         "views/ml_attribute_editor_wizard_views.xml",
         "views/ml_publish_config_wizard_views.xml",
         "views/ml_publish_assistant_wizard_views.xml",
+        "views/product_reconciliation_views.xml",
     ],
     "installable": True,
     "application": False,
