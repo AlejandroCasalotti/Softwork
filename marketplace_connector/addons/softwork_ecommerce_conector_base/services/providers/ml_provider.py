@@ -615,8 +615,16 @@ class MercadoLibreProvider(IProvider):
         payload = payload or {}
         item_id = self._extract_item_id(payload)
         qty = max(0, self._to_int(payload.get("available_quantity"), 0))
-        data = self._request("PUT", f"/items/{item_id}", payload={"available_quantity": qty})
-        return self._ok(action="update_stock", item_id=item_id, available_quantity=qty, raw=data)
+        variation_id = payload.get("variation_id") or payload.get("external_variant_id")
+        endpoint = f"/items/{item_id}/variations/{variation_id}" if variation_id else f"/items/{item_id}"
+        data = self._request("PUT", endpoint, payload={"available_quantity": qty})
+        return self._ok(
+            action="update_stock",
+            item_id=item_id,
+            variation_id=str(variation_id) if variation_id else False,
+            available_quantity=qty,
+            raw=data,
+        )
 
     def update_price(self, payload):
         payload = payload or {}

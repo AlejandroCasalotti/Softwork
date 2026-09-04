@@ -29,6 +29,9 @@ class SceMarketplaceJob(models.Model):
     publication_id = fields.Many2one(
         "marketplace.publication", string="Publication", ondelete="cascade", index=True
     )
+    mapping_id = fields.Many2one(
+        "marketplace.product.mapping", string="Product Mapping", ondelete="cascade", index=True
+    )
     external_id = fields.Char(string="External ID", index=True)
 
     def action_open_publication(self):
@@ -63,7 +66,9 @@ class SceMarketplaceJob(models.Model):
         operations = {
             "publish_product": service.publish,
             "update_product": service.update,
-            "sync_publication_stock": service.update_stock,
+            "sync_publication_stock": lambda publication: service.update_stock(
+                publication, mapping=self.mapping_id
+            ),
             "sync_publication_price": service.update_price,
             "sync_publication": service.sync_from_marketplace,
             "delete_product": service.delete,

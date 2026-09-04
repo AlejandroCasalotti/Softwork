@@ -174,7 +174,7 @@ class MarketplacePublicationService(models.AbstractModel):
                 issues.append("Falta atributo requerido ML: %s" % attribute_id)
         return issues
 
-    def enqueue(self, publication, operation):
+    def enqueue(self, publication, operation, mapping=None):
         publication.ensure_one()
         job_types = {
             "publish": "publish_product",
@@ -193,10 +193,36 @@ class MarketplacePublicationService(models.AbstractModel):
             publication.write({"state": "publishing", "error_message": False})
         elif not publication.external_id:
             raise UserError("La publicación necesita un ID externo para la operación '%s'." % operation)
+        if operation == "update_stock" and not mapping:
+            variant_mappings = publication._stock_variant_mappings()
+            if variant_mappings:
+                jobs = self.env["sce.job"]
+                for variant_mapping in variant_mappings:
+                    jobs |= self.enqueue(publication, operation, mapping=variant_mapping)
+                return jobs
+            active_variants = publication.product_tmpl_id.product_variant_ids.filtered("active")
+            if len(active_variants) > 1:
+                raise UserError(
+                    "No se puede sincronizar stock de variantes sin mappings externos de MercadoLibre."
+                )
+        if mapping:
+            mapping.ensure_one()
+            if mapping.publication_id != publication:
+                raise UserError("El mapping no corresponde a la publicación.")
+            if operation != "update_stock" or not mapping.external_variant_id:
+                raise UserError("El mapping solo puede usarse para sincronizar una variante externa.")
+            stock_target = mapping
+        else:
+            stock_target = publication
+        if operation == "update_stock":
+            current_stock = publication._stock_quantity(mapping=mapping)
+            if stock_target.last_stock_sync_at and stock_target.last_stock_sent == current_stock:
+                return self.env["sce.job"]
         pending_job = self.env["sce.job"].search(
             [
                 ("account_id", "=", publication.account_id.id),
                 ("publication_id", "=", publication.id),
+                ("mapping_id", "=", mapping.id if mapping else False),
                 ("job_type", "=", job_type),
                 ("state", "in", ["queued", "running"]),
             ],
@@ -211,6 +237,7 @@ class MarketplacePublicationService(models.AbstractModel):
                 "account_id": publication.account_id.id,
                 "job_type": job_type,
                 "publication_id": publication.id,
+                "mapping_id": mapping.id if mapping else False,
                 "payload_json": json.dumps({"publication_id": publication.id}),
             }
         )
@@ -285,12 +312,36 @@ class MarketplacePublicationService(models.AbstractModel):
             publication.write({"state": "failed", "error_message": str(err)})
             raise
 
-    def update_stock(self, publication):
+    def update_stock(self, publication, mapping=None):
         publication.ensure_one()
         if not publication.external_id:
             raise UserError("No se puede sincronizar stock sin ID externo.")
-        result = self._get_provider(publication).update_stock(self._build_payload(publication)) or {}
-        publication.write({"sync_date": fields.Datetime.now()})
+        if mapping:
+            mapping.ensure_one()
+            if mapping.publication_id != publication or not mapping.external_variant_id:
+                raise UserError("El mapping no corresponde a una variante externa de la publicación.")
+            item_id = mapping.external_id or publication.external_id
+        else:
+            if publication._stock_variant_mappings():
+                raise UserError("La publicación tiene variantes y debe sincronizarse mediante sus mappings.")
+            item_id = publication.external_id
+        available_quantity = publication._stock_quantity(mapping=mapping)
+        stock_target = mapping or publication
+        if stock_target.last_stock_sync_at and stock_target.last_stock_sent == available_quantity:
+            return {"ok": True, "skipped": True, "available_quantity": available_quantity}
+        payload = {
+            "item_id": item_id,
+            "available_quantity": available_quantity,
+        }
+        if mapping:
+            payload["variation_id"] = mapping.external_variant_id
+        result = self._get_provider(publication).update_stock(payload) or {}
+        synced_at = fields.Datetime.now()
+        stock_target.write({
+            "last_stock_sent": available_quantity,
+            "last_stock_sync_at": synced_at,
+        })
+        publication.write({"sync_date": synced_at})
         return result
 
     def update_price(self, publication):

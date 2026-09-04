@@ -72,6 +72,10 @@ class MarketplacePublication(models.Model):
     effective_qty = fields.Integer(
         string="Stock a publicar", compute="_compute_effective_qty", store=True
     )
+    last_stock_sent = fields.Integer(string="Último stock enviado", readonly=True, copy=False)
+    last_stock_sync_at = fields.Datetime(
+        string="Última sincronización de stock", readonly=True, copy=False
+    )
 
     attributes_json = fields.Text(string="Atributos JSON", default="[]")
     pictures_json = fields.Text(string="Imágenes JSON", default="[]")
@@ -86,12 +90,49 @@ class MarketplacePublication(models.Model):
         "Ya existe una publicación de este producto para esta cuenta.",
     )
 
-    @api.depends("product_tmpl_id.qty_available", "stock_reserve_qty")
+    @api.depends("product_tmpl_id.qty_available", "stock_reserve_qty", "account_id.company_id")
     def _compute_effective_qty(self):
         for publication in self:
             reserve = max(0.0, publication.stock_reserve_qty or 0.0)
-            available = publication.product_tmpl_id.qty_available if publication.product_tmpl_id else 0.0
+            product = publication.product_tmpl_id
+            if product and publication.account_id.company_id:
+                product = product.with_company(publication.account_id.company_id)
+            available = product.qty_available if product else 0.0
             publication.effective_qty = int(max(0.0, available - reserve))
+
+    def _stock_variant_mappings(self):
+        self.ensure_one()
+        return self.env["marketplace.product.mapping"].search(
+            [
+                ("publication_id", "=", self.id),
+                ("active", "=", True),
+                ("external_variant_id", "!=", False),
+            ]
+        )
+
+    def _stock_quantity(self, mapping=None):
+        self.ensure_one()
+        if not mapping:
+            return int(self.effective_qty or 0)
+        if mapping.publication_id != self or not mapping.product_id:
+            raise UserError("El mapping no corresponde a la publicación o no tiene variante Odoo.")
+        product = mapping.product_id.with_company(self.account_id.company_id)
+        return int(max(0.0, product.qty_available))
+
+    @api.model
+    def cron_enqueue_stock_sync(self):
+        publications = self.search(
+            [
+                ("external_id", "!=", False),
+                ("account_id.active", "=", True),
+                ("account_id.sync_stock", "=", True),
+            ],
+            limit=100,
+            order="id asc",
+        )
+        service = self.env["marketplace.publication.service"]
+        for publication in publications:
+            service.enqueue(publication, "update_stock")
 
     def name_get(self):
         result = []

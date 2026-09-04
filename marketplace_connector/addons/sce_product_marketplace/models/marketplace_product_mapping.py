@@ -21,6 +21,10 @@ class MarketplaceProductMapping(models.Model):
     external_variant_id = fields.Char(string="ID variante externo", index=True)
     sku = fields.Char(string="SKU", index=True)
     active = fields.Boolean(default=True)
+    last_stock_sent = fields.Integer(string="Último stock enviado", readonly=True, copy=False)
+    last_stock_sync_at = fields.Datetime(
+        string="Última sincronización de stock", readonly=True, copy=False
+    )
 
     _mapping_external_unique = models.Constraint(
         "UNIQUE(account_id, external_id, external_variant_id)",
