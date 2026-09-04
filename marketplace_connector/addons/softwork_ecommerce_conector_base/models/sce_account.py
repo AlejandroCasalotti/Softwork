@@ -597,9 +597,11 @@ class SceAccount(models.Model):
         if self.access_token:
             try:
                 from ..services.provider_factory import ProviderFactory
+                from odoo.addons.sce_connector_ml.services.catalog_reader import MercadoLibreCatalogReader
+
                 provider = ProviderFactory.get_provider(self)
-                data = provider._request("GET", "/users/me/items/search", with_auth=True, params={"limit": 1})
-                total = data.get("paging", {}).get("total", 0) if isinstance(data, dict) else 0
+                catalog = MercadoLibreCatalogReader(provider).list_item_ids(offset=0, limit=1)
+                total = catalog["paging"].get("total", 0)
                 add_test("MercadoLibre Items", "success", f"Se encontraron {total} publicaciones en su cuenta de MercadoLibre")
             except Exception as err:
                 add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err), action_type="reconnect")
