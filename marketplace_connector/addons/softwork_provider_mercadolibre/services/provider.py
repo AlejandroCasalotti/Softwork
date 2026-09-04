@@ -38,6 +38,9 @@ class MercadoLibreExternalProvider(IProvider):
     def health(self):
         return self._delegate.health()
 
+    def get_authenticated_user_id(self):
+        return self._delegate.get_authenticated_user_id()
+
     def publish_product(self, payload):
         return self._delegate.publish_product(payload)
 

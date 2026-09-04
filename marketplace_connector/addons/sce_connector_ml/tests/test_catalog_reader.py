@@ -6,6 +6,9 @@ from odoo.exceptions import UserError
 from ..services.catalog_reader import MercadoLibreCatalogReader
 from ..services.ml_provider import MercadoLibreProvider
 from ..services.provider import MercadoLibreExternalProvider
+from odoo.addons.softwork_provider_mercadolibre.services.provider import (
+    MercadoLibreExternalProvider as AlternateMercadoLibreExternalProvider,
+)
 
 
 def item(item_id="MLA1", sku=None, seller_custom_field=None, variations=None):
@@ -242,6 +245,14 @@ class MercadoLibreProviderCatalogContractTests(unittest.TestCase):
         wrapper.get_item("MLA1", params={"include_attributes": "all"})
         wrapper._delegate.list_item_ids.assert_called_once_with("555", offset=0, limit=100, scroll_id=None)
         wrapper._delegate.get_item.assert_called_once_with("MLA1", params={"include_attributes": "all"})
+
+    def test_alternate_external_wrapper_delegates_authenticated_user_id(self):
+        wrapper = AlternateMercadoLibreExternalProvider(MagicMock(), self.account)
+        wrapper._delegate = MagicMock()
+        wrapper._delegate.get_authenticated_user_id.return_value = "555"
+
+        self.assertEqual(wrapper.get_authenticated_user_id(), "555")
+        wrapper._delegate.get_authenticated_user_id.assert_called_once_with()
 
 
 if __name__ == "__main__":
