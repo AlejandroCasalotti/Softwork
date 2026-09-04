@@ -246,13 +246,37 @@ class MercadoLibreProviderCatalogContractTests(unittest.TestCase):
         wrapper._delegate.list_item_ids.assert_called_once_with("555", offset=0, limit=100, scroll_id=None)
         wrapper._delegate.get_item.assert_called_once_with("MLA1", params={"include_attributes": "all"})
 
-    def test_alternate_external_wrapper_delegates_authenticated_user_id(self):
+    def test_alternate_external_wrapper_delegates_catalog_operations(self):
         wrapper = AlternateMercadoLibreExternalProvider(MagicMock(), self.account)
         wrapper._delegate = MagicMock()
-        wrapper._delegate.get_authenticated_user_id.return_value = "555"
+        user_id = "555"
+        list_response = {"results": ["MLA1"], "paging": {"total": 1}}
+        item_response = {"item": {"id": "MLA1"}}
+        wrapper._delegate.get_authenticated_user_id.return_value = user_id
+        wrapper._delegate.list_item_ids.return_value = list_response
+        wrapper._delegate.get_item.return_value = item_response
 
-        self.assertEqual(wrapper.get_authenticated_user_id(), "555")
+        self.assertEqual(wrapper.get_authenticated_user_id(), user_id)
+        self.assertIs(
+            wrapper.list_item_ids(user_id, offset=10, limit=50, scroll_id="scan-1"),
+            list_response,
+        )
+        self.assertIs(wrapper.get_item("MLA1"), item_response)
+        self.assertIs(
+            wrapper.get_item("MLA1", params={"include_attributes": "all"}),
+            item_response,
+        )
         wrapper._delegate.get_authenticated_user_id.assert_called_once_with()
+        wrapper._delegate.list_item_ids.assert_called_once_with(
+            user_id, offset=10, limit=50, scroll_id="scan-1"
+        )
+        self.assertEqual(
+            wrapper._delegate.get_item.call_args_list,
+            [
+                unittest.mock.call("MLA1", params=None),
+                unittest.mock.call("MLA1", params={"include_attributes": "all"}),
+            ],
+        )
 
 
 if __name__ == "__main__":
