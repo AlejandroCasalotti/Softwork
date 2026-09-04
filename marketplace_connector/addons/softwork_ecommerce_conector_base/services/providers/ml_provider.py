@@ -293,6 +293,8 @@ class MercadoLibreProvider(IProvider):
             }
             if variation.get("seller_custom_field"):
                 normalized["seller_custom_field"] = str(variation["seller_custom_field"])
+            if variation.get("attributes"):
+                normalized["attributes"] = variation.get("attributes")
             if normalized["price"] <= 0:
                 normalized.pop("price")
             normalized_variations.append(normalized)

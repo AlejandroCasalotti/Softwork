@@ -1,13 +1,37 @@
 # -*- coding: utf-8 -*-
 import json
+import logging
 
 from odoo import fields, models
 from odoo.exceptions import UserError
 
 
+_logger = logging.getLogger(__name__)
+
+
 class MarketplacePublicationService(models.AbstractModel):
     _name = "marketplace.publication.service"
     _description = "Servicio genérico de publicaciones en marketplaces"
+
+    def _get_category_seller_sku_info(self, account, category_id):
+        """Return SELLER_SKU category metadata without blocking publication."""
+        if not category_id:
+            return None
+        try:
+            provider = self.env["sce.provider.factory"].get_provider(account)
+            response = provider.get_category_attributes(category_id=category_id)
+            if not isinstance(response, dict) or not response.get("ok"):
+                return None
+            for attr in response.get("items", []):
+                if isinstance(attr, dict) and attr.get("id") == "SELLER_SKU":
+                    return attr
+        except Exception as exc:
+            _logger.warning(
+                "Error consultando SELLER_SKU para categoría %s: %s",
+                category_id,
+                exc,
+            )
+        return None
 
     def _build_payload(self, publication):
         def load_json(value, default):
@@ -25,6 +49,14 @@ class MarketplacePublicationService(models.AbstractModel):
         provider_data = load_json(publication.provider_data_json, {})
         if not isinstance(provider_data, dict):
             provider_data = {}
+
+        seller_sku_info = None
+        category_id = publication.category_ref or ""
+        if category_id:
+            seller_sku_info = self._get_category_seller_sku_info(
+                publication.account_id,
+                category_id.strip()
+            )
 
         payload = {
             "publication_id": publication.id,
@@ -46,7 +78,22 @@ class MarketplacePublicationService(models.AbstractModel):
             "sale_terms": load_json(publication.sale_terms_json, []),
             "provider_data": provider_data,
         }
+
         variants = publication.product_tmpl_id.product_variant_ids.filtered("active")
+        if len(variants) == 1 and seller_sku_info:
+            variant = variants[0]
+            if variant.default_code:
+                existing_seller_sku = any(
+                    a.get("id") == "SELLER_SKU"
+                    for a in payload["attributes"]
+                    if isinstance(a, dict)
+                )
+                if not existing_seller_sku:
+                    payload["attributes"].append({
+                        "id": "SELLER_SKU",
+                        "value_name": variant.default_code
+                    })
+
         if len(variants) > 1:
             target_uom = publication.price_uom_id or publication.product_tmpl_id.uom_id
             try:
@@ -57,9 +104,16 @@ class MarketplacePublicationService(models.AbstractModel):
                 )
             except Exception:
                 uom_factor = 1.0
+
             payload["variations"] = [
                 {
                     "seller_custom_field": variant.default_code or False,
+                    "attributes": [
+                        {
+                            "id": "SELLER_SKU",
+                            "value_name": variant.default_code
+                        }
+                    ] if (seller_sku_info and seller_sku_info.get("allow_variations") and variant.default_code) else [],
                     "available_quantity": int(max(0.0, variant.qty_available)),
                     "price": float((variant.lst_price or publication.price) * uom_factor),
                     "attribute_combinations": [

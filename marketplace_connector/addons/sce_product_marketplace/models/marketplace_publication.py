@@ -190,12 +190,23 @@ class MarketplacePublication(models.Model):
             if not isinstance(variation, dict) or not variation.get("id"):
                 continue
             variation_id = str(variation["id"])
-            sku = str(
-                variation.get("seller_custom_field")
-                or variation.get("sku")
-                or variation.get("seller_sku")
-                or ""
-            ).strip()
+            sku = ""
+            if variation.get("attributes"):
+                for attr in variation["attributes"]:
+                    if (
+                        isinstance(attr, dict)
+                        and attr.get("id") == "SELLER_SKU"
+                        and attr.get("value_name")
+                    ):
+                        sku = str(attr["value_name"]).strip()
+                        break
+            if not sku:
+                sku = str(
+                    variation.get("seller_custom_field")
+                    or variation.get("sku")
+                    or variation.get("seller_sku")
+                    or ""
+                ).strip()
             product = variant_model.search(
                 [
                     ("product_tmpl_id", "=", self.product_tmpl_id.id),
