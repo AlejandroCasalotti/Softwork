@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-from types import SimpleNamespace
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from odoo.exceptions import UserError
 
@@ -18,6 +17,42 @@ from odoo.addons.softwork_provider_mercadolibre.services.provider import (
 from ..models.marketplace_publication import MarketplacePublication
 from ..models.sce_job_marketplace import SceMarketplaceJob
 from ..services.publication_service import MarketplacePublicationService
+
+
+class _CronConfig:
+    def __init__(self):
+        self.values = {}
+
+    def sudo(self):
+        return self
+
+    def get_param(self, key, default=None):
+        return self.values.get(key, default)
+
+    def set_param(self, key, value):
+        self.values[key] = str(value)
+
+
+class _CronRecordset(list):
+    @property
+    def ids(self):
+        return [record.id for record in self]
+
+
+class _CronPublicationModel:
+    def __init__(self, ids, config, service):
+        self.records = [MagicMock(id=record_id) for record_id in ids]
+        self._STOCK_CRON_CURSOR_PARAM = MarketplacePublication._STOCK_CRON_CURSOR_PARAM
+        self.env = {
+            "ir.config_parameter": config,
+            "marketplace.publication.service": service,
+        }
+        self.search_calls = []
+
+    def search(self, domain, limit, order):
+        self.search_calls.append((domain, limit, order))
+        last_id = next(value for field, operator, value in domain if field == "id" and operator == ">")
+        return _CronRecordset([record for record in self.records if record.id > last_id][:limit])
 
 
 class MercadoLibreStockProviderTests(unittest.TestCase):
@@ -206,15 +241,71 @@ class MarketplaceStockSyncTests(unittest.TestCase):
         product.with_company.assert_called_once_with(company)
 
     def test_stock_cron_enqueues_without_calling_provider(self):
-        model = MagicMock()
-        publication = MagicMock()
-        model.search.return_value = [publication]
+        config = _CronConfig()
         service = MagicMock()
-        model.env.__getitem__.return_value = service
+        model = _CronPublicationModel([1], config, service)
 
         MarketplacePublication.cron_enqueue_stock_sync(model)
 
-        service.enqueue.assert_called_once_with(publication, "update_stock")
+        service.enqueue.assert_called_once_with(model.records[0], "update_stock")
+
+
+class MarketplaceStockCronPaginationTests(unittest.TestCase):
+    def setUp(self):
+        self.config = _CronConfig()
+        self.service = MagicMock()
+
+    def _run(self, ids):
+        model = _CronPublicationModel(ids, self.config, self.service)
+        MarketplacePublication.cron_enqueue_stock_sync(model)
+        return model
+
+    def test_first_page_uses_id_ascending_and_limit_100(self):
+        model = self._run(range(1, 251))
+
+        self.assertEqual([call.args[0].id for call in self.service.enqueue.call_args_list], list(range(1, 101)))
+        domain, limit, order = model.search_calls[0]
+        self.assertIn(("id", ">", 0), domain)
+        self.assertEqual(limit, 100)
+        self.assertEqual(order, "id asc")
+
+    def test_catalog_of_250_is_processed_in_three_pages_then_rolls_over(self):
+        pages = []
+        for _index in range(3):
+            self.service.reset_mock()
+            self._run(range(1, 251))
+            pages.append([call.args[0].id for call in self.service.enqueue.call_args_list])
+
+        self.assertEqual(pages, [list(range(1, 101)), list(range(101, 201)), list(range(201, 251))])
+        self.assertEqual(self.config.values[MarketplacePublication._STOCK_CRON_CURSOR_PARAM], "250")
+
+        self.service.reset_mock()
+        model = self._run(range(1, 251))
+        self.assertEqual([call.args[0].id for call in self.service.enqueue.call_args_list], list(range(1, 101)))
+        self.assertEqual(len(model.search_calls), 2)
+        self.assertIn(("id", ">", 250), model.search_calls[0][0])
+        self.assertIn(("id", ">", 0), model.search_calls[1][0])
+
+    def test_new_publication_is_reached_before_rollover(self):
+        self.config.values[MarketplacePublication._STOCK_CRON_CURSOR_PARAM] = "200"
+
+        self._run(list(range(1, 251)) + [251])
+
+        self.assertEqual(
+            [call.args[0].id for call in self.service.enqueue.call_args_list],
+            list(range(201, 252)),
+        )
+
+    def test_deleted_or_ineligible_ids_do_not_break_cursor_progression(self):
+        self.config.values[MarketplacePublication._STOCK_CRON_CURSOR_PARAM] = "100"
+
+        self._run(list(range(1, 101)) + list(range(201, 251)))
+
+        self.assertEqual(
+            [call.args[0].id for call in self.service.enqueue.call_args_list],
+            list(range(201, 251)),
+        )
+        self.assertEqual(self.config.values[MarketplacePublication._STOCK_CRON_CURSOR_PARAM], "250")
 
 
 class MarketplaceStockJobTests(unittest.TestCase):

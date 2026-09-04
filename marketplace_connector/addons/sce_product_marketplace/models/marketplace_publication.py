@@ -11,6 +11,8 @@ class MarketplacePublication(models.Model):
     _inherit = ["mail.thread", "mail.activity.mixin"]
     _order = "create_date desc"
 
+    _STOCK_CRON_CURSOR_PARAM = "sce.marketplace.stock_cron_last_publication_id"
+
     # Relación
     product_tmpl_id = fields.Many2one(
         "product.template", string="Producto", required=True, ondelete="cascade", index=True
@@ -121,15 +123,22 @@ class MarketplacePublication(models.Model):
 
     @api.model
     def cron_enqueue_stock_sync(self):
-        publications = self.search(
-            [
-                ("external_id", "!=", False),
-                ("account_id.active", "=", True),
-                ("account_id.sync_stock", "=", True),
-            ],
-            limit=100,
-            order="id asc",
-        )
+        config = self.env["ir.config_parameter"].sudo()
+        try:
+            last_id = max(0, int(config.get_param(self._STOCK_CRON_CURSOR_PARAM, "0") or 0))
+        except (TypeError, ValueError):
+            last_id = 0
+        domain = [
+            ("external_id", "!=", False),
+            ("account_id.active", "=", True),
+            ("account_id.sync_stock", "=", True),
+        ]
+        publications = self.search(domain + [("id", ">", last_id)], limit=100, order="id asc")
+        if not publications and last_id:
+            last_id = 0
+            publications = self.search(domain + [("id", ">", last_id)], limit=100, order="id asc")
+        if publications:
+            config.set_param(self._STOCK_CRON_CURSOR_PARAM, max(publications.ids))
         service = self.env["marketplace.publication.service"]
         for publication in publications:
             service.enqueue(publication, "update_stock")
