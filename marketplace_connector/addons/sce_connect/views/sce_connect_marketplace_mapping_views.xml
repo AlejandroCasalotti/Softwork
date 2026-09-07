@@ -28,13 +28,14 @@
                         <group string="Origen Odoo externo">
                             <field name="tenant_id"/>
                             <field name="external_connection_id" domain="[('tenant_id', '=', tenant_id)]"/>
-                            <field name="external_product_mapping_id"/>
+                            <field name="external_product_mapping_id"
+                                domain="[('external_connection_id', '=', external_connection_id)]"/>
                         </group>
                         <group string="Identidad Marketplace">
                             <field name="marketplace_account_id" domain="[('provider_type', '=', 'mercadolibre')]"/>
                             <field name="marketplace_item_id"/>
                             <field name="marketplace_variation_id"/>
-                            <field name="sku"/>
+                            <field name="sku" readonly="1"/>
                         </group>
                     </group>
                     <group>

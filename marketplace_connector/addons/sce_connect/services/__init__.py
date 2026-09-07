@@ -10,3 +10,4 @@ from . import mercadolibre_transport
 from . import mercadolibre_oauth
 from . import mercadolibre_credential_resolver
 from . import remote_company_context
+from . import connect_marketplace_mapping_service
