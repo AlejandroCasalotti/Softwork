@@ -1,7 +1,11 @@
+import inspect
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+from odoo.exceptions import UserError
+
+from ..models.sce_external_connection import SceExternalConnection
 from ..services.errors import ApiError, AuthenticationError, NetworkError, PermissionError
 from ..services.odoo_external_product_service import OdooExternalProductService
 
@@ -197,6 +201,76 @@ class OdooExternalProductServiceTests(unittest.TestCase):
         self.assertEqual(len(mapping_model.records), 1)
 
     @patch("odoo.addons.sce_connect.services.odoo_external_product_service.ConnectionService")
+    def test_contexto_remoto_se_aplica_una_vez_a_templates_y_variantes(self, connection_service_class):
+        self._configure_metadata(connection_service_class)
+        remote_context = {"company_id": 10, "allowed_company_ids": [10]}
+        connection_service_class.return_value.remote_product_context.return_value = remote_context
+        connection_service_class.return_value.search_read.side_effect = [
+            [template_row(1)],
+            [variant_row(2, tmpl_external_id=1)],
+        ]
+        service, _connection = self._service()
+
+        service.sync_products(full=True)
+
+        calls = connection_service_class.return_value.search_read.call_args_list
+        self.assertEqual(calls[0].args[0], OdooExternalProductService.TEMPLATE_MODEL)
+        self.assertIs(calls[0].kwargs["context"], remote_context)
+        self.assertEqual(calls[1].args[0], OdooExternalProductService.VARIANT_MODEL)
+        self.assertIs(calls[1].kwargs["context"], remote_context)
+        connection_service_class.return_value.remote_product_context.assert_called_once_with()
+        self.assertEqual(remote_context, {"company_id": 10, "allowed_company_ids": [10]})
+
+    @patch("odoo.addons.sce_connect.services.odoo_external_product_service.ConnectionService")
+    def test_resultado_informa_templates_variantes_archivados_y_paginas(self, connection_service_class):
+        self._configure_metadata(connection_service_class)
+        connection_service_class.return_value.remote_product_context.return_value = None
+        connection_service_class.return_value.search_read.side_effect = [
+            [template_row(1, active=False)],
+            [variant_row(2, tmpl_external_id=1, active=False)],
+        ]
+        service, _connection = self._service()
+
+        summary = service.sync_products(full=True)
+
+        self.assertEqual(summary["templates_processed"], 1)
+        self.assertEqual(summary["variants_processed"], 1)
+        self.assertEqual(summary["mappings_archived"], 2)
+        self.assertEqual(summary["template_pages"], 1)
+        self.assertEqual(summary["variant_pages"], 1)
+        mappings = service.env["sce.external.product.mapping"].records
+        self.assertTrue(all(not record.values["active"] for record in mappings))
+
+    @patch("odoo.addons.sce_connect.services.odoo_external_product_service.ConnectionService")
+    def test_sin_empresa_remota_se_propaga_context_none(self, connection_service_class):
+        self._configure_metadata(connection_service_class)
+        connection_service_class.return_value.remote_product_context.return_value = None
+        connection_service_class.return_value.search_read.side_effect = [
+            [template_row(1)],
+            [variant_row(2, tmpl_external_id=1)],
+        ]
+        service, _connection = self._service()
+
+        service.sync_products(full=True)
+
+        for call in connection_service_class.return_value.search_read.call_args_list:
+            self.assertIsNone(call.kwargs["context"])
+
+    @patch("odoo.addons.sce_connect.services.odoo_external_product_service.ConnectionService")
+    def test_empresa_no_permitida_aborta_antes_de_leer_productos(self, connection_service_class):
+        self._configure_metadata(connection_service_class)
+        connection_service_class.return_value.remote_product_context.side_effect = PermissionError(
+            "La empresa remota configurada no está disponible para el usuario técnico de esta conexión."
+        )
+        service, connection = self._service()
+
+        with self.assertRaises(PermissionError):
+            service.sync_products(full=True)
+
+        connection_service_class.return_value.search_read.assert_not_called()
+        connection.sudo().write.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.odoo_external_product_service.ConnectionService")
     def test_campo_remoto_inexistente_no_rompe_el_sync(self, connection_service_class):
         partial_template_metadata = dict(TEMPLATE_METADATA)
         del partial_template_metadata["description_sale"]
@@ -286,6 +360,42 @@ class OdooExternalProductServiceTests(unittest.TestCase):
         self.assertEqual(summary["records_skipped"], 1)
         mapping_model = service.env["sce.external.product.mapping"]
         self.assertEqual(len(mapping_model.records), 0)
+
+    def test_action_manual_exige_conexion_validada(self):
+        connection = MagicMock()
+        connection.ensure_one.return_value = connection
+        connection.state = "draft"
+
+        with self.assertRaises(UserError):
+            SceExternalConnection.action_sync_products(connection)
+
+    @patch("odoo.addons.sce_connect.models.sce_external_connection.OdooExternalProductService")
+    def test_action_manual_ejecuta_sync_y_muestra_resumen(self, service_class):
+        connection = MagicMock()
+        connection.ensure_one.return_value = connection
+        connection.state = "connected"
+        connection.env = MagicMock()
+        service_class.return_value.sync_products.return_value = {
+            "templates_processed": 2,
+            "variants_processed": 3,
+            "records_created": 4,
+            "records_updated": 1,
+            "mappings_archived": 1,
+        }
+
+        action = SceExternalConnection.action_sync_products(connection)
+
+        service_class.assert_called_once_with(connection, env=connection.env)
+        self.assertEqual(action["params"]["type"], "success")
+        self.assertIn("Templates: 2", action["params"]["message"])
+        self.assertIn("Variantes: 3", action["params"]["message"])
+
+    def test_proteccion_de_cambio_de_empresa_consulta_solo_mappings_activos(self):
+        source = inspect.getsource(SceExternalConnection.write)
+
+        self.assertIn('("external_connection_id", "=", connection.id)', source)
+        self.assertIn('("active", "=", True)', source)
+        self.assertIn("No se puede cambiar la empresa remota", source)
 
     # -- 3. Errores de red/API/permisos --------------------------------
 

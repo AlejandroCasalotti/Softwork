@@ -1,7 +1,8 @@
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 from ..services.connection_service import ConnectionService
+from ..services.odoo_external_product_service import OdooExternalProductService
 
 
 class SceExternalConnection(models.Model):
@@ -64,6 +65,24 @@ class SceExternalConnection(models.Model):
             if record.external_company_id < 0:
                 raise ValidationError("El ID de empresa remota debe ser un entero positivo.")
 
+    def write(self, vals):
+        if "external_company_id" in vals:
+            new_company_id = vals["external_company_id"] or False
+            for connection in self:
+                if connection.external_company_id == new_company_id:
+                    continue
+                active_mappings = self.env["sce.external.product.mapping"].search_count(
+                    [
+                        ("external_connection_id", "=", connection.id),
+                        ("active", "=", True),
+                    ]
+                )
+                if active_mappings:
+                    raise UserError(
+                        "No se puede cambiar la empresa remota mientras existan mappings de productos activos."
+                    )
+        return super().write(vals)
+
     def action_test_connection(self):
         for record in self:
             result = ConnectionService(record, env=self.env).test_connection()
@@ -94,6 +113,32 @@ class SceExternalConnection(models.Model):
             "params": {
                 "title": "Metadata recibida",
                 "message": f"Campos descubiertos: {len(result)}",
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    def action_sync_products(self):
+        self.ensure_one()
+        if self.state != "connected":
+            raise UserError("La conexión debe estar validada antes de sincronizar productos.")
+        summary = OdooExternalProductService(self, env=self.env).sync_products()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Sincronización de productos completada",
+                "message": (
+                    "Templates: %(templates)s | Variantes: %(variants)s | "
+                    "Mappings creados: %(created)s | actualizados: %(updated)s | "
+                    "archivados: %(archived)s"
+                ) % {
+                    "templates": summary["templates_processed"],
+                    "variants": summary["variants_processed"],
+                    "created": summary["records_created"],
+                    "updated": summary["records_updated"],
+                    "archived": summary["mappings_archived"],
+                },
                 "type": "success",
                 "sticky": False,
             },

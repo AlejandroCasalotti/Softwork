@@ -54,6 +54,7 @@ class OdooExternalProductService:
         self.env = env or connection.env
         self.connection_service = ConnectionService(connection, env=self.env, session=session)
         self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
+        self._page_counts = {}
 
     # -- Metadata -----------------------------------------------------
 
@@ -98,7 +99,7 @@ class OdooExternalProductService:
             )
             raise
 
-    def iter_records(self, model, fields, domain=None):
+    def iter_records(self, model, fields, domain=None, context=None):
         # offset/limit: deletes concurrentes en el externo durante el run pueden saltear registros (riesgo documentado, no resuelto).
         offset = 0
         while True:
@@ -110,23 +111,25 @@ class OdooExternalProductService:
                 offset=offset,
                 limit=self.batch_size,
                 order="id asc",
+                context=context,
             )
             if not batch:
                 return
+            self._page_counts[model] = self._page_counts.get(model, 0) + 1
             for record in batch:
                 yield record
             if len(batch) < self.batch_size:
                 return
             offset += self.batch_size
 
-    def list_templates(self, domain=None):
+    def list_templates(self, domain=None, context=None):
         available, missing = self._available_fields(self.TEMPLATE_MODEL, self.TEMPLATE_FIELDS)
-        records = list(self.iter_records(self.TEMPLATE_MODEL, available, domain=domain))
+        records = list(self.iter_records(self.TEMPLATE_MODEL, available, domain=domain, context=context))
         return records, missing
 
-    def list_variants(self, domain=None):
+    def list_variants(self, domain=None, context=None):
         available, missing = self._available_fields(self.VARIANT_MODEL, self.VARIANT_FIELDS)
-        records = list(self.iter_records(self.VARIANT_MODEL, available, domain=domain))
+        records = list(self.iter_records(self.VARIANT_MODEL, available, domain=domain, context=context))
         return records, missing
 
     # -- Mapping / idempotent upsert -------------------------------------
@@ -182,30 +185,50 @@ class OdooExternalProductService:
 
     def sync_products(self, full=False):
         self.connection.ensure_one()
+        remote_context = self.connection_service.remote_product_context()
         started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        self._page_counts = {}
         summary = {
             "records_read": 0,
             "records_created": 0,
             "records_updated": 0,
             "records_skipped": 0,
+            "templates_processed": 0,
+            "variants_processed": 0,
+            "mappings_archived": 0,
             "errors": [],
         }
         domain = []
         if not full and self.connection.last_product_sync:
             domain = [("write_date", ">", fields_datetime_to_str(self.connection.last_product_sync))]
 
+        _logger.info(
+            "Sync de productos iniciado tenant=%s connection=%s full=%s external_company_id=%s",
+            self.connection.tenant_id.id,
+            self.connection.id,
+            full,
+            self.connection.external_company_id or False,
+        )
+
         # Fetch completo antes de persistir: una falla repite el trabajo de páginas ya leídas de este run (limitación aceptada).
-        templates, missing_tmpl_fields = self._fetch_or_raise("productos", self.list_templates, domain=domain)
+        templates, missing_tmpl_fields = self._fetch_or_raise(
+            "productos", self.list_templates, domain=domain, context=remote_context
+        )
 
         template_mappings_by_external_id = {}
         for record in templates:
             summary["records_read"] += 1
+            summary["templates_processed"] += 1
             mapping, action = self._upsert_mapping(self.TEMPLATE_MODEL, record, missing_tmpl_fields)
             template_mappings_by_external_id[record["id"]] = mapping
             summary["records_created" if action == "created" else "records_updated"] += 1
+            if not record.get("active", True):
+                summary["mappings_archived"] += 1
 
         # Las variantes se leen siempre, incluso si su template no cambió en este run (ver _resolve_parent_mapping).
-        variants, missing_variant_fields = self._fetch_or_raise("variantes", self.list_variants, domain=domain)
+        variants, missing_variant_fields = self._fetch_or_raise(
+            "variantes", self.list_variants, domain=domain, context=remote_context
+        )
         for record in variants:
             tmpl_ref = record.get("product_tmpl_id")
             tmpl_external_id = tmpl_ref[0] if isinstance(tmpl_ref, (list, tuple)) else tmpl_ref
@@ -218,24 +241,34 @@ class OdooExternalProductService:
                 )
                 continue
             summary["records_read"] += 1
+            summary["variants_processed"] += 1
             _mapping, action = self._upsert_mapping(
                 self.VARIANT_MODEL, record, missing_variant_fields, parent_mapping=parent_mapping
             )
             summary["records_created" if action == "created" else "records_updated"] += 1
+            if not record.get("active", True):
+                summary["mappings_archived"] += 1
 
         duration_ms = int((datetime.now(timezone.utc).replace(tzinfo=None) - started_at).total_seconds() * 1000)
         summary["duration_ms"] = duration_ms
+        summary["template_pages"] = self._page_counts.get(self.TEMPLATE_MODEL, 0)
+        summary["variant_pages"] = self._page_counts.get(self.VARIANT_MODEL, 0)
+        summary["checkpoint"] = started_at
         self.connection.sudo().write({"last_product_sync": started_at})
 
         _logger.info(
             "Sync de productos completado tenant=%s connection=%s batch_size=%s "
-            "records_read=%s created=%s updated=%s skipped=%s duration_ms=%s",
+            "templates=%s variants=%s template_pages=%s variant_pages=%s created=%s updated=%s archived=%s skipped=%s duration_ms=%s",
             self.connection.tenant_id.id,
             self.connection.id,
             self.batch_size,
-            summary["records_read"],
+            summary["templates_processed"],
+            summary["variants_processed"],
+            summary["template_pages"],
+            summary["variant_pages"],
             summary["records_created"],
             summary["records_updated"],
+            summary["mappings_archived"],
             summary["records_skipped"],
             duration_ms,
         )
