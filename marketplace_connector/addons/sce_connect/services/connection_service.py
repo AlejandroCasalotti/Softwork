@@ -67,18 +67,28 @@ class ConnectionService:
     def metadata(self, model):
         return self._adapter().metadata(model)
 
-    def read(self, model, ids, fields=None):
-        return self._adapter().read(model, ids, fields)
+    def read(self, model, ids, fields=None, context=None):
+        return self._adapter().read(model, ids, fields, context=context)
 
-    def search(self, model, domain=None, offset=0, limit=None, order=None):
+    def search(self, model, domain=None, offset=0, limit=None, order=None, context=None):
         return self._adapter().search(
-            model, domain=domain, offset=offset, limit=limit, order=order
+            model, domain=domain, offset=offset, limit=limit, order=order, context=context
         )
 
-    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None):
+    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None, context=None):
         return self._adapter().search_read(
-            model, domain=domain, fields=fields, offset=offset, limit=limit, order=order
+            model, domain=domain, fields=fields, offset=offset, limit=limit, order=order, context=context
         )
+
+    def remote_company_context(self):
+        context = self._adapter().current_user_context()
+        if not isinstance(context, dict):
+            raise ApiError("Odoo remoto devolvió un contexto de usuario inválido.")
+        return {
+            key: context[key]
+            for key in ("company_id", "allowed_company_ids")
+            if key in context
+        }
 
     def test_controlled_write(self):
         adapter = self._adapter()

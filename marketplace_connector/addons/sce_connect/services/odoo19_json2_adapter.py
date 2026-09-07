@@ -126,36 +126,57 @@ class Odoo19Json2Adapter(BaseOdooAdapter):
         except ValueError as error:
             raise ApiError("Odoo devolvió una respuesta JSON inválida.") from error
 
+    @staticmethod
+    def _add_context(params, context):
+        if context is None:
+            return params
+        if not isinstance(context, dict):
+            raise ConfigurationError("El contexto remoto debe ser un diccionario.")
+        params["context"] = dict(context)
+        return params
+
     def test_connection(self):
         checks = {}
         for model in self.DEFAULT_MODELS:
             checks[model] = self.search_read(model, fields=["id"], limit=1)
         return {"status": "connected", "database": self.database, "models": checks}
 
-    def read(self, model, ids, fields=None):
-        return self._call(model, "read", {"ids": ids, "fields": fields or []})
+    def read(self, model, ids, fields=None, context=None):
+        return self._call(
+            model,
+            "read",
+            self._add_context({"ids": ids, "fields": fields or []}, context),
+        )
 
-    def search(self, model, domain=None, offset=0, limit=None, order=None):
+    def search(self, model, domain=None, offset=0, limit=None, order=None, context=None):
         params = {"domain": domain or [], "offset": offset}
         if limit is not None:
             params["limit"] = limit
         if order:
             params["order"] = order
-        return self._call(model, "search", params)
+        return self._call(model, "search", self._add_context(params, context))
 
-    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None):
+    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None, context=None):
         params = {"domain": domain or [], "fields": fields or [], "offset": offset}
         if limit is not None:
             params["limit"] = limit
         if order:
             params["order"] = order
-        return self._call(model, "search_read", params)
+        return self._call(model, "search_read", self._add_context(params, context))
 
-    def create(self, model, values):
-        return self._call(model, "create", {"vals_list": values if isinstance(values, list) else [values]})
+    def create(self, model, values, context=None):
+        return self._call(
+            model,
+            "create",
+            self._add_context({"vals_list": values if isinstance(values, list) else [values]}, context),
+        )
 
-    def write(self, model, ids, values):
-        return self._call(model, "write", {"ids": ids, "vals": values})
+    def write(self, model, ids, values, context=None):
+        return self._call(
+            model,
+            "write",
+            self._add_context({"ids": ids, "vals": values}, context),
+        )
 
     def unlink(self, model, ids):
         if model not in self.ALLOWED_EXECUTE_METHODS:
@@ -169,3 +190,6 @@ class Odoo19Json2Adapter(BaseOdooAdapter):
 
     def metadata(self, model):
         return self._call(model, "fields_get", {"attributes": ["string", "type", "relation", "required", "readonly"]})
+
+    def current_user_context(self):
+        return self._call("res.users", "context_get", {})

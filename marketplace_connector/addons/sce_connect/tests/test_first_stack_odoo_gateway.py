@@ -62,6 +62,44 @@ class FirstStackOdooGatewayTests(unittest.TestCase):
             order="id asc",
         )
 
+    def test_current_user_context_delegates_without_credentials(self):
+        connection = MagicMock()
+        delegated = MagicMock()
+        delegated.remote_company_context.return_value = {"company_id": 7}
+        module = SimpleNamespace(ConnectionService=MagicMock(return_value=delegated))
+
+        with patch(
+            "odoo.addons.softwork_ecommerce_conector_base.services.odoo_external_connection_gateway.importlib.import_module",
+            return_value=module,
+        ):
+            gateway = OdooExternalConnectionGateway(connection)
+
+        self.assertEqual(gateway.current_user_context(), {"company_id": 7})
+        delegated.remote_company_context.assert_called_once_with()
+
+    def test_context_is_forwarded_only_when_explicit(self):
+        connection = MagicMock()
+        delegated = MagicMock()
+        module = SimpleNamespace(ConnectionService=MagicMock(return_value=delegated))
+
+        with patch(
+            "odoo.addons.softwork_ecommerce_conector_base.services.odoo_external_connection_gateway.importlib.import_module",
+            return_value=module,
+        ):
+            gateway = OdooExternalConnectionGateway(connection)
+
+        gateway.search_read("product.product", fields=["id"], context={"lang": "es_AR"})
+
+        delegated.search_read.assert_called_once_with(
+            "product.product",
+            domain=None,
+            fields=["id"],
+            offset=0,
+            limit=None,
+            order=None,
+            context={"lang": "es_AR"},
+        )
+
     def test_no_expone_operaciones_de_escritura(self):
         public_methods = {
             name for name in dir(OdooExternalConnectionGateway) if not name.startswith("_")

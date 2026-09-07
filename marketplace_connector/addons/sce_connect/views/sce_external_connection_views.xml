@@ -43,6 +43,7 @@
                             <field name="odoo_version"/>
                             <field name="api_type"/>
                             <field name="secret_id" domain="[('tenant_id', '=', tenant_id)]"/>
+                            <field name="external_company_id"/>
                             <field name="timeout_seconds"/>
                             <field name="last_test_at" readonly="1"/>
                             <field name="last_test_status" readonly="1"/>

@@ -7,23 +7,23 @@ class BaseOdooAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def read(self, model, ids, fields=None):
+    def read(self, model, ids, fields=None, context=None):
         raise NotImplementedError
 
     @abstractmethod
-    def search(self, model, domain=None, offset=0, limit=None, order=None):
+    def search(self, model, domain=None, offset=0, limit=None, order=None, context=None):
         raise NotImplementedError
 
     @abstractmethod
-    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None):
+    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None, context=None):
         raise NotImplementedError
 
     @abstractmethod
-    def create(self, model, values):
+    def create(self, model, values, context=None):
         raise NotImplementedError
 
     @abstractmethod
-    def write(self, model, ids, values):
+    def write(self, model, ids, values, context=None):
         raise NotImplementedError
 
     @abstractmethod
@@ -36,4 +36,8 @@ class BaseOdooAdapter(ABC):
 
     @abstractmethod
     def metadata(self, model):
+        raise NotImplementedError
+
+    @abstractmethod
+    def current_user_context(self):
         raise NotImplementedError

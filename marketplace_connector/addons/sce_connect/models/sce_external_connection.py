@@ -39,6 +39,10 @@ class SceExternalConnection(models.Model):
     timeout_seconds = fields.Integer(default=30, required=True)
     allow_insecure_http = fields.Boolean(default=False)
     allow_private_network = fields.Boolean(default=False)
+    external_company_id = fields.Integer(
+        string="ID empresa remota",
+        help="ID de res.company en el Odoo remoto asociado a esta conexión.",
+    )
     last_metadata_at = fields.Datetime(readonly=True)
     last_product_sync = fields.Datetime(readonly=True, help="Checkpoint incremental de sincronización de productos.")
 
@@ -53,6 +57,12 @@ class SceExternalConnection(models.Model):
         for record in self:
             if record.timeout_seconds <= 0:
                 raise ValidationError("El timeout debe ser mayor que cero.")
+
+    @api.constrains("external_company_id")
+    def _check_external_company_id(self):
+        for record in self:
+            if record.external_company_id < 0:
+                raise ValidationError("El ID de empresa remota debe ser un entero positivo.")
 
     def action_test_connection(self):
         for record in self:

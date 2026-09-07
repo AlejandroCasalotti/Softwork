@@ -26,15 +26,33 @@ class OdooExternalConnectionGateway:
     def metadata(self, model):
         return self._connection_service.metadata(model)
 
-    def read(self, model, ids, fields=None):
-        return self._connection_service.read(model, ids, fields)
+    def current_user_context(self):
+        return self._connection_service.remote_company_context()
 
-    def search(self, model, domain=None, offset=0, limit=None, order=None):
+    def read(self, model, ids, fields=None, context=None):
+        if context is None:
+            return self._connection_service.read(model, ids, fields)
+        return self._connection_service.read(model, ids, fields, context=context)
+
+    def search(self, model, domain=None, offset=0, limit=None, order=None, context=None):
+        if context is None:
+            return self._connection_service.search(
+                model, domain=domain, offset=offset, limit=limit, order=order
+            )
         return self._connection_service.search(
-            model, domain=domain, offset=offset, limit=limit, order=order
+            model, domain=domain, offset=offset, limit=limit, order=order, context=context
         )
 
-    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None):
+    def search_read(self, model, domain=None, fields=None, offset=0, limit=None, order=None, context=None):
+        if context is None:
+            return self._connection_service.search_read(
+                model,
+                domain=domain,
+                fields=fields,
+                offset=offset,
+                limit=limit,
+                order=order,
+            )
         return self._connection_service.search_read(
             model,
             domain=domain,
@@ -42,4 +60,5 @@ class OdooExternalConnectionGateway:
             offset=offset,
             limit=limit,
             order=order,
+            context=context,
         )
