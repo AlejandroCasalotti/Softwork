@@ -8,3 +8,4 @@ from . import odoo_external_product_service
 from . import oauth_state
 from . import mercadolibre_transport
 from . import mercadolibre_oauth
+from . import mercadolibre_credential_resolver

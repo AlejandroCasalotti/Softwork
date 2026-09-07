@@ -207,6 +207,7 @@ class MercadoLibreProviderCatalogContractTests(unittest.TestCase):
     def setUp(self):
         self.account = MagicMock()
         self.account.external_user_id = "555"
+        self.account._get_mercadolibre_external_user_id.return_value = "555"
         self.provider = MercadoLibreProvider(MagicMock(), self.account)
         self.provider._request = MagicMock()
 

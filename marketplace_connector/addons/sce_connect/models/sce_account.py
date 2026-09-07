@@ -37,3 +37,23 @@ class SceAccount(models.Model):
                 raise ValidationError(
                     "El vendedor MercadoLibre Connect no coincide con el usuario externo de la cuenta SCE."
                 )
+
+    def _uses_connect_mercadolibre_credentials(self):
+        self.ensure_one()
+        return bool(self.connect_mercadolibre_account_id)
+
+    def _get_mercadolibre_access_token(self):
+        self.ensure_one()
+        if not self._uses_connect_mercadolibre_credentials():
+            return self.access_token
+        from ..services.mercadolibre_credential_resolver import (
+            MercadoLibreConnectCredentialResolver,
+        )
+
+        return MercadoLibreConnectCredentialResolver(self.env, self).get_access_token()
+
+    def _get_mercadolibre_external_user_id(self):
+        self.ensure_one()
+        if self._uses_connect_mercadolibre_credentials():
+            return self.connect_mercadolibre_account_id.seller_user_id or False
+        return self.external_user_id

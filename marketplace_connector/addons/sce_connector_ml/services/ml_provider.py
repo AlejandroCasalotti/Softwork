@@ -40,8 +40,10 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
         )
 
     def get_authenticated_user_id(self):
-        if self.account.external_user_id:
-            return str(self.account.external_user_id)
+        user_id_getter = getattr(self.account, "_get_mercadolibre_external_user_id", None)
+        external_user_id = user_id_getter() if callable(user_id_getter) else self.account.external_user_id
+        if external_user_id:
+            return str(external_user_id)
         result = self.health()
         user_id = result.get("user_id") if isinstance(result, dict) else False
         if not user_id:
@@ -241,7 +243,9 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
 
     def get_orders(self, params=None):
         params = params or {}
-        seller_id = params.get("seller") or self.account.external_user_id
+        user_id_getter = getattr(self.account, "_get_mercadolibre_external_user_id", None)
+        external_user_id = user_id_getter() if callable(user_id_getter) else self.account.external_user_id
+        seller_id = params.get("seller") or external_user_id
         if not seller_id:
             seller_id = self._request("GET", "/users/me").get("id")
         query = {

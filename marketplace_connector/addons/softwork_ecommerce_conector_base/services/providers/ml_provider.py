@@ -88,7 +88,8 @@ class MercadoLibreProvider(IProvider):
             headers["Content-Type"] = "application/x-www-form-urlencoded"
 
         if with_auth:
-            token = self.account.access_token
+            token_getter = getattr(self.account, "_get_mercadolibre_access_token", None)
+            token = token_getter() if callable(token_getter) else self.account.access_token
             if not token:
                 raise UserError("No hay access token configurado en la cuenta.")
             headers["Authorization"] = f"Bearer {token}"
@@ -121,7 +122,15 @@ class MercadoLibreProvider(IProvider):
 
         elapsed_ms = int((time.monotonic() - started_at) * 1000)
 
-        if response.status_code in (401, 403) and with_auth and not _retried and self.account.refresh_token:
+        uses_connect_credentials = getattr(self.account, "_uses_connect_mercadolibre_credentials", None)
+        uses_connect_credentials = callable(uses_connect_credentials) and uses_connect_credentials()
+        if (
+            response.status_code in (401, 403)
+            and with_auth
+            and not _retried
+            and not uses_connect_credentials
+            and self.account.refresh_token
+        ):
             _logger.warning(
                 "ML auth %s en %s %s para account_id=%s. Intentando refresh token y retry único.",
                 response.status_code,
@@ -637,7 +646,9 @@ class MercadoLibreProvider(IProvider):
 
     def get_orders(self, params=None):
         params = params or {}
-        seller_id = params.get("seller") or self.account.external_user_id
+        user_id_getter = getattr(self.account, "_get_mercadolibre_external_user_id", None)
+        external_user_id = user_id_getter() if callable(user_id_getter) else self.account.external_user_id
+        seller_id = params.get("seller") or external_user_id
         if not seller_id:
             me = self._request("GET", "/users/me")
             seller_id = me.get("id")
