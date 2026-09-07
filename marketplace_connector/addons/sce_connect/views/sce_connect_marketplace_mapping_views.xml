@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_connect_marketplace_mapping_list" model="ir.ui.view">
+        <field name="name">sce.connect.marketplace.mapping.list</field>
+        <field name="model">sce.connect.marketplace.mapping</field>
+        <field name="arch" type="xml">
+            <list string="Connect Marketplace Mappings">
+                <field name="tenant_id"/>
+                <field name="external_connection_id"/>
+                <field name="external_product_mapping_id"/>
+                <field name="marketplace_account_id"/>
+                <field name="marketplace_item_id"/>
+                <field name="marketplace_variation_id"/>
+                <field name="sku"/>
+                <field name="mapping_status" widget="badge"/>
+                <field name="verified_at"/>
+                <field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_sce_connect_marketplace_mapping_form" model="ir.ui.view">
+        <field name="name">sce.connect.marketplace.mapping.form</field>
+        <field name="model">sce.connect.marketplace.mapping</field>
+        <field name="arch" type="xml">
+            <form string="Connect Marketplace Mapping">
+                <sheet>
+                    <group>
+                        <group string="Origen Odoo externo">
+                            <field name="tenant_id"/>
+                            <field name="external_connection_id" domain="[('tenant_id', '=', tenant_id)]"/>
+                            <field name="external_product_mapping_id"/>
+                        </group>
+                        <group string="Identidad Marketplace">
+                            <field name="marketplace_account_id" domain="[('provider_type', '=', 'mercadolibre')]"/>
+                            <field name="marketplace_item_id"/>
+                            <field name="marketplace_variation_id"/>
+                            <field name="sku"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="mapping_status"/>
+                        <field name="verified_at" readonly="1"/>
+                        <field name="active"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_sce_connect_marketplace_mapping" model="ir.actions.act_window">
+        <field name="name">Marketplace Mappings</field>
+        <field name="res_model">sce.connect.marketplace.mapping</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_sce_connect_marketplace_mapping" name="Marketplace Mappings"
+              parent="menu_sce_connect_root" action="action_sce_connect_marketplace_mapping"
+              sequence="30" groups="sce_connect.group_sce_connect_user"/>
+</odoo>

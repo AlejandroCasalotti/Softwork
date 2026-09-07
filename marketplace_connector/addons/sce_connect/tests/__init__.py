@@ -6,3 +6,4 @@ from . import test_first_stack_odoo_gateway
 from . import test_models_security
 from . import test_mercadolibre_transport
 from . import test_oauth_state
+from . import test_connect_marketplace_mapping

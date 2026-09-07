@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_account_form_connect_credentials" model="ir.ui.view">
+        <field name="name">sce.account.form.connect.credentials</field>
+        <field name="model">sce.account</field>
+        <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='external_user_id']" position="after">
+                <field name="connect_mercadolibre_account_id"
+                       domain="[('status', '=', 'connected')]"
+                       invisible="provider_type != 'mercadolibre'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
