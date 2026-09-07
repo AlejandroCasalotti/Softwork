@@ -90,6 +90,11 @@ class ConnectionService:
             if key in context
         }
 
+    def remote_product_context(self):
+        from .remote_company_context import RemoteCompanyContextResolver
+
+        return RemoteCompanyContextResolver(self.connection, self).resolve()
+
     def test_controlled_write(self):
         adapter = self._adapter()
         marker = f"[SCE CONNECT TEST] {datetime.now(timezone.utc).isoformat()}"

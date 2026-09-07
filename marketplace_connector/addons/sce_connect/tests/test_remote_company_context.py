@@ -2,12 +2,13 @@ import inspect
 import unittest
 from unittest.mock import Mock, patch
 
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 from ..models.sce_external_connection import SceExternalConnection
 from ..services.connection_service import ConnectionService
 from ..services.errors import ApiError, ConfigurationError
 from ..services.odoo19_json2_adapter import Odoo19Json2Adapter
+from ..services.remote_company_context import RemoteCompanyContextResolver
 from ..services.secret_storage import SecretStorage
 
 
@@ -166,6 +167,95 @@ class ConnectionServiceRemoteContextTests(unittest.TestCase):
             service.remote_company_context()
 
         self.assertNotIn("test-api-key", str(error.exception))
+
+
+class RemoteProductContextTests(unittest.TestCase):
+    def _connection(self, company_id=False):
+        return Mock(external_company_id=company_id)
+
+    def test_no_configured_company_returns_none_without_context_request(self):
+        service = Mock()
+
+        result = RemoteCompanyContextResolver(self._connection(), service).resolve()
+
+        self.assertIsNone(result)
+        service.remote_company_context.assert_not_called()
+
+    def test_allowed_current_company_builds_explicit_context(self):
+        service = Mock()
+        service.remote_company_context.return_value = {
+            "company_id": 10,
+            "allowed_company_ids": [10, 20],
+        }
+
+        result = RemoteCompanyContextResolver(self._connection(10), service).resolve()
+
+        self.assertEqual(result, {"company_id": 10, "allowed_company_ids": [10]})
+
+    def test_allowed_secondary_company_builds_explicit_context(self):
+        service = Mock()
+        service.remote_company_context.return_value = {
+            "company_id": 10,
+            "allowed_company_ids": [10, 20],
+        }
+
+        result = RemoteCompanyContextResolver(self._connection(20), service).resolve()
+
+        self.assertEqual(result, {"company_id": 20, "allowed_company_ids": [20]})
+
+    def test_allowed_companies_not_current_company_control_validation(self):
+        service = Mock()
+        service.remote_company_context.return_value = {
+            "company_id": 10,
+            "allowed_company_ids": [10, 20],
+        }
+
+        self.assertEqual(
+            RemoteCompanyContextResolver(self._connection(20), service).resolve()["company_id"],
+            20,
+        )
+
+    def test_unavailable_company_is_rejected_before_product_read(self):
+        service = Mock()
+        service.remote_company_context.return_value = {
+            "company_id": 10,
+            "allowed_company_ids": [10, 20],
+        }
+
+        with self.assertRaisesRegex(UserError, "empresa remota configurada") as error:
+            RemoteCompanyContextResolver(self._connection(30), service).resolve()
+
+        self.assertNotIn("secret", str(error.exception).lower())
+        self.assertNotIn("token", str(error.exception).lower())
+
+    def test_invalid_remote_context_is_rejected(self):
+        service = Mock()
+        service.remote_company_context.return_value = {"company_id": 10, "allowed_company_ids": "10"}
+
+        with self.assertRaises(ApiError):
+            RemoteCompanyContextResolver(self._connection(10), service).resolve()
+
+    @patch("odoo.addons.sce_connect.services.connection_service.Odoo19Json2Adapter")
+    @patch("odoo.addons.sce_connect.services.connection_service.SecretStorage")
+    def test_connection_service_delegates_to_resolver(self, storage_class, adapter_class):
+        storage_class.from_environment.return_value.encrypt.return_value = "encrypted"
+        connection = Mock()
+        connection.external_company_id = 20
+        connection.url = "https://example.com"
+        connection.database = "test-db"
+        connection.user = "bot@example.com"
+        connection.timeout_seconds = 30
+        connection.allow_insecure_http = False
+        connection.allow_private_network = False
+        connection.secret_id.with_context.return_value.get_value.return_value = "test-api-key"
+        adapter_class.return_value.current_user_context.return_value = {
+            "company_id": 10,
+            "allowed_company_ids": [10, 20],
+        }
+
+        result = ConnectionService(connection).remote_product_context()
+
+        self.assertEqual(result, {"company_id": 20, "allowed_company_ids": [20]})
 
 
 class ExternalCompanyIdentityTests(unittest.TestCase):
