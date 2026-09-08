@@ -14,10 +14,8 @@
     - Certificado AFIP configurado
     ''',
     'author': 'SW Sistemas',
+    'license': 'LGPL-3',
     'depends': ['base'],
-    'external_dependencies': {
-        'python': ['pyafipws', 'cryptography'],
-    },
     'data': [
         'views/res_partner_view.xml',
         'views/res_company_view.xml',
