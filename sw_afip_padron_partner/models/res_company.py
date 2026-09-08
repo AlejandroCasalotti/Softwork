@@ -35,7 +35,11 @@ class ResCompany(models.Model):
         return normalized if len(normalized) == 11 else ''
 
     def _is_pyafipws_available(self):
-        return importlib.util.find_spec('pyafipws.padron') is not None
+        try:
+            return importlib.util.find_spec('pyafipws.padron') is not None
+        except ModuleNotFoundError:
+            # find_spec raises instead of returning None when the parent package is missing
+            return False
 
     def _decode_pem_binary(self, binary_value, label):
         try:
