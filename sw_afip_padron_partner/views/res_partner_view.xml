@@ -16,7 +16,11 @@
                             string="🔄 Actualizar desde AFIP"
                             type="object"
                             class="oe_highlight oe_inline"
-                            invisible="not x_afip_cuit"/>
+                            invisible="not x_afip_cuit"
+                            readonly="not x_afip_can_update"/>
+                </group>
+                <group col="1" invisible="x_afip_can_update">
+                    <field name="x_afip_update_block_reason" readonly="1" nolabel="1"/>
                 </group>
             </xpath>
             
@@ -27,6 +31,7 @@
                     <field name="x_imp_iva_padron" readonly="1"/>
                     <field name="x_imp_ganancias_padron" readonly="1"/>
                     <field name="x_last_update_padron" readonly="1"/>
+                    <field name="x_afip_last_result" readonly="1"/>
                 </group>
             </xpath>
         </field>
