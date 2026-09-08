@@ -5,9 +5,15 @@
         <field name="model">res.company</field>
         <field name="inherit_id" ref="base.view_company_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='name']" position="after">
+            <xpath expr="//sheet" position="inside">
                 <group string="Configuración AFIP" col="2">
                     <field name="afip_environment"/>
+                    <field name="afip_crt"/>
+                    <field name="afip_key"/>
+                    <button name="action_test_afip_connection"
+                            string="Probar conexión AFIP"
+                            type="object"
+                            class="oe_highlight"/>
                 </group>
             </xpath>
         </field>
