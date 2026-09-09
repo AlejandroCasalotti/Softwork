@@ -231,9 +231,12 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
         price = self._to_float(payload.get("price"), 0.0)
         if price <= 0:
             raise UserError("MercadoLibre: el precio debe ser mayor a cero.")
+        variation_prices = payload.get("variation_prices")
         variation_id = payload.get("variation_id") or payload.get("external_variant_id")
         request_payload = {"price": price}
-        if variation_id:
+        if variation_prices:
+            request_payload = {"variations": variation_prices}
+        elif variation_id:
             request_payload = {"variations": [{"id": variation_id, "price": price}]}
         data = self._request("PUT", f"/items/{item_id}", payload=request_payload)
         return self._ok(

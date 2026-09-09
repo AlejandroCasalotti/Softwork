@@ -54,13 +54,20 @@ def mapping(item_id="ML123", variation_id=False):
     )
 
 
+class MappingSet(list):
+    def search(self, _domain):
+        return self
+
+
 class ConnectPriceServiceTests(unittest.TestCase):
     def setUp(self):
         self.service = MagicMock(spec=SceConnectPriceService)
-        self.service.env = {"sce.job": MagicMock()}
+        self.service.env = {"sce.job": MagicMock(), "sce.connect.marketplace.mapping": MappingSet()}
         self.service.SOURCE_FIELD = SceConnectPriceService.SOURCE_FIELD
         self.service._validate_mapping = SceConnectPriceService._validate_mapping.__get__(self.service)
         self.service._remote_price = SceConnectPriceService._remote_price.__get__(self.service)
+        self.service._read_item = SceConnectPriceService._read_item.__get__(self.service)
+        self.service._item_mappings = SceConnectPriceService._item_mappings.__get__(self.service)
         self.service._provider_payload = SceConnectPriceService._provider_payload.__get__(self.service)
         self.service.sync_mapping = SceConnectPriceService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectPriceService.enqueue_mapping.__get__(self.service)
@@ -74,6 +81,7 @@ class ConnectPriceServiceTests(unittest.TestCase):
         connection_service_cls.return_value.metadata.return_value = {"id": {}, "list_price": {}}
         connection_service_cls.return_value.search_read.return_value = [{"id": 321, "list_price": 15000}]
         factory.get_provider.return_value.update_price.return_value = {"ok": True}
+        factory.get_provider.return_value.get_item.return_value = {"item": {"id": "ML123"}}
 
         result = self.service.sync_mapping(record)
 
@@ -95,12 +103,77 @@ class ConnectPriceServiceTests(unittest.TestCase):
         connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
         connection_service_cls.return_value.search_read.return_value = [{"list_price": 15000.5}]
         factory.get_provider.return_value.update_price.return_value = {"ok": True}
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "ML456"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].append(record)
 
         self.service.sync_mapping(record)
 
         factory.get_provider.return_value.update_price.assert_called_once_with(
-            {"item_id": "ML123", "variation_id": "ML456", "price": 15000.5}
+            {"item_id": "ML123", "variation_prices": [{"id": "ML456", "price": 15000.5}]}
         )
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_variant_price_sends_all_variations_with_common_price(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B", "C")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.side_effect = [
+            [{"list_price": 15000}], [{"list_price": 15000}], [{"list_price": 15000}]
+        ]
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}, {"id": "C"}]}
+        }
+        factory.get_provider.return_value.update_price.return_value = {"ok": True}
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_called_once_with(
+            {
+                "item_id": "ML123",
+                "variation_prices": [
+                    {"id": "A", "price": 15000.0},
+                    {"id": "B", "price": 15000.0},
+                    {"id": "C", "price": 15000.0},
+                ],
+            }
+        )
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_variant_different_prices_are_non_retryable_validation_error(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B", "C")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.side_effect = [
+            [{"list_price": 10000}], [{"list_price": 12000}], [{"list_price": 10000}]
+        ]
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}, {"id": "C"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        with self.assertRaisesRegex(UserError, "precio común"):
+            self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_price_automation_is_controlled_error_without_update(self, connection_service_cls, factory):
+        record = mapping()
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "price_automation_active": True}
+        }
+
+        with self.assertRaisesRegex(UserError, "PRICE_AUTOMATION_ACTIVE"):
+            self.service.sync_mapping(record)
+
+        factory.get_provider.return_value.update_price.assert_not_called()
 
     def test_decimal_calculator_rejects_invalid_prices(self):
         self.assertEqual(SceConnectPriceService.calculate_price("15000.505"), self.service.calculate_price("15000.505"))
@@ -118,11 +191,12 @@ class ConnectPriceServiceTests(unittest.TestCase):
         connection_service_cls.return_value.remote_product_context.return_value = None
         connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
         connection_service_cls.return_value.search_read.return_value = [{"list_price": 15000}]
+        factory.get_provider.return_value.get_item.return_value = {"item": {"id": "ML123"}}
 
         result = self.service.sync_mapping(record)
 
         self.assertTrue(result["skipped"])
-        factory.get_provider.assert_not_called()
+        factory.get_provider.return_value.update_price.assert_not_called()
 
     def test_missing_item_is_rejected(self):
         with self.assertRaises(UserError):
@@ -135,6 +209,7 @@ class ConnectPriceServiceTests(unittest.TestCase):
         connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
         connection_service_cls.return_value.search_read.return_value = [{"list_price": 0}]
         provider = MagicMock()
+        provider.get_item.return_value = {"item": {"id": "ML123"}}
         with patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory.get_provider", return_value=provider):
             with self.assertRaises(UserError):
                 self.service.sync_mapping(record)

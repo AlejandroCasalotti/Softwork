@@ -62,20 +62,72 @@ class SceConnectPriceService(models.AbstractModel):
             payload["variation_id"] = mapping.marketplace_variation_id
         return payload
 
+    def _read_item(self, mapping):
+        provider = ProviderFactory.get_provider(mapping.marketplace_account_id)
+        result = provider.get_item(mapping.marketplace_item_id, params={"include_attributes": "all"}) or {}
+        item = result.get("item") if isinstance(result, dict) else None
+        if not isinstance(item, dict):
+            raise UserError("No se pudo leer la publicación MercadoLibre existente.")
+        unsupported_keys = {
+            "user_product_id",
+            "family_id",
+            "user_product_listing",
+            "warehouse_management",
+            "selling_address",
+        }
+        if any(item.get(key) for key in unsupported_keys):
+            raise UserError("La publicación utiliza un modelo User Products/Multi-Origin no soportado por C.2.")
+        automation = item.get("price_automation") or item.get("automatic_pricing") or item.get("price_automation_active")
+        if automation:
+            raise UserError("PRICE_AUTOMATION_ACTIVE: la publicación no permite actualizar precio mediante API.")
+        return provider, item
+
+    def _item_mappings(self, mapping):
+        return self.env["sce.connect.marketplace.mapping"].search(
+            [
+                ("marketplace_account_id", "=", mapping.marketplace_account_id.id),
+                ("marketplace_item_id", "=", mapping.marketplace_item_id),
+                ("active", "=", True),
+                ("mapping_status", "=", "verified"),
+            ]
+        )
+
     def sync_mapping(self, mapping):
         mapping = self._validate_mapping(mapping)
         try:
-            source_price, _context = self._remote_price(mapping)
-            price = self.calculate_price(source_price, {"marketplace_mapping_id": mapping.id})
-            source_text = format(price, "f")
+            provider, item = self._read_item(mapping)
+            item_mappings = self._item_mappings(mapping) if item.get("variations") else mapping
+            if item.get("variations"):
+                prices = []
+                for item_mapping in item_mappings:
+                    source_price, _context = self._remote_price(item_mapping)
+                    prices.append(self.calculate_price(source_price, {"marketplace_mapping_id": item_mapping.id}))
+                if not prices:
+                    raise UserError("La publicación tiene variaciones pero no hay mappings verificados.")
+                if len(set(prices)) != 1:
+                    raise UserError("Las variantes de esta publicación requieren un precio común, pero Odoo tiene precios diferentes.")
+                price = prices[0]
+                source_text = format(price, "f")
+                variation_prices = [
+                    {"id": item_mapping.marketplace_variation_id, "price": float(price)}
+                    for item_mapping in item_mappings
+                    if item_mapping.marketplace_variation_id
+                ]
+                if len(variation_prices) != len(item_mappings):
+                    raise UserError("Falta variation_id en una variante de la publicación.")
+                payload = {"item_id": mapping.marketplace_item_id, "variation_prices": variation_prices}
+            else:
+                source_price, _context = self._remote_price(mapping)
+                price = self.calculate_price(source_price, {"marketplace_mapping_id": mapping.id})
+                source_text = format(price, "f")
+                payload = self._provider_payload(mapping, price)
             if (
                 mapping.last_price_sync_at
                 and mapping.last_price_source == source_text
                 and mapping.last_price_sent == source_text
             ):
                 return {"ok": True, "skipped": True, "source_price": source_text, "price": source_text}
-            provider = ProviderFactory.get_provider(mapping.marketplace_account_id)
-            result = provider.update_price(self._provider_payload(mapping, price)) or {}
+            result = provider.update_price(payload) or {}
             mapping.write(
                 {
                     "last_price_source": source_text,
