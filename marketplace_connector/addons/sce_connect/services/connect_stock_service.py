@@ -65,11 +65,36 @@ class SceConnectStockService(models.AbstractModel):
             payload["variation_id"] = mapping.marketplace_variation_id
         return payload
 
+    def _apply_rules(self, mapping, source_stock):
+        context = {
+            "stock": source_stock,
+            "sku": mapping.external_product_mapping_id.default_code or False,
+            "barcode": mapping.external_product_mapping_id.barcode or False,
+            "active": mapping.external_product_mapping_id.active,
+        }
+        result = self.env["sce.connect.rule.engine"].evaluate(mapping.tenant_id, "stock", context)
+        if not result.get("allowed", True):
+            reason = "Sincronización de stock bloqueada por regla %s." % result.get("blocked_by")
+            mapping.write({"last_stock_error": reason})
+            return result, None
+        try:
+            final_stock = max(0, int(float(result.get("value", source_stock))))
+        except (TypeError, ValueError):
+            raise UserError("La regla de stock produjo un valor inválido.")
+        return result, final_stock
+
     def sync_mapping(self, mapping):
         mapping = self._validate_mapping(mapping)
         try:
             source_stock, _context = self._remote_stock(mapping)
-            final_stock = max(0, int(source_stock))
+            rule_result, final_stock = self._apply_rules(mapping, source_stock)
+            if not rule_result.get("allowed", True):
+                return {
+                    "ok": True,
+                    "blocked": True,
+                    "blocked_by": rule_result.get("blocked_by"),
+                    "source_stock": source_stock,
+                }
             if (
                 mapping.last_stock_sync_at
                 and mapping.last_stock_source == source_stock

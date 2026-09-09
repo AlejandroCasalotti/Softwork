@@ -35,7 +35,16 @@ class Record:
 def mapping(item_id="ML123", variation_id=False):
     tenant = Record(id=2)
     connection = Record(id=5, tenant_id=tenant)
-    product = Record(id=11, external_id=321, external_connection_id=connection, external_model="product.product")
+    product = Record(
+        id=11,
+        external_id=321,
+        external_connection_id=connection,
+        external_model="product.product",
+        default_code="SKU-11",
+        barcode=False,
+        active=True,
+        standard_price=10000,
+    )
     account = Record(id=8, provider_type="mercadolibre")
     return Record(
         id=20,
@@ -62,13 +71,25 @@ class MappingSet(list):
 class ConnectPriceServiceTests(unittest.TestCase):
     def setUp(self):
         self.service = MagicMock(spec=SceConnectPriceService)
-        self.service.env = {"sce.job": MagicMock(), "sce.connect.marketplace.mapping": MappingSet()}
+        rule_engine = MagicMock()
+        rule_engine.evaluate.side_effect = lambda _tenant, _scope, context: {
+            "allowed": True,
+            "value": context.get("price"),
+            "actions": [],
+            "matched_rules": [],
+        }
+        self.service.env = {
+            "sce.job": MagicMock(),
+            "sce.connect.marketplace.mapping": MappingSet(),
+            "sce.connect.rule.engine": rule_engine,
+        }
         self.service.SOURCE_FIELD = SceConnectPriceService.SOURCE_FIELD
         self.service._validate_mapping = SceConnectPriceService._validate_mapping.__get__(self.service)
         self.service._remote_price = SceConnectPriceService._remote_price.__get__(self.service)
         self.service._read_item = SceConnectPriceService._read_item.__get__(self.service)
         self.service._item_mappings = SceConnectPriceService._item_mappings.__get__(self.service)
         self.service._provider_payload = SceConnectPriceService._provider_payload.__get__(self.service)
+        self.service._apply_rules = SceConnectPriceService._apply_rules.__get__(self.service)
         self.service.sync_mapping = SceConnectPriceService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectPriceService.enqueue_mapping.__get__(self.service)
         self.service.calculate_price = SceConnectPriceService.calculate_price
@@ -259,6 +280,45 @@ class ConnectPriceServiceTests(unittest.TestCase):
 
         self.assertTrue(result["skipped"])
         factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_rule_block_prevents_price_put(self, connection_service_cls, factory):
+        record = mapping()
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.return_value = [{"list_price": 8000}]
+        factory.get_provider.return_value.get_item.return_value = {"item": {"id": "ML123"}}
+        self.service.env["sce.connect.rule.engine"].evaluate.side_effect = None
+        self.service.env["sce.connect.rule.engine"].evaluate.return_value = {
+            "allowed": False, "blocked_by": 21, "value": None, "actions": []
+        }
+
+        result = self.service.sync_mapping(record)
+
+        self.assertTrue(result["blocked"])
+        factory.get_provider.return_value.update_price.assert_not_called()
+        self.assertIn("21", record.last_price_error)
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_rule_transform_changes_price_before_put(self, connection_service_cls, factory):
+        record = mapping()
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.return_value = [{"list_price": 10000}]
+        factory.get_provider.return_value.get_item.return_value = {"item": {"id": "ML123"}}
+        self.service.env["sce.connect.rule.engine"].evaluate.side_effect = None
+        self.service.env["sce.connect.rule.engine"].evaluate.return_value = {
+            "allowed": True, "value": "12000.00", "actions": [{"action": "multiply"}]
+        }
+        factory.get_provider.return_value.update_price.return_value = {"ok": True}
+
+        self.service.sync_mapping(record)
+
+        factory.get_provider.return_value.update_price.assert_called_once_with(
+            {"item_id": "ML123", "price": 12000.0}
+        )
 
     def test_missing_item_is_rejected(self):
         with self.assertRaises(UserError):

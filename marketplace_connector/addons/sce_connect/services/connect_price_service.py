@@ -62,6 +62,22 @@ class SceConnectPriceService(models.AbstractModel):
             payload["variation_id"] = mapping.marketplace_variation_id
         return payload
 
+    def _apply_rules(self, mapping, price):
+        context = {
+            "price": price,
+            "cost": mapping.external_product_mapping_id.standard_price,
+            "sku": mapping.external_product_mapping_id.default_code or False,
+            "barcode": mapping.external_product_mapping_id.barcode or False,
+            "active": mapping.external_product_mapping_id.active,
+        }
+        result = self.env["sce.connect.rule.engine"].evaluate(mapping.tenant_id, "price", context)
+        if not result.get("allowed", True):
+            reason = "Sincronización de precio bloqueada por regla %s." % result.get("blocked_by")
+            mapping.write({"last_price_error": reason})
+            return result, None
+        final_price = self.calculate_price(result.get("value", price), context)
+        return result, final_price
+
     def _read_item(self, mapping):
         provider = ProviderFactory.get_provider(mapping.marketplace_account_id)
         result = provider.get_item(mapping.marketplace_item_id, params={"include_attributes": "all"}) or {}
@@ -135,10 +151,23 @@ class SceConnectPriceService(models.AbstractModel):
                 ]
                 if len(variation_prices) != len(item_mappings):
                     raise UserError("Falta variation_id en una variante de la publicación.")
+                rule_result, final_price = self._apply_rules(mapping, price)
+                if not rule_result.get("allowed", True):
+                    return {"ok": True, "blocked": True, "blocked_by": rule_result.get("blocked_by")}
+                variation_prices = [
+                    {"id": item_mapping.marketplace_variation_id, "price": float(final_price)}
+                    for item_mapping in item_mappings
+                ]
+                price = final_price
+                source_text = format(price, "f")
                 payload = {"item_id": mapping.marketplace_item_id, "variation_prices": variation_prices}
             else:
                 source_price, _context = self._remote_price(mapping)
                 price = self.calculate_price(source_price, {"marketplace_mapping_id": mapping.id})
+                rule_result, final_price = self._apply_rules(mapping, price)
+                if not rule_result.get("allowed", True):
+                    return {"ok": True, "blocked": True, "blocked_by": rule_result.get("blocked_by")}
+                price = final_price
                 source_text = format(price, "f")
                 payload = self._provider_payload(mapping, price)
             if (

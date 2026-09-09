@@ -36,7 +36,15 @@ class Record:
 def mapping(item_id="ML123", variation_id=False, free_qty=15):
     tenant = Record(id=2)
     connection = Record(id=5, tenant_id=tenant)
-    product = Record(id=11, external_id=321, external_connection_id=connection, external_model="product.product")
+    product = Record(
+        id=11,
+        external_id=321,
+        external_connection_id=connection,
+        external_model="product.product",
+        default_code="SKU-11",
+        barcode=False,
+        active=True,
+    )
     account = Record(id=8, provider_type="mercadolibre")
     return Record(
         id=20,
@@ -59,11 +67,19 @@ def mapping(item_id="ML123", variation_id=False, free_qty=15):
 class ConnectStockServiceTests(unittest.TestCase):
     def setUp(self):
         self.service = MagicMock(spec=SceConnectStockService)
-        self.service.env = {"sce.job": MagicMock()}
+        rule_engine = MagicMock()
+        rule_engine.evaluate.side_effect = lambda _tenant, _scope, context: {
+            "allowed": True,
+            "value": context.get("stock"),
+            "actions": [],
+            "matched_rules": [],
+        }
+        self.service.env = {"sce.job": MagicMock(), "sce.connect.rule.engine": rule_engine}
         self.service.SOURCE_FIELD = SceConnectStockService.SOURCE_FIELD
         self.service._validate_mapping = SceConnectStockService._validate_mapping.__get__(self.service)
         self.service._remote_stock = SceConnectStockService._remote_stock.__get__(self.service)
         self.service._provider_payload = SceConnectStockService._provider_payload.__get__(self.service)
+        self.service._apply_rules = SceConnectStockService._apply_rules.__get__(self.service)
         self.service.sync_mapping = SceConnectStockService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectStockService.enqueue_mapping.__get__(self.service)
 
@@ -139,6 +155,43 @@ class ConnectStockServiceTests(unittest.TestCase):
 
         self.assertTrue(result["skipped"])
         provider.update_stock.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_stock_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_stock_service.ConnectionService")
+    def test_rule_block_prevents_stock_put(self, connection_service_cls, factory):
+        record = mapping(free_qty=2)
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"free_qty": {}}
+        connection_service_cls.return_value.search_read.return_value = [{"free_qty": 2}]
+        self.service.env["sce.connect.rule.engine"].evaluate.side_effect = None
+        self.service.env["sce.connect.rule.engine"].evaluate.return_value = {
+            "allowed": False, "blocked_by": 15, "value": None, "actions": []
+        }
+
+        result = self.service.sync_mapping(record)
+
+        self.assertTrue(result["blocked"])
+        factory.get_provider.assert_not_called()
+        self.assertIn("15", record.last_stock_error)
+
+    @patch("odoo.addons.sce_connect.services.connect_stock_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_stock_service.ConnectionService")
+    def test_rule_transform_changes_stock_before_put(self, connection_service_cls, factory):
+        record = mapping(free_qty=10)
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"free_qty": {}}
+        connection_service_cls.return_value.search_read.return_value = [{"free_qty": 10}]
+        self.service.env["sce.connect.rule.engine"].evaluate.side_effect = None
+        self.service.env["sce.connect.rule.engine"].evaluate.return_value = {
+            "allowed": True, "value": "5.00", "actions": [{"action": "multiply"}]
+        }
+        factory.get_provider.return_value.update_stock.return_value = {"ok": True}
+
+        self.service.sync_mapping(record)
+
+        factory.get_provider.return_value.update_stock.assert_called_once_with(
+            {"item_id": "ML123", "available_quantity": 5}
+        )
 
     def test_missing_item_is_rejected_without_provider(self):
         record = mapping(item_id=False)
