@@ -163,6 +163,68 @@ class ConnectPriceServiceTests(unittest.TestCase):
 
     @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
     @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_missing_ml_variation_mapping_is_rejected_without_put(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}, {"id": "C"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        with self.assertRaisesRegex(UserError, "discrepancia"):
+            self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_extra_mapping_variation_is_rejected_without_put(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B", "C")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        with self.assertRaisesRegex(UserError, "discrepancia"):
+            self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_duplicate_ml_variation_id_is_rejected_without_put(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}, {"id": "B"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        with self.assertRaisesRegex(UserError, "duplicados"):
+            self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_duplicate_mapping_variation_id_is_rejected_without_put(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B", "B")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
+        }
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        with self.assertRaisesRegex(UserError, "duplicados"):
+            self.service.sync_mapping(records[0])
+
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
     def test_price_automation_is_controlled_error_without_update(self, connection_service_cls, factory):
         record = mapping()
         connection_service_cls.return_value.remote_product_context.return_value = None
@@ -238,7 +300,18 @@ class ConnectPriceServiceTests(unittest.TestCase):
         provider._request = MagicMock(return_value={"id": "ML123"})
 
         provider.update_price({"item_id": "ML123", "price": 15000})
-        provider.update_price({"item_id": "ML123", "variation_id": "ML456", "price": 15000.5})
+        with self.assertRaises(UserError):
+            provider.update_price({"item_id": "ML123", "variation_id": "ML456", "price": 15000.5})
+        provider.update_price(
+            {
+                "item_id": "ML123",
+                "variation_prices": [
+                    {"id": "A", "price": 15000.5},
+                    {"id": "B", "price": 15000.5},
+                    {"id": "C", "price": 15000.5},
+                ],
+            }
+        )
 
         self.assertEqual(
             provider._request.call_args_list[0].args,
@@ -250,7 +323,7 @@ class ConnectPriceServiceTests(unittest.TestCase):
         )
         self.assertEqual(
             provider._request.call_args_list[1].kwargs["payload"],
-            {"variations": [{"id": "ML456", "price": 15000.5}]},
+            {"variations": [{"id": "A", "price": 15000.5}, {"id": "B", "price": 15000.5}, {"id": "C", "price": 15000.5}]},
         )
 
 

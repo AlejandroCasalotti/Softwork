@@ -98,6 +98,26 @@ class SceConnectPriceService(models.AbstractModel):
             provider, item = self._read_item(mapping)
             item_mappings = self._item_mappings(mapping) if item.get("variations") else mapping
             if item.get("variations"):
+                ml_variation_ids = [
+                    str(variation.get("id"))
+                    for variation in item["variations"]
+                    if isinstance(variation, dict) and variation.get("id") is not None
+                ]
+                if len(ml_variation_ids) != len(set(ml_variation_ids)):
+                    raise UserError("La publicación MercadoLibre contiene variation_id duplicados.")
+                ml_variation_ids = set(ml_variation_ids)
+                mapping_variation_ids = [
+                    str(item_mapping.marketplace_variation_id)
+                    for item_mapping in item_mappings
+                    if item_mapping.marketplace_variation_id
+                ]
+                if len(mapping_variation_ids) != len(set(mapping_variation_ids)):
+                    raise UserError("Los mappings SCE Connect contienen variation_id duplicados.")
+                mapping_variation_ids = set(mapping_variation_ids)
+                if ml_variation_ids != mapping_variation_ids:
+                    raise UserError(
+                        "Existe una discrepancia entre las variaciones de MercadoLibre y los mappings de SCE Connect."
+                    )
                 prices = []
                 for item_mapping in item_mappings:
                     source_price, _context = self._remote_price(item_mapping)

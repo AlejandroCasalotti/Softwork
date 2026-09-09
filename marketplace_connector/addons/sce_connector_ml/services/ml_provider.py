@@ -228,11 +228,18 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
     def update_price(self, payload):
         payload = payload or {}
         item_id = self._extract_item_id(payload)
-        price = self._to_float(payload.get("price"), 0.0)
+        variation_prices = payload.get("variation_prices")
+        base_price = payload.get("price")
+        if base_price is None and isinstance(variation_prices, list) and variation_prices:
+            base_price = variation_prices[0].get("price") if isinstance(variation_prices[0], dict) else None
+        price = self._to_float(base_price, 0.0)
         if price <= 0:
             raise UserError("MercadoLibre: el precio debe ser mayor a cero.")
-        variation_prices = payload.get("variation_prices")
         variation_id = payload.get("variation_id") or payload.get("external_variant_id")
+        if variation_id and not variation_prices:
+            raise UserError(
+                "Una actualización de precio por variación individual no está soportada; envía todas las variaciones."
+            )
         request_payload = {"price": price}
         if variation_prices:
             request_payload = {"variations": variation_prices}
