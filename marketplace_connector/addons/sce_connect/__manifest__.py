@@ -20,6 +20,7 @@
         "views/sce_connect_marketplace_mapping_views.xml",
         "views/sce_account_views.xml",
         "data/ir_cron.xml",
+        "data/ir_cron_price.xml",
     ],
     "demo": [],
     "installable": True,

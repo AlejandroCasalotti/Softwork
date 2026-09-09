@@ -12,3 +12,4 @@ from . import mercadolibre_credential_resolver
 from . import remote_company_context
 from . import connect_marketplace_mapping_service
 from . import connect_stock_service
+from . import connect_price_service

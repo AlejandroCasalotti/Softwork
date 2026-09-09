@@ -26,6 +26,8 @@
                 <header>
                     <button name="action_sync_stock" type="object" string="Sincronizar stock"
                             class="btn-primary" invisible="not active or mapping_status != 'verified'"/>
+                    <button name="action_sync_price" type="object" string="Sincronizar precio"
+                        class="btn-secondary" invisible="not active or mapping_status != 'verified'"/>
                 </header>
                 <sheet>
                     <group>
@@ -52,6 +54,10 @@
                         <field name="last_stock_sent" readonly="1"/>
                         <field name="last_stock_sync_at" readonly="1"/>
                         <field name="last_stock_error" readonly="1" invisible="not last_stock_error"/>
+                        <field name="last_price_source" readonly="1"/>
+                        <field name="last_price_sent" readonly="1"/>
+                        <field name="last_price_sync_at" readonly="1"/>
+                        <field name="last_price_error" readonly="1" invisible="not last_price_error"/>
                     </group>
                 </sheet>
             </form>

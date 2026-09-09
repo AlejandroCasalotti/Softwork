@@ -644,8 +644,18 @@ class MercadoLibreProvider(IProvider):
         price = self._to_float(payload.get("price"), 0.0)
         if price <= 0:
             raise UserError("MercadoLibre: el precio debe ser mayor a cero.")
-        data = self._request("PUT", f"/items/{item_id}", payload={"price": price})
-        return self._ok(action="update_price", item_id=item_id, price=price, raw=data)
+        variation_id = payload.get("variation_id") or payload.get("external_variant_id")
+        request_payload = {"price": price}
+        if variation_id:
+            request_payload = {"variations": [{"id": variation_id, "price": price}]}
+        data = self._request("PUT", f"/items/{item_id}", payload=request_payload)
+        return self._ok(
+            action="update_price",
+            item_id=item_id,
+            variation_id=str(variation_id) if variation_id else False,
+            price=price,
+            raw=data,
+        )
 
     def get_orders(self, params=None):
         params = params or {}

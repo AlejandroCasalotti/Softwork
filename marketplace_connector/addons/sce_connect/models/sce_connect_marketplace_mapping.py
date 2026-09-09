@@ -37,6 +37,10 @@ class SceConnectMarketplaceMapping(models.Model):
     last_stock_sent = fields.Integer(string="Último stock enviado", readonly=True, copy=False)
     last_stock_sync_at = fields.Datetime(string="Última sincronización de stock", readonly=True, copy=False)
     last_stock_error = fields.Text(string="Último error de stock", readonly=True, copy=False)
+    last_price_source = fields.Char(string="Último precio origen", readonly=True, copy=False)
+    last_price_sent = fields.Char(string="Último precio enviado", readonly=True, copy=False)
+    last_price_sync_at = fields.Datetime(string="Última sincronización de precio", readonly=True, copy=False)
+    last_price_error = fields.Text(string="Último error de precio", readonly=True, copy=False)
 
     _external_product_account_unique = models.Constraint(
         "UNIQUE(external_product_mapping_id, marketplace_account_id)",
@@ -105,6 +109,39 @@ class SceConnectMarketplaceMapping(models.Model):
                 "sticky": False,
             },
         }
+
+    def action_sync_price(self):
+        self.ensure_one()
+        result = self.env["sce.connect.price.service"].sync_mapping(self)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Price Connect",
+                "message": "Precio origen: %s | Precio enviado: %s%s" % (
+                    result.get("source_price", self.last_price_source),
+                    result.get("price", self.last_price_sent),
+                    " | Sin cambios" if result.get("skipped") else "",
+                ),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    @api.model
+    def cron_enqueue_price_sync(self):
+        mappings = self.search(
+            [
+                ("active", "=", True),
+                ("mapping_status", "=", "verified"),
+                ("marketplace_item_id", "!=", False),
+            ],
+            limit=100,
+            order="id asc",
+        )
+        service = self.env["sce.connect.price.service"]
+        for mapping in mappings:
+            service.enqueue_mapping(mapping)
 
     @api.model
     def cron_enqueue_stock_sync(self):
