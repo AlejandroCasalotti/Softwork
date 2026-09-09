@@ -23,6 +23,10 @@
         <field name="model">sce.connect.marketplace.mapping</field>
         <field name="arch" type="xml">
             <form string="Connect Marketplace Mapping">
+                <header>
+                    <button name="action_sync_stock" type="object" string="Sincronizar stock"
+                            class="btn-primary" invisible="not active or mapping_status != 'verified'"/>
+                </header>
                 <sheet>
                     <group>
                         <group string="Origen Odoo externo">
@@ -42,6 +46,12 @@
                         <field name="mapping_status"/>
                         <field name="verified_at" readonly="1"/>
                         <field name="active"/>
+                    </group>
+                    <group string="Stock Connect">
+                        <field name="last_stock_source" readonly="1"/>
+                        <field name="last_stock_sent" readonly="1"/>
+                        <field name="last_stock_sync_at" readonly="1"/>
+                        <field name="last_stock_error" readonly="1" invisible="not last_stock_error"/>
                     </group>
                 </sheet>
             </form>

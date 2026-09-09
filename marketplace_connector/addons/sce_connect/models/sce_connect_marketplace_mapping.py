@@ -33,6 +33,10 @@ class SceConnectMarketplaceMapping(models.Model):
         index=True,
     )
     verified_at = fields.Datetime(readonly=True)
+    last_stock_source = fields.Integer(string="Último stock origen", readonly=True, copy=False)
+    last_stock_sent = fields.Integer(string="Último stock enviado", readonly=True, copy=False)
+    last_stock_sync_at = fields.Datetime(string="Última sincronización de stock", readonly=True, copy=False)
+    last_stock_error = fields.Text(string="Último error de stock", readonly=True, copy=False)
 
     _external_product_account_unique = models.Constraint(
         "UNIQUE(external_product_mapping_id, marketplace_account_id)",
@@ -81,3 +85,38 @@ class SceConnectMarketplaceMapping(models.Model):
                 raise ValidationError("La cuenta marketplace debe vincular una cuenta MercadoLibre Connect.")
             if connect_account.tenant_id != mapping.tenant_id:
                 raise ValidationError("La cuenta MercadoLibre Connect debe pertenecer al tenant del mapping.")
+
+    def action_sync_stock(self):
+        self.ensure_one()
+        result = self.env["sce.connect.stock.service"].sync_mapping(self)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Stock Connect",
+                "message": (
+                    "Stock origen: %(source)s | Stock enviado: %(sent)s%(skipped)s"
+                ) % {
+                    "source": result.get("source_stock", self.last_stock_source),
+                    "sent": result.get("available_quantity", self.last_stock_sent),
+                    "skipped": " | Sin cambios" if result.get("skipped") else "",
+                },
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    @api.model
+    def cron_enqueue_stock_sync(self):
+        mappings = self.search(
+            [
+                ("active", "=", True),
+                ("mapping_status", "=", "verified"),
+                ("marketplace_item_id", "!=", False),
+            ],
+            limit=100,
+            order="id asc",
+        )
+        service = self.env["sce.connect.stock.service"]
+        for mapping in mappings:
+            service.enqueue_mapping(mapping)

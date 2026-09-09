@@ -9,3 +9,4 @@ from . import test_oauth_state
 from . import test_connect_marketplace_mapping
 from . import test_mercadolibre_credential_resolver
 from . import test_remote_company_context
+from . import test_connect_stock_service
