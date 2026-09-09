@@ -14,3 +14,5 @@ access_sce_external_product_mapping_user,access.sce.external.product.mapping.use
 access_sce_external_product_mapping_admin,access.sce.external.product.mapping.admin,model_sce_external_product_mapping,sce_connect.group_sce_connect_admin,1,1,1,1
 access_sce_connect_marketplace_mapping_user,access.sce.connect.marketplace.mapping.user,model_sce_connect_marketplace_mapping,sce_connect.group_sce_connect_user,1,1,1,0
 access_sce_connect_marketplace_mapping_admin,access.sce.connect.marketplace.mapping.admin,model_sce_connect_marketplace_mapping,sce_connect.group_sce_connect_admin,1,1,1,1
+access_sce_connect_rule_user,access.sce.connect.rule.user,model_sce_connect_rule,sce_connect.group_sce_connect_user,1,0,0,0
+access_sce_connect_rule_admin,access.sce.connect.rule.admin,model_sce_connect_rule,sce_connect.group_sce_connect_admin,1,1,1,1

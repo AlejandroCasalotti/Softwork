@@ -6,6 +6,7 @@ from . import sce_account
 from . import sce_connect_marketplace_mapping
 from . import sce_connect_job
 from . import sce_connect_price_job
+from . import sce_connect_rule
 from . import sce_secret_wizard
 from . import sce_oauth_transaction
 from . import sce_mercadolibre_account
