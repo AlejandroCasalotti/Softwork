@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from odoo.exceptions import UserError
 
+from odoo.addons.sce_connector_ml.services.ml_provider import MercadoLibreProvider
+
 from ..models.sce_connect_marketplace_mapping import SceConnectMarketplaceMapping
 from ..services.connect_stock_service import SceConnectStockService
 
@@ -204,6 +206,30 @@ class ConnectStockServiceTests(unittest.TestCase):
             order="id asc",
         )
         service.enqueue_mapping.assert_called_once_with(verified)
+
+    def test_provider_simple_uses_item_endpoint_only(self):
+        provider = MercadoLibreProvider(MagicMock(), MagicMock())
+        provider._request = MagicMock(return_value={"id": "ML123"})
+
+        provider.update_stock({"item_id": "ML123", "available_quantity": 15})
+
+        provider._request.assert_called_once_with(
+            "PUT", "/items/ML123", payload={"available_quantity": 15}
+        )
+
+    def test_provider_variant_uses_item_endpoint_with_only_variation_stock(self):
+        provider = MercadoLibreProvider(MagicMock(), MagicMock())
+        provider._request = MagicMock(return_value={"id": "ML123"})
+
+        provider.update_stock(
+            {"item_id": "ML123", "variation_id": "456", "available_quantity": 15}
+        )
+
+        provider._request.assert_called_once_with(
+            "PUT",
+            "/items/ML123",
+            payload={"variations": [{"id": "456", "available_quantity": 15}]},
+        )
 
 
 class ConnectStockJobTests(unittest.TestCase):

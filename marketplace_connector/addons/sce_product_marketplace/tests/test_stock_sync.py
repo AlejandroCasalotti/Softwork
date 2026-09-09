@@ -81,7 +81,9 @@ class MercadoLibreStockProviderTests(unittest.TestCase):
         )
 
         self.provider._request.assert_called_once_with(
-            "PUT", "/items/MLA123/variations/987654321", payload={"available_quantity": 7}
+            "PUT",
+            "/items/MLA123",
+            payload={"variations": [{"id": "987654321", "available_quantity": 7}]},
         )
         self.assertEqual(result["variation_id"], "987654321")
 
@@ -98,7 +100,9 @@ class MercadoLibreStockProviderTests(unittest.TestCase):
         )
 
         self.legacy_provider._request.assert_called_once_with(
-            "PUT", "/items/MLA123/variations/987654321", payload={"available_quantity": 4}
+            "PUT",
+            "/items/MLA123",
+            payload={"variations": [{"id": "987654321", "available_quantity": 4}]},
         )
         self.assertEqual(result["available_quantity"], 4)
 
