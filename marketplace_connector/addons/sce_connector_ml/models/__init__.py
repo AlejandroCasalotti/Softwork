@@ -12,7 +12,6 @@ from . import ml_publish_assistant_wizard
 from . import ml_publish_assistant_attribute_line
 from . import ml_publish_assistant_saleterm_line
 from . import ml_publish_assistant_picture_line
-from . import product_reconciliation_wizard
 from . import sce_credential_secret
 from . import sce_mercadolibre_account
 from . import sce_oauth_transaction
