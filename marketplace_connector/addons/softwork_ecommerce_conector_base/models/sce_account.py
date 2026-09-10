@@ -179,26 +179,12 @@ class SceAccount(models.Model):
 
     @api.model
     def get_or_create_quick_ml_account(self, company=None, tenant=None, external_connection=None):
+        """Create a base ML account without requiring any Connect-only model or field.
+
+        The Connect-specific tenant/ownership fields live in the optional sce_connect
+        extension and must not be required by the SCE core account model.
+        """
         company = company or self.env.company
-        connect_enabled = "tenant_id" in self._fields and "external_connection_id" in self._fields
-        if connect_enabled:
-            tenant = tenant or self.env["sce.tenant"].search(
-                [("user_ids", "in", [self.env.user.id])], limit=2
-            )
-            if len(tenant) != 1:
-                raise UserError(
-                    "No se puede determinar un único tenant SCE para esta cuenta. "
-                    "Seleccione un tenant antes de conectar MercadoLibre."
-                )
-            external_connection = external_connection or self.env["sce.external.connection"].search(
-                [("tenant_id", "=", tenant.id), ("state", "=", "connected")],
-                limit=2,
-            )
-            if len(external_connection) != 1:
-                raise UserError(
-                    "El tenant debe tener exactamente una conexión Odoo conectada "
-                    "para crear la cuenta MercadoLibre."
-                )
         connector = self.env["sce.connector"].search(
             [
                 ("provider_type", "=", "mercadolibre"),
@@ -224,14 +210,6 @@ class SceAccount(models.Model):
                 ("connector_id", "=", connector.id),
                 ("company_id", "=", company.id),
                 ("active", "=", True),
-                *(
-                    [
-                        ("tenant_id", "=", tenant.id),
-                        ("external_connection_id", "=", external_connection.id),
-                    ]
-                    if connect_enabled
-                    else []
-                ),
             ],
             limit=1,
         )
@@ -248,26 +226,22 @@ class SceAccount(models.Model):
             self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.redirect_uri", "") or ""
         )
 
-        values = {
-            "name": "Cuenta MercadoLibre",
-            "connector_id": connector.id,
-            "provider_type": "mercadolibre",
-            "company_id": company.id,
-            "active": True,
-            "state": "draft",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": redirect_uri,
-            "ml_client_id": client_id,
-            "ml_client_secret": client_secret,
-            "ml_redirect_uri": redirect_uri,
-        }
-        if connect_enabled:
-            values.update({
-                "tenant_id": tenant.id,
-                "external_connection_id": external_connection.id,
-            })
-        return self.create(values)
+        return self.create(
+            {
+                "name": "Cuenta MercadoLibre",
+                "connector_id": connector.id,
+                "provider_type": "mercadolibre",
+                "company_id": company.id,
+                "active": True,
+                "state": "draft",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "ml_client_id": client_id,
+                "ml_client_secret": client_secret,
+                "ml_redirect_uri": redirect_uri,
+            }
+        )
 
     def _sync_onboarding_to_oauth_fields(self):
         for rec in self:

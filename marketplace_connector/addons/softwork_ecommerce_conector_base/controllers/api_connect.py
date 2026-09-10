@@ -33,22 +33,10 @@ class SceApiConnectController(http.Controller):
         return None
 
     def _get_or_create_quick_ml_account(self, payload=None):
+        """Create the base ML account without requiring any Connect-specific model."""
         company = request.env.company
-        payload = payload or {}
-        tenant = False
-        external_connection = False
-        if payload.get("tenant_id") and "sce.tenant" in request.env:
-            tenant = request.env["sce.tenant"].with_user(request.env.user).search(
-                [("id", "=", int(payload["tenant_id"]))], limit=1
-            )
-        if payload.get("external_connection_id") and "sce.external.connection" in request.env:
-            external_connection = request.env["sce.external.connection"].with_user(request.env.user).search(
-                [("id", "=", int(payload["external_connection_id"]))], limit=1
-            )
         return request.env["sce.account"].with_user(request.env.user).sudo().get_or_create_quick_ml_account(
             company=company,
-            tenant=tenant,
-            external_connection=external_connection,
         )
 
     def _step_payload(self, account):
