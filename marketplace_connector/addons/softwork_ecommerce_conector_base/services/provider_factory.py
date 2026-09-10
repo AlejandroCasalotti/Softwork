@@ -16,6 +16,11 @@ class ProviderFactory:
     Los providers comerciales se resuelven desde sus módulos de dominio.
     """
 
+    # Alias entre provider_type y el sufijo real del módulo de dominio.
+    MODULE_ALIASES = {
+        "mercadolibre": "ml",
+    }
+
     REQUIRED_METHODS = (
         "authenticate",
         "refresh_token",
@@ -71,18 +76,23 @@ class ProviderFactory:
         candidate_paths = []
         if impl_path:
             candidate_paths.append(impl_path)
-        candidate_paths.append(
-            f"sce_connector_{provider_type}.services.provider.get_provider"
-        )
-        candidate_paths.append(
-            f"odoo.addons.sce_connector_{provider_type}.services.provider.get_provider"
-        )
-        candidate_paths.append(
-            f"softwork_provider_{provider_type}.services.provider.get_provider"
-        )
-        candidate_paths.append(
-            f"odoo.addons.softwork_provider_{provider_type}.services.provider.get_provider"
-        )
+        module_suffixes = [provider_type]
+        alias = ProviderFactory.MODULE_ALIASES.get(provider_type)
+        if alias and alias not in module_suffixes:
+            module_suffixes.append(alias)
+        for suffix in module_suffixes:
+            candidate_paths.append(
+                f"sce_connector_{suffix}.services.provider.get_provider"
+            )
+            candidate_paths.append(
+                f"odoo.addons.sce_connector_{suffix}.services.provider.get_provider"
+            )
+            candidate_paths.append(
+                f"softwork_provider_{suffix}.services.provider.get_provider"
+            )
+            candidate_paths.append(
+                f"odoo.addons.softwork_provider_{suffix}.services.provider.get_provider"
+            )
 
         attempted = []
         for dotted in candidate_paths:

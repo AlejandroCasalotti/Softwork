@@ -22,13 +22,27 @@ class MercadoLibreOAuthService:
         self.env = env
 
     def _config(self):
+        params = self.env["ir.config_parameter"].sudo()
         values = {
-            "client_id": os.environ.get("SCE_ML_CLIENT_ID", "").strip(),
-            "client_secret": os.environ.get("SCE_ML_CLIENT_SECRET", ""),
-            "redirect_uri": os.environ.get("SCE_ML_REDIRECT_URI", "").strip(),
+            "client_id": (
+                os.environ.get("SCE_ML_CLIENT_ID", "").strip()
+                or params.get_param("sce.mercadolibre.client_id", "").strip()
+            ),
+            "client_secret": (
+                os.environ.get("SCE_ML_CLIENT_SECRET", "")
+                or params.get_param("sce.mercadolibre.client_secret", "")
+            ),
+            "redirect_uri": (
+                os.environ.get("SCE_ML_REDIRECT_URI", "").strip()
+                or params.get_param("sce.mercadolibre.redirect_uri", "").strip()
+            ),
         }
         if not all(values.values()):
-            raise UserError("Falta la configuración operativa de la aplicación MercadoLibre.")
+            raise UserError(
+                "Falta la configuración operativa de la aplicación MercadoLibre. "
+                "Configura sce.mercadolibre.client_id, sce.mercadolibre.client_secret "
+                "y sce.mercadolibre.redirect_uri en Parámetros del sistema."
+            )
         return values
 
     @staticmethod
