@@ -20,9 +20,10 @@
         <field name="arch" type="xml">
             <form string="Integración">
                 <header>
-                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="state == 'connected'"/>
-                    <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
-                    <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary" icon="fa-random"/>
+                    <button name="action_start_onboarding_connection" type="object" string="Conectar Mercado Libre" class="btn-primary" invisible="state == 'connected' or provider_type != 'mercadolibre'"/>
+                    <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
+                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="provider_type == 'mercadolibre' or state == 'connected'"/>
+                    <button name="action_check_integration_status" type="object" string="Ver estado" class="btn-secondary" icon="fa-random"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
                 </header>
                 <sheet>
@@ -30,13 +31,15 @@
                     <widget name="web_ribbon" title="Sandbox" bg_color="text-bg-warning" invisible="mode != 'sandbox'"/>
 
                     <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'mercadolibre'">
-                        Completá los datos de Odoo y de tu app de MercadoLibre para conectar en un clic.
+                        <strong>Mercado Libre</strong>
+                        <p class="mb-0">Conectá tu cuenta para comenzar a publicar productos y sincronizar stock y precios.</p>
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'mercadolibre'">
+                        <strong>✓ Mercado Libre conectado</strong>
+                        <p class="mb-0">Tu cuenta está lista para publicar, sincronizar y operar.</p>
                     </div>
                     <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'odoo'">
                         Completá los datos de Odoo Origen y Odoo Destino para conectar Odoo↔Odoo.
-                    </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'mercadolibre'">
-                        Cuenta conectada correctamente con MercadoLibre.
                     </div>
                     <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'odoo'">
                         Cuenta conectada correctamente para migración Odoo↔Odoo.
@@ -57,10 +60,21 @@
                             <field name="active" invisible="1"/>
                         </group>
                         <group>
-                            <field name="external_user_id" readonly="1"/>
+                            <field name="external_user_id" readonly="1" placeholder="Sin usuario validado"/>
                             <field name="external_account_ref" invisible="1"/>
                             <field name="last_connection_check" readonly="1"/>
                             <field name="token_expires_at" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Mercado Libre" invisible="provider_type != 'mercadolibre'">
+                        <group>
+                            <field name="state" readonly="1"/>
+                            <field name="external_user_id" readonly="1" string="Cuenta"/>
+                        </group>
+                        <group>
+                            <field name="last_connection_check" readonly="1" string="Última conexión"/>
+                            <field name="last_error" readonly="1" string="Estado"/>
                         </group>
                     </group>
 
@@ -156,5 +170,14 @@
         <field name="name">Accounts</field>
         <field name="res_model">sce.account</field>
         <field name="view_mode">list,form</field>
+        <field name="context">{'default_provider_type': 'mercadolibre'}</field>
+    </record>
+
+    <record id="action_sce_ml_account" model="ir.actions.act_window">
+        <field name="name">Mercado Libre</field>
+        <field name="res_model">sce.account</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('provider_type', '=', 'mercadolibre')]</field>
+        <field name="context">{'default_provider_type': 'mercadolibre', 'search_default_provider_type': 'mercadolibre'}</field>
     </record>
 </odoo>
