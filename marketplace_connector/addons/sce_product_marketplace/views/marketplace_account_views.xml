@@ -5,11 +5,9 @@
         <field name="model">sce.account</field>
         <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//group[@string='Sincronización']" position="after">
-                <group string="Reglas de órdenes marketplace" invisible="provider_type == 'odoo'">
-                    <field name="marketplace_auto_confirm_paid"/>
-                    <field name="marketplace_auto_cancelled"/>
-                </group>
+            <xpath expr="//field[@name='sync_stock']" position="after">
+                <field name="marketplace_auto_confirm_paid" invisible="provider_type == 'odoo'"/>
+                <field name="marketplace_auto_cancelled" invisible="provider_type == 'odoo'"/>
             </xpath>
         </field>
     </record>
