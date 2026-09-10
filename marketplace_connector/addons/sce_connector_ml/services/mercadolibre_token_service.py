@@ -67,14 +67,21 @@ class MercadoLibreTokenService:
         except requests.RequestException as error:
             message = str(error)
             status = "auth_required" if "invalid_grant" in message else "error"
-            identity.sudo().write({"status": status, "last_error": "La autorización requiere atención."})
-            raise UserError("No se pudo renovar la autorización de MercadoLibre.") from error
+            user_message = (
+                "Mercado Libre necesita que vuelvas a autorizar la conexión."
+                if status == "auth_required"
+                else "Mercado Libre rechazó temporalmente la sincronización. Podés intentarlo nuevamente."
+            )
+            identity.sudo().write({"status": status, "last_error": user_message})
+            identity.account_id._sync_mercadolibre_runtime_state(identity=identity, last_error=user_message)
+            raise UserError(user_message) from error
         access_token = payload.get("access_token")
         if not access_token:
             raise UserError("MercadoLibre no devolvió un access token renovado.")
         self.store_tokens(identity, access_token, payload.get("refresh_token") or self._credential(identity.refresh_token_secret_id))
         expires_in = int(payload.get("expires_in", 0) or 0)
         identity.sudo().write({"expires_at": fields.Datetime.now() + timedelta(seconds=expires_in) if expires_in else False, "status": "connected", "last_error": False})
+        identity.account_id._sync_mercadolibre_runtime_state(identity=identity)
         return identity
 
     def disconnect(self, account):
@@ -83,4 +90,4 @@ class MercadoLibreTokenService:
             {"active": False, "encrypted_value": False}
         )
         identity.sudo().write({"access_token_secret_id": False, "refresh_token_secret_id": False, "expires_at": False, "status": "disconnected", "disconnected_at": fields.Datetime.now()})
-        account.sudo().write({"state": "draft", "last_error": False})
+        account._sync_mercadolibre_runtime_state(identity=identity)

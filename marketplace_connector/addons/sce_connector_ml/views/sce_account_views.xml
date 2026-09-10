@@ -5,9 +5,68 @@
         <field name="model">sce.account</field>
         <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_start_onboarding_connection']" position="attributes">
+                <attribute name="invisible">provider_type != 'mercadolibre' or ml_connection_status != 'disconnected'</attribute>
+            </xpath>
             <xpath expr="//header/field[@name='state']" position="before">
-                <button name="action_sync_now" type="object" string="Sincronizar ahora" class="btn-secondary" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
-                <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" confirm="¿Desconectar esta cuenta de Mercado Libre?" invisible="state == 'draft' or provider_type != 'mercadolibre'"/>
+                <button name="action_reconnect_mercadolibre" type="object" string="Reconectar" class="btn-primary" invisible="provider_type != 'mercadolibre' or ml_connection_status not in ('auth_required', 'error')"/>
+                <button name="action_sync_now" type="object" string="Sincronizar ahora" class="btn-secondary" invisible="provider_type != 'mercadolibre' or ml_connection_status not in ('connected', 'syncing')"/>
+                <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" confirm="¿Desconectar Mercado Libre?&#10;&#10;La sincronización automática se detendrá.&#10;Los datos históricos y configuraciones se conservarán." invisible="provider_type != 'mercadolibre' or ml_connection_status in ('disconnected', 'connecting')"/>
+            </xpath>
+            <xpath expr="//sheet" position="replace">
+                <sheet>
+                    <field name="provider_type" invisible="1"/>
+                    <field name="connector_id" invisible="1"/>
+                    <field name="company_id" invisible="1"/>
+                    <field name="ml_connection_status" invisible="1"/>
+                    <field name="ml_status_message" invisible="1"/>
+                    <div class="alert alert-info" role="alert" invisible="provider_type != 'mercadolibre' or ml_connection_status != 'disconnected'">
+                        <strong>Mercado Libre</strong>
+                        <p class="mb-0">Conectá tu cuenta para comenzar a sincronizar tu negocio.</p>
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="provider_type != 'mercadolibre' or ml_connection_status != 'connecting'">
+                        <strong>↻ Conectando con Mercado Libre</strong>
+                        <p class="mb-0"><field name="ml_status_message" readonly="1" nolabel="1"/></p>
+                    </div>
+                    <div class="alert alert-success" role="alert" invisible="provider_type != 'mercadolibre' or ml_connection_status not in ('connected', 'syncing')">
+                        <strong>✓ Conectado</strong>
+                        <p class="mb-0"><field name="ml_status_message" readonly="1" nolabel="1"/></p>
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="provider_type != 'mercadolibre' or ml_connection_status != 'auth_required'">
+                        <strong>⚠ Necesita autorización</strong>
+                        <p class="mb-0"><field name="ml_status_message" readonly="1" nolabel="1"/></p>
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="provider_type != 'mercadolibre' or ml_connection_status != 'error'">
+                        <strong>⚠ Hay problemas con la sincronización</strong>
+                        <p class="mb-0"><field name="ml_status_message" readonly="1" nolabel="1"/></p>
+                    </div>
+                    <h1><field name="name" placeholder="Ej: Mi Tienda Argentina"/></h1>
+                    <group>
+                        <group string="Cuenta">
+                            <field name="ml_seller_nickname" readonly="1" string="Tienda" invisible="not ml_seller_nickname"/>
+                            <field name="external_user_id" readonly="1" string="Vendedor" invisible="not external_user_id"/>
+                            <field name="ml_site_id" readonly="1" string="Sitio" invisible="not ml_site_id"/>
+                            <field name="state" readonly="1" string="Estado"/>
+                        </group>
+                        <group string="Sincronización">
+                            <field name="last_sync" readonly="1" string="Última sincronización"/>
+                            <field name="sync_orders"/>
+                            <field name="sync_prices"/>
+                            <field name="sync_stock"/>
+                            <field name="ml_running_sync_jobs" readonly="1" string="Operaciones en curso" invisible="ml_running_sync_jobs == 0"/>
+                        </group>
+                    </group>
+                    <group string="Resumen comercial">
+                        <group>
+                            <field name="ml_publication_count" readonly="1" string="Publicaciones"/>
+                            <field name="ml_publication_synced_count" readonly="1" string="Sin problemas"/>
+                            <field name="ml_publication_problem_count" readonly="1" string="Con problemas"/>
+                        </group>
+                        <group>
+                            <field name="external_account_ref" readonly="1" string="Referencia comercial" invisible="not external_account_ref"/>
+                        </group>
+                    </group>
+                </sheet>
             </xpath>
         </field>
     </record>

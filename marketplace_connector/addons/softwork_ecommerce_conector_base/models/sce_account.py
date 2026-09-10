@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import os
 import secrets
 from urllib.parse import urlencode
 
@@ -109,18 +110,47 @@ class SceAccount(models.Model):
     @api.depends("client_id", "redirect_uri", "provider_type")
     def _compute_oauth_url(self):
         for rec in self:
-            if rec.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
-                params = urlencode(
-                    {
-                        "response_type": "code",
-                        "client_id": rec.client_id,
-                        "redirect_uri": rec.redirect_uri,
-                        "state": str(rec.id),
-                    }
-                )
-                rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
-            else:
+            if rec.provider_type != "mercadolibre" or not rec.id:
                 rec.oauth_url = False
+                continue
+            try:
+                config = rec._get_mercadolibre_app_config()
+            except UserError:
+                rec.oauth_url = False
+                continue
+            params = urlencode(
+                {
+                    "response_type": "code",
+                    "client_id": config["client_id"],
+                    "redirect_uri": config["redirect_uri"],
+                    "state": str(rec.id),
+                }
+            )
+            rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
+
+    def _get_mercadolibre_app_config(self):
+        self.ensure_one()
+        params = self.env["ir.config_parameter"].sudo()
+        values = {
+            "client_id": (
+                os.environ.get("SCE_ML_CLIENT_ID", "").strip()
+                or params.get_param("sce.mercadolibre.client_id", "").strip()
+            ),
+            "client_secret": (
+                os.environ.get("SCE_ML_CLIENT_SECRET", "")
+                or params.get_param("sce.mercadolibre.client_secret", "")
+            ),
+            "redirect_uri": (
+                os.environ.get("SCE_ML_REDIRECT_URI", "").strip()
+                or params.get_param("sce.mercadolibre.redirect_uri", "").strip()
+            ),
+        }
+        if not all(values.values()):
+            raise UserError(
+                "Falta la configuración interna de la aplicación Mercado Libre. "
+                "Un administrador debe completar Client ID, Client Secret y Redirect URI una sola vez."
+            )
+        return values
 
     @api.model
     def get_or_create_quick_ml_account(self, company=None, tenant=None, external_connection=None):
@@ -157,16 +187,6 @@ class SceAccount(models.Model):
         if account:
             return account
 
-        client_id = (
-            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.client_id", "") or ""
-        )
-        client_secret = (
-            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.client_secret", "") or ""
-        )
-        redirect_uri = (
-            self.env["ir.config_parameter"].sudo().get_param("sce.mercadolibre.redirect_uri", "") or ""
-        )
-
         return self.create(
             {
                 "name": "Cuenta MercadoLibre",
@@ -175,26 +195,11 @@ class SceAccount(models.Model):
                 "company_id": company.id,
                 "active": True,
                 "state": "draft",
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "redirect_uri": redirect_uri,
-                "ml_client_id": client_id,
-                "ml_client_secret": client_secret,
-                "ml_redirect_uri": redirect_uri,
             }
         )
 
     def _sync_onboarding_to_oauth_fields(self):
-        for rec in self:
-            vals = {}
-            if rec.ml_client_id:
-                vals["client_id"] = rec.ml_client_id
-            if rec.ml_client_secret:
-                vals["client_secret"] = rec.ml_client_secret
-            if rec.ml_redirect_uri:
-                vals["redirect_uri"] = rec.ml_redirect_uri
-            if vals:
-                rec.write(vals)
+        return True
 
     def action_start_onboarding_connection(self):
         self.ensure_one()
@@ -208,16 +213,11 @@ class SceAccount(models.Model):
         raise UserError("Este tipo de proveedor no tiene flujo de conexión definido.")
 
     def action_test_and_confirm(self):
+        self.ensure_one()
+        if self.provider_type == "mercadolibre":
+            self._get_mercadolibre_app_config()
+            return self.action_start_onboarding_connection()
         for rec in self:
-            missing = []
-            if not rec.ml_client_id:
-                missing.append("MercadoLibre Client ID")
-            if not rec.ml_client_secret:
-                missing.append("MercadoLibre Client Secret")
-            if not rec.ml_redirect_uri:
-                missing.append("MercadoLibre Redirect URI")
-            if missing:
-                raise UserError("Faltan datos para confirmar:\n- " + "\n- ".join(missing))
             rec.write({"state": "connected", "last_error": False})
         return True
 
