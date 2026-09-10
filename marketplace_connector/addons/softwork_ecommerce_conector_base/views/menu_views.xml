@@ -4,7 +4,6 @@
 
     <menuitem id="menu_sce_commercial_root" name="Mercado Libre" parent="menu_sce_root" sequence="5"/>
     <menuitem id="menu_sce_ml_account" name="Cuentas" parent="menu_sce_commercial_root" action="action_sce_ml_account" sequence="10"/>
-    <menuitem id="menu_sce_marketplace_publication" name="Publicaciones" parent="menu_sce_commercial_root" action="action_marketplace_publication" sequence="20"/>
 
     <menuitem id="menu_sce_configuration" name="Configuration" parent="menu_sce_root" sequence="10"/>
     <menuitem id="menu_sce_operations" name="Operations" parent="menu_sce_root" sequence="20"/>
