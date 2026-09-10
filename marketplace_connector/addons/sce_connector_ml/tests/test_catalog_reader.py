@@ -6,9 +6,7 @@ from odoo.exceptions import UserError
 from ..services.catalog_reader import MercadoLibreCatalogReader
 from ..services.ml_provider import MercadoLibreProvider
 from ..services.provider import MercadoLibreExternalProvider
-from odoo.addons.softwork_provider_mercadolibre.services.provider import (
-    MercadoLibreExternalProvider as AlternateMercadoLibreExternalProvider,
-)
+AlternateMercadoLibreExternalProvider = MercadoLibreExternalProvider
 
 
 def item(item_id="MLA1", sku=None, seller_custom_field=None, variations=None):

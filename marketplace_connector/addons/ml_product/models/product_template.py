@@ -254,9 +254,6 @@ class ProductTemplate(models.Model):
 
     def _get_ml_public_base_url(self, account=None):
         self.ensure_one()
-        account = account or self.ml_account_id
-        if account and (account.odoo_base_url or "").strip():
-            return account.odoo_base_url.strip().rstrip("/")
         return (self.env["ir.config_parameter"].sudo().get_param("web.base.url") or "").strip().rstrip("/")
 
     def _collect_odoo_image_sources(self, account=None):

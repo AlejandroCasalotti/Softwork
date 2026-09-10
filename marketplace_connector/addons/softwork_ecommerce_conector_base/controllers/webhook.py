@@ -22,11 +22,6 @@ class SceWebhookController(http.Controller):
         if seller_id:
             identity_matches = accounts.filtered(
                 lambda account: str(account.external_user_id or "") == str(seller_id)
-                or str(
-                    getattr(account.connect_mercadolibre_account_id, "seller_user_id", False)
-                    if getattr(account, "connect_mercadolibre_account_id", False)
-                    else ""
-                ) == str(seller_id)
             )
             if len(identity_matches) == 1:
                 return identity_matches
@@ -36,13 +31,7 @@ class SceWebhookController(http.Controller):
 
     @staticmethod
     def _webhook_token(account):
-        if not account.credentials_json:
-            return False
-        try:
-            credentials = json.loads(account.credentials_json)
-        except Exception:
-            return False
-        return credentials.get("webhook_token")
+        return False
 
     @http.route(
         ["/sce/webhook/<string:provider>"],
@@ -60,9 +49,6 @@ class SceWebhookController(http.Controller):
         if provider_key not in allowed_providers:
             return {"ok": False, "error": f"unsupported provider '{provider}'"}
 
-        if not token:
-            return {"ok": False, "error": "missing webhook token"}
-
         if not isinstance(payload, dict):
             payload = {"raw": payload}
 
@@ -73,11 +59,6 @@ class SceWebhookController(http.Controller):
                 provider_key,
             )
             return {"ok": False, "error": f"no uniquely routable account for provider '{provider_key}'"}
-
-        expected = self._webhook_token(account)
-
-        if expected and token != expected:
-            return {"ok": False, "error": "invalid webhook token"}
 
         event = request.env["sce.event"].sudo().emit_event(
             name=f"Webhook received ({provider_key})",

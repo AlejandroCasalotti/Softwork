@@ -1064,7 +1064,7 @@ class MlPublishAssistantWizard(models.TransientModel):
     def action_publish(self):
         self.ensure_one()
         self.action_validate_checklist()
-        if "CON OBSERVACIONES BLOQUEANTES" in (self.validation_summary or ""):
+        if (self.validation_summary or "").startswith("Estado: necesita corrección"):
             raise UserError(
                 "No se puede publicar hasta resolver los bloqueantes del checklist.\n"
                 "Revisá Paso 4 (Atributos) y Paso 6 (Revisión final)."

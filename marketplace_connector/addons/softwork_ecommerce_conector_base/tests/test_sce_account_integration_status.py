@@ -23,7 +23,7 @@ class _FakeRecordset:
         return []
 
 
-def _build_account_mock(access_token="token-123"):
+def _build_account_mock(connected=True):
     """Builds a MagicMock standing in for an sce.account record with just
     enough surface for _run_integration_status_tests() to run end to end."""
     models = {}
@@ -51,7 +51,7 @@ def _build_account_mock(access_token="token-123"):
     account.env.user.has_group.return_value = True
     account.env.company = _FakeRecordset(truthy=True, name="Company")
     account.company_id = _FakeRecordset(truthy=True, name="Company")
-    account.access_token = access_token
+    account.state = "connected" if connected else "draft"
     return account
 
 
@@ -110,8 +110,8 @@ class SceAccountIntegrationStatusTests(unittest.TestCase):
         self.assertEqual(result["action_type"], "reconnect")
 
     @patch.object(ProviderFactory, "get_provider")
-    def test_sin_access_token_no_llama_al_provider(self, mock_get_provider):
-        account = _build_account_mock(access_token=False)
+    def test_cuenta_no_conectada_no_llama_al_provider(self, mock_get_provider):
+        account = _build_account_mock(connected=False)
         tests = SceAccount._run_integration_status_tests(account)
 
         result = self._mercadolibre_items_test(tests)

@@ -1,34 +1,133 @@
-"""MercadoLibre implementation owned by the connector addon.
-
-The base implementation is inherited temporarily while the remaining ML API
-helpers are extracted from the core provider module.
-"""
+"""Implementación nativa de Mercado Libre para SCE Core."""
 # -*- coding: utf-8 -*-
 import base64
 import json
 
-from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import (
-    MercadoLibreProvider as CoreMercadoLibreProvider,
-)
 from odoo.exceptions import UserError
 
 from .http_transport import MercadoLibreHttpTransport
 from .oauth import MercadoLibreOAuth
 
 
-class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMercadoLibreProvider):
+class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth):
     """Connector-owned entry point for MercadoLibre provider behavior."""
 
     def _build_item_payload(self, payload):
         payload = dict(payload or {})
+        title = (payload.get("title") or "").strip()
+        category_id = (payload.get("category_id") or "").strip()
+        if not title:
+            raise UserError("MercadoLibre: falta 'title' para publicar.")
+        if not category_id:
+            raise UserError("MercadoLibre: falta 'category_id' para publicar.")
+        price = self._to_float(payload.get("price"), 0.0)
+        if price <= 0:
+            raise UserError("MercadoLibre: el precio debe ser mayor a cero.")
+        item = {
+            "title": title,
+            "category_id": category_id,
+            "price": price,
+            "currency_id": payload.get("currency_id") or "ARS",
+            "available_quantity": max(0, self._to_int(payload.get("available_quantity"), 0)),
+            "buying_mode": payload.get("buying_mode") or "buy_it_now",
+            "condition": payload.get("condition") or "new",
+            "listing_type_id": payload.get("listing_type_id") or payload.get("listing_type") or "gold_special",
+        }
         provider_data = payload.get("provider_data")
         if isinstance(provider_data, dict):
-            payload.setdefault("family_name", provider_data.get("family_name") or "")
-            payload.setdefault("description_html", provider_data.get("description_html") or "")
-            payload.setdefault("warranty", provider_data.get("warranty") or "")
-        payload.setdefault("available_quantity", payload.get("stock", 0))
-        payload.setdefault("listing_type_id", payload.get("listing_type") or "gold_special")
-        return super()._build_item_payload(payload)
+            payload.update({
+                "family_name": provider_data.get("family_name") or payload.get("family_name") or "",
+                "description_html": provider_data.get("description_html") or payload.get("description_html") or "",
+                "warranty": provider_data.get("warranty") or payload.get("warranty") or "",
+            })
+        attributes = self._normalize_attributes(payload)
+        if attributes:
+            item["attributes"] = attributes
+        variations = self._normalize_variations(payload)
+        if variations:
+            item["variations"] = variations
+        pictures = self._normalize_pictures(payload)
+        if pictures:
+            item["pictures"] = pictures
+        if payload.get("description_plain_text"):
+            item["description"] = {"plain_text": payload["description_plain_text"]}
+        if isinstance(payload.get("sale_terms"), list):
+            item["sale_terms"] = payload["sale_terms"]
+        return item
+
+    @staticmethod
+    def _to_int(value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _to_float(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _ok(action, **values):
+        return {"ok": True, "action": action, **values}
+
+    @staticmethod
+    def _extract_item_id(payload):
+        item_id = (payload or {}).get("id") or (payload or {}).get("item_id") or (payload or {}).get("external_id")
+        if not item_id:
+            raise UserError("Falta item_id para operar publicación de Mercado Libre.")
+        return str(item_id).strip()
+
+    @staticmethod
+    def _normalize_attributes(payload):
+        attributes = payload.get("attributes") if isinstance(payload, dict) else []
+        return [item for item in attributes if isinstance(item, dict) and item.get("id")]
+
+    @staticmethod
+    def _normalize_pictures(payload):
+        pictures = payload.get("pictures") if isinstance(payload, dict) else []
+        return [
+            {"source": picture.get("source")}
+            for picture in pictures
+            if isinstance(picture, dict) and picture.get("source")
+        ]
+
+    def _normalize_variations(self, payload):
+        variations = payload.get("variations") if isinstance(payload, dict) else []
+        normalized = []
+        for variation in variations if isinstance(variations, list) else []:
+            if not isinstance(variation, dict):
+                continue
+            item = {
+                "available_quantity": max(0, self._to_int(variation.get("available_quantity"), 0)),
+                "price": self._to_float(variation.get("price"), 0.0),
+                "attribute_combinations": variation.get("attribute_combinations") or [],
+            }
+            if variation.get("seller_custom_field"):
+                item["seller_custom_field"] = str(variation["seller_custom_field"])
+            if variation.get("attributes"):
+                item["attributes"] = variation["attributes"]
+            normalized.append(item)
+        return normalized
+
+    def _build_item_update_payload(self, payload):
+        item = {}
+        if payload.get("price") is not None:
+            item["price"] = self._to_float(payload.get("price"), 0.0)
+        if payload.get("available_quantity") is not None:
+            item["available_quantity"] = max(0, self._to_int(payload.get("available_quantity"), 0))
+        attributes = self._normalize_attributes(payload)
+        if attributes:
+            item["attributes"] = attributes
+        variations = self._normalize_variations(payload)
+        if variations:
+            item["variations"] = variations
+        pictures = self._normalize_pictures(payload)
+        if pictures:
+            item["pictures"] = pictures
+        return item
 
     def health(self):
         user = self._request("GET", "/users/me")

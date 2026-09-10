@@ -38,7 +38,6 @@ Incluye:
         "views/sce_subscription_views.xml",
         "views/sce_integration_status_wizard_views.xml",
         "views/sce_integration_status_snapshot_views.xml",
-        "views/sce_odoo_migration_views.xml",
         "views/menu_views.xml",
     ],
     "demo": [],

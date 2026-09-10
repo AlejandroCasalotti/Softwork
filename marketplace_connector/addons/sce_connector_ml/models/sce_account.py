@@ -1,4 +1,5 @@
-from odoo import models
+from odoo import fields, models
+from odoo.exceptions import UserError
 
 
 class SceAccount(models.Model):
@@ -30,4 +31,18 @@ class SceAccount(models.Model):
             from ..services.mercadolibre_token_service import MercadoLibreTokenService
 
             MercadoLibreTokenService(self.env).disconnect(account)
+        return True
+
+    def action_sync_now(self):
+        for account in self:
+            if account.provider_type != "mercadolibre":
+                raise UserError("La sincronización manual está disponible para Mercado Libre.")
+            if account.state != "connected":
+                raise UserError("Conecta la cuenta de Mercado Libre antes de sincronizar.")
+            publications = self.env["marketplace.publication"].search(
+                [("account_id", "=", account.id), ("external_id", "!=", False)]
+            )
+            for publication in publications:
+                self.env["marketplace.publication.service"].enqueue(publication, "sync")
+            account.write({"last_sync": fields.Datetime.now(), "last_error": False})
         return True

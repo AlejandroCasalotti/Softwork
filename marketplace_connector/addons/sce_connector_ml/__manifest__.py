@@ -10,7 +10,6 @@
     "depends": [
         "softwork_ecommerce_conector_base",
         "sce_product_marketplace",
-        "softwork_provider_odoo",
     ],
     "data": [
         "security/ir.model.access.csv",

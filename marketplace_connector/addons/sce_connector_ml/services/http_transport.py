@@ -26,13 +26,9 @@ class MercadoLibreHttpTransport:
         if form_encoded:
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         if with_auth:
-            token = None
-            try:
-                from .mercadolibre_token_service import MercadoLibreTokenService
+            from .mercadolibre_token_service import MercadoLibreTokenService
 
-                token = MercadoLibreTokenService(self.env).get_access_token(self.account)
-            except Exception:
-                token = getattr(self.account, "access_token", "") or ""
+            token = MercadoLibreTokenService(self.env).get_access_token(self.account)
             if not token:
                 raise UserError("No hay access token configurado en la cuenta.")
             headers["Authorization"] = f"Bearer {token}"
@@ -65,7 +61,6 @@ class MercadoLibreHttpTransport:
             response.status_code in (401, 403)
             and with_auth
             and not _retried
-            and getattr(self.account, "refresh_token", False)
         ):
             refresh_result = self.refresh_token()
             if self._persist_refreshed_tokens(refresh_result):

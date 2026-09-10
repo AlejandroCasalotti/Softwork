@@ -189,6 +189,9 @@ class MarketplacePublicationService(models.AbstractModel):
         if not job_type:
             raise UserError("Operación de publicación no soportada: %s" % operation)
         if operation == "publish":
+            errors = publication.check_ready_to_publish()
+            if errors:
+                raise UserError("No se puede publicar:\n- %s" % "\n- ".join(errors))
             publication._validate_for_operation()
             publication.write({"state": "publishing", "error_message": False})
         elif not publication.external_id:

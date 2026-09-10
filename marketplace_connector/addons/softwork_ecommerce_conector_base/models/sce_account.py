@@ -24,7 +24,6 @@ class SceAccount(models.Model):
         ("tiendanube", "Tiendanube"),
         ("woocommerce", "WooCommerce"),
         ("custom", "Custom"),
-        ("odoo", "Odoo"),
     ]
 
     name = fields.Char(required=True, tracking=True)
@@ -55,14 +54,9 @@ class SceAccount(models.Model):
         tracking=True,
     )
     external_account_ref = fields.Char(string="External Account Reference", index=True)
-    credentials_json = fields.Text(string="Credentials JSON")
     client_id = fields.Char(string="Client ID")
     client_secret = fields.Char(string="Client Secret")
     redirect_uri = fields.Char(string="Redirect URI")
-    auth_code = fields.Char(string="Authorization Code")
-    access_token = fields.Char(string="Access Token")
-    refresh_token = fields.Char(string="Refresh Token")
-    token_type = fields.Char(string="Token Type")
     token_expires_at = fields.Datetime(string="Token Expires At")
     external_user_id = fields.Char(string="External User ID")
     token_refresh_in_progress = fields.Boolean(default=False, readonly=True)
@@ -70,7 +64,6 @@ class SceAccount(models.Model):
     token_refresh_fail_count = fields.Integer(default=0, readonly=True)
     last_token_refresh_error = fields.Text(readonly=True)
     token_circuit_open_until = fields.Datetime(readonly=True)
-    oauth_code_verifier = fields.Char(string="OAuth Code Verifier", copy=False)
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
@@ -84,32 +77,12 @@ class SceAccount(models.Model):
         help="Timeout máximo recomendado para operaciones del provider.",
     )
 
-    # Onboarding UX (cliente final)
+    # Configuración comercial de la cuenta.
     mode = fields.Selection(
         selection=[("sandbox", "Sandbox"), ("production", "Producción")],
         default="production",
         tracking=True,
     )
-    odoo_base_url = fields.Char(string="URL de Odoo")
-    odoo_db_name = fields.Char(string="Base de datos Odoo")
-    odoo_user = fields.Char(string="Usuario Odoo")
-    odoo_password = fields.Char(string="API Key / Password Odoo")
-
-    # Odoo -> Odoo migration base (fase 1)
-    odoo_source_url = fields.Char(string="Odoo Origen - URL")
-    odoo_source_db = fields.Char(string="Odoo Origen - Base de datos")
-    odoo_source_user = fields.Char(string="Odoo Origen - Usuario")
-    odoo_source_api_key = fields.Char(string="Odoo Origen - API Key / Password")
-    odoo_target_url = fields.Char(string="Odoo Destino - URL")
-    odoo_target_db = fields.Char(string="Odoo Destino - Base de datos")
-    odoo_target_user = fields.Char(string="Odoo Destino - Usuario")
-    odoo_target_api_key = fields.Char(string="Odoo Destino - API Key / Password")
-    migration_mode = fields.Selection(
-        selection=[("full", "Completa"), ("incremental", "Incremental")],
-        string="Modo de migración",
-        default="full",
-    )
-    migration_since = fields.Datetime(string="Migrar cambios desde")
     ml_client_id = fields.Char(string="MercadoLibre Client ID")
     ml_client_secret = fields.Char(string="MercadoLibre Client Secret")
     ml_redirect_uri = fields.Char(string="MercadoLibre Redirect URI")
@@ -179,11 +152,7 @@ class SceAccount(models.Model):
 
     @api.model
     def get_or_create_quick_ml_account(self, company=None, tenant=None, external_connection=None):
-        """Create a base ML account without requiring any Connect-only model or field.
-
-        The Connect-specific tenant/ownership fields live in the optional sce_connect
-        extension and must not be required by the SCE core account model.
-        """
+        """Create the single Core Mercado Libre account for a company."""
         company = company or self.env.company
         connector = self.env["sce.connector"].search(
             [
@@ -255,118 +224,16 @@ class SceAccount(models.Model):
             if vals:
                 rec.write(vals)
 
-    def _validate_odoo_connection(self):
-        self.ensure_one()
-        if self.connector_id.provider_type != "odoo":
-            raise UserError("Esta validación es solo para conectores tipo Odoo.")
-
-        missing = []
-        for label, value in [
-            ("Odoo Origen - URL", self.odoo_source_url),
-            ("Odoo Origen - Base de datos", self.odoo_source_db),
-            ("Odoo Origen - Usuario", self.odoo_source_user),
-            ("Odoo Origen - API Key / Password", self.odoo_source_api_key),
-            ("Odoo Destino - URL", self.odoo_target_url),
-            ("Odoo Destino - Base de datos", self.odoo_target_db),
-            ("Odoo Destino - Usuario", self.odoo_target_user),
-            ("Odoo Destino - API Key / Password", self.odoo_target_api_key),
-        ]:
-            if not value:
-                missing.append(label)
-
-        if missing:
-            raise UserError("Faltan datos para probar conexión Odoo->Odoo:\n- " + "\n- ".join(missing))
-
-        try:
-            from ..services.provider_factory import ProviderFactory
-
-            provider = ProviderFactory.get_provider(self)
-            result = provider.health()
-            if not result or not result.get("ok"):
-                raise UserError("El endpoint de Odoo respondió inválido durante la validación.")
-            return result
-        except Exception as err:
-            self.write({"state": "error", "last_error": str(err)})
-            raise UserError(f"No se pudo conectar a Odoo remoto: {err}") from err
-
     def action_start_onboarding_connection(self):
         self.ensure_one()
         provider = self.provider_type
 
         if provider == "mercadolibre":
-            missing = []
             if not self.name:
-                missing.append("Nombre de cuenta")
-            if not self.odoo_base_url:
-                missing.append("URL de Odoo")
-            if not self.odoo_db_name:
-                missing.append("Base de datos Odoo")
-            if not self.odoo_user:
-                missing.append("Usuario Odoo")
-            if not self.odoo_password:
-                missing.append("API Key / Password Odoo")
-            if not self.ml_client_id:
-                missing.append("MercadoLibre Client ID")
-            if not self.ml_client_secret:
-                missing.append("MercadoLibre Client Secret")
-            if not self.ml_redirect_uri:
-                missing.append("MercadoLibre Redirect URI")
-
-            if missing:
-                raise UserError("Completá estos campos antes de conectar:\n- " + "\n- ".join(missing))
-
-            self._sync_onboarding_to_oauth_fields()
+                raise UserError("Indica un nombre para la cuenta de Mercado Libre.")
             return self.action_open_oauth_url()
 
-        if provider == "odoo":
-            self._validate_odoo_connection()
-            self.write({"state": "connected", "last_error": False})
-            return {
-                "type": "ir.actions.client",
-                "tag": "display_notification",
-                "params": {
-                    "title": "Conexión validada",
-                    "message": "Cuenta Odoo Origen/Destino configurada correctamente y conectada via XML-RPC.",
-                    "type": "success",
-                    "sticky": False,
-                },
-            }
-
         raise UserError("Este tipo de proveedor no tiene flujo de conexión definido.")
-
-    def action_test_odoo_connection(self):
-        self.ensure_one()
-        if self.connector_id.provider_type != "odoo":
-            raise UserError("Esta prueba es solo para conectores tipo Odoo.")
-        self._validate_odoo_connection()
-        self.write({"state": "connected", "last_error": False})
-        return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": "Conexión validada",
-                "message": "Configuración Odoo origen/destino validada correctamente con XML-RPC.",
-                "type": "success",
-                "sticky": False,
-            },
-        }
-
-    def action_start_migration_wizard(self):
-        self.ensure_one()
-        if self.connector_id.provider_type != "odoo":
-            raise UserError("Este asistente aplica solo a conectores tipo Odoo.")
-        return {
-            "type": "ir.actions.act_window",
-            "name": "Asistente de migración Odoo a Odoo",
-            "res_model": "sce.odoo.migration.wizard",
-            "view_mode": "form",
-            "target": "new",
-            "context": {
-                "default_account_id": self.id,
-                "default_migration_mode": self.migration_mode or "full",
-                "default_since_datetime": self.migration_since,
-            },
-        }
 
     def _diagnostic_notification(self, title, message, notification_type="success"):
         return {
@@ -488,20 +355,7 @@ class SceAccount(models.Model):
 
     def action_test_and_confirm(self):
         for rec in self:
-            if rec.connector_id.provider_type == "odoo":
-                rec._validate_odoo_connection()
-                rec.write({"state": "connected", "last_error": False})
-                continue
-
             missing = []
-            if not rec.odoo_base_url:
-                missing.append("URL de Odoo")
-            if not rec.odoo_db_name:
-                missing.append("Base de datos Odoo")
-            if not rec.odoo_user:
-                missing.append("Usuario Odoo")
-            if not rec.odoo_password:
-                missing.append("API Key / Password Odoo")
             if not rec.ml_client_id:
                 missing.append("MercadoLibre Client ID")
             if not rec.ml_client_secret:
@@ -589,10 +443,10 @@ class SceAccount(models.Model):
 
         add_test("Excluded Products", "success", "No exclusion domain set. All products will be considered for sync.")
 
-        if self.access_token:
+        if self.state == "connected":
             add_test("MercadoLibre Connection", "success", "Conexión exitosa a su cuenta de MercadoLibre")
         else:
-            add_test("MercadoLibre Connection", "error", "No hay access token de MercadoLibre configurado", action_type="reconnect")
+            add_test("MercadoLibre Connection", "error", "La cuenta de MercadoLibre necesita autorización", action_type="reconnect")
 
         l10n_ar = module_env.search([("name", "=", "l10n_ar"), ("state", "=", "installed")], limit=1)
         if l10n_ar:
@@ -600,7 +454,7 @@ class SceAccount(models.Model):
         else:
             add_test("Localization Module", "warning", "El módulo 'l10n_ar' no está instalado")
 
-        if self.access_token:
+        if self.state == "connected":
             try:
                 from ..services.provider_factory import ProviderFactory
                 from odoo.addons.sce_connector_ml.services.catalog_reader import MercadoLibreCatalogReader
@@ -612,7 +466,7 @@ class SceAccount(models.Model):
             except Exception as err:
                 add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err), action_type="reconnect")
         else:
-            add_test("MercadoLibre Items", "warning", "No se pudo validar publicaciones porque no hay access token", action_type="reconnect")
+            add_test("MercadoLibre Items", "warning", "No se pudo validar publicaciones porque la cuenta necesita autorización", action_type="reconnect")
 
         return tests
 
@@ -715,37 +569,6 @@ class SceAccount(models.Model):
             rec.jobs_failed_count = len(failed_jobs)
             rec.avg_duration_ms = (sum(done_jobs.mapped("duration_ms")) / len(done_jobs)) if done_jobs else 0.0
 
-    def _get_credentials_dict(self):
-        self.ensure_one()
-        if not self.credentials_json:
-            return {}
-        try:
-            return json.loads(self.credentials_json)
-        except Exception:
-            return {}
-
-    def _set_credentials_dict(self, data):
-        self.ensure_one()
-        self.credentials_json = json.dumps(data or {})
-
-    def _sync_credentials_blob(self):
-        self.ensure_one()
-        data = self._get_credentials_dict()
-        data.update(
-            {
-                "client_id": self.client_id or "",
-                "client_secret": self.client_secret or "",
-                "redirect_uri": self.redirect_uri or "",
-                "auth_code": self.auth_code or "",
-                "access_token": self.access_token or "",
-                "refresh_token": self.refresh_token or "",
-                "token_type": self.token_type or "",
-                "token_expires_at": self.token_expires_at.isoformat() if self.token_expires_at else "",
-                "external_user_id": self.external_user_id or "",
-            }
-        )
-        self._set_credentials_dict(data)
-
     def _provider_capabilities(self, provider):
         if hasattr(provider, "capabilities"):
             try:
@@ -762,66 +585,7 @@ class SceAccount(models.Model):
         return clean
 
     def action_exchange_code(self, state=None, code=None):
-        event_model = self.env["sce.event"]
-        log_service = self.env["sce.log.service"]
-        for rec in self:
-            try:
-                current_code = (code or rec.auth_code or "").strip()
-                current_state = (state or "").strip()
-                if not current_state:
-                    raise UserError("Falta state OAuth válido.")
-                if not current_code:
-                    raise UserError("Debes informar Authorization Code.")
-                from odoo.addons.sce_connector_ml.services.mercadolibre_oauth_service import MercadoLibreOAuthService
-
-                result = MercadoLibreOAuthService(rec.env).complete(current_state, current_code, rec.env.user)
-                if result:
-                    rec.write({
-                        "state": "connected",
-                        "last_error": False,
-                        "auth_code": False,
-                        "oauth_code_verifier": False,
-                    })
-                safe_result = {"account_id": rec.id, "state": current_state, "provider": rec.connector_id.provider_type}
-                log_service.log(
-                    name="Token exchanged",
-                    message=f"Token exchange executed for {rec.display_name}",
-                    level="INFO",
-                    account=rec,
-                    connector=rec.connector_id,
-                    details_json=json.dumps(safe_result, default=str),
-                    provider=rec.connector_id.provider_type,
-                    operation="token_exchange",
-                )
-                event_model.emit_event(
-                    name=f"Token exchange success: {rec.display_name}",
-                    event_type="TokenExchangeSuccess",
-                    payload={"account_id": rec.id, "provider": rec.connector_id.provider_type},
-                    company=rec.company_id,
-                )
-            except Exception as err:
-                err_msg = str(err)
-                rec.state = "error"
-                rec.last_error = err_msg
-                rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
-                rec.last_token_refresh_error = err_msg
-                rec.oauth_code_verifier = False
-                rec.auth_code = False
-                event_model.emit_event(
-                    name=f"Token exchange failed: {rec.display_name}",
-                    event_type="TokenExchangeFailed",
-                    payload={"account_id": rec.id, "error": err_msg},
-                    company=rec.company_id,
-                )
-                log_service.log(
-                    name="Token exchange failed",
-                    message=f"Token exchange failed for {rec.display_name}: {err_msg}",
-                    level="ERROR",
-                    account=rec,
-                    connector=rec.connector_id,
-                )
-                raise
-        return True
+        raise UserError("El intercambio OAuth se completa mediante el callback seguro de Mercado Libre.")
 
     def action_force_unlock_token_refresh(self):
         self.write(
@@ -844,14 +608,9 @@ class SceAccount(models.Model):
 
     def write(self, vals):
         if "client_secret" in vals:
-            for rec in self:
-                if vals.get("client_secret") != rec.client_secret:
-                    vals.setdefault("state", "draft")
-                    vals.setdefault("access_token", False)
-                    vals.setdefault("refresh_token", False)
-                    vals.setdefault("token_type", False)
-                    vals.setdefault("token_expires_at", False)
-                    vals.setdefault("external_user_id", False)
+            vals.setdefault("state", "draft")
+            vals.setdefault("token_expires_at", False)
+            vals.setdefault("external_user_id", False)
         return super().write(vals)
 
     def _is_token_circuit_open(self):
@@ -886,29 +645,13 @@ class SceAccount(models.Model):
             try:
                 if rec._is_token_circuit_open():
                     continue
-                if not rec.refresh_token:
-                    raise UserError("No hay refresh token configurado.")
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(rec)
                 capabilities = rec._provider_capabilities(provider)
                 if not capabilities.get("oauth_refresh", True):
                     raise UserError("Este conector no soporta refresh de token OAuth.")
                 result = provider.refresh_token()
-                if result.get("access_token"):
-                    rec.write(
-                        {
-                            "access_token": result.get("access_token"),
-                            "refresh_token": result.get("refresh_token") or rec.refresh_token,
-                            "token_type": result.get("token_type") or rec.token_type,
-                            "token_expires_at": result.get("token_expires_at"),
-                            "state": "connected",
-                            "last_error": False,
-                            "token_refresh_fail_count": 0,
-                            "last_token_refresh_error": False,
-                            "token_circuit_open_until": False,
-                        }
-                    )
-                    rec._sync_credentials_blob()
+                rec.write({"state": "connected", "last_error": False})
                 safe_result = rec._sanitize_result_for_logs(result)
                 elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False
                 log_service.log(
@@ -964,7 +707,8 @@ class SceAccount(models.Model):
         accounts = self.search(
             [
                 ("active", "=", True),
-                ("refresh_token", "!=", False),
+                ("provider_type", "=", "mercadolibre"),
+                ("state", "=", "connected"),
                 ("token_refresh_in_progress", "=", False),
             ]
         )

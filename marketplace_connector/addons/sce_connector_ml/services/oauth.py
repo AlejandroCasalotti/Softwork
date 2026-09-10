@@ -12,18 +12,7 @@ class MercadoLibreOAuth:
     """OAuth operations owned by the MercadoLibre connector."""
 
     def _persist_refreshed_tokens(self, refresh_result):
-        if not isinstance(refresh_result, dict):
-            return False
-        values = {
-            key: refresh_result[key]
-            for key in ("access_token", "refresh_token", "token_expires_at")
-            if refresh_result.get(key)
-        }
-        if not values:
-            return False
-        self.account.sudo().write(values)
-        self.account.invalidate_recordset()
-        return True
+        return bool(isinstance(refresh_result, dict) and refresh_result.get("ok"))
 
     def authenticate(self):
         if not self.account.auth_code:
@@ -68,25 +57,8 @@ class MercadoLibreOAuth:
         )
 
     def refresh_token(self):
-        if not self.account.refresh_token:
-            raise UserError("Falta refresh token en la cuenta.")
-        if not self.account.client_id or not self.account.client_secret:
-            raise UserError("Faltan datos OAuth: client_id/client_secret.")
-        payload = {
-            "grant_type": "refresh_token",
-            "client_id": self.account.client_id,
-            "client_secret": self.account.client_secret,
-            "refresh_token": self.account.refresh_token,
-        }
-        data = self._request("POST", self.BASE_AUTH_URL, payload=payload, with_auth=False, form_encoded=True)
-        expires_in = int(data.get("expires_in", 0) or 0)
-        expires_at = fields.Datetime.now() + timedelta(seconds=expires_in) if expires_in else False
-        return self._ok(
-            action="refresh_token",
-            account_id=self.account.id,
-            access_token=data.get("access_token"),
-            refresh_token=data.get("refresh_token"),
-            token_type=data.get("token_type"),
-            token_expires_at=expires_at,
-            raw=data,
-        )
+        from .mercadolibre_token_service import MercadoLibreTokenService
+
+        identity = MercadoLibreTokenService(self.env)._identity(self.account)
+        MercadoLibreTokenService(self.env).refresh(identity)
+        return self._ok(action="refresh_token", account_id=self.account.id)

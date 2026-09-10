@@ -13,10 +13,7 @@ class ProviderFactory:
     """
     Factory para resolver providers por tipo de conector.
 
-    Política actual (transición):
-    1) provider externo explícito por connector.provider_impl_path
-    2) fallback externo por convención sce_connector_<provider_type>
-    3) built-in core como compatibilidad legacy (deprecado)
+    Los providers comerciales se resuelven desde sus módulos de dominio.
     """
 
     REQUIRED_METHODS = (
@@ -117,23 +114,6 @@ class ProviderFactory:
         return None
 
     @staticmethod
-    def _get_builtin_provider(account, provider_type):
-        if provider_type == "mercadolibre":
-            from .providers.ml_provider import MercadoLibreProvider
-
-            _logger.warning(
-                "Using deprecated legacy built-in provider for '%s' on connector '%s' (%s). "
-                "Recommended: configure connector.provider_impl_path or install sce_connector_%s.",
-                provider_type,
-                account.connector_id.display_name,
-                account.connector_id.id,
-                provider_type,
-            )
-            provider = MercadoLibreProvider(account.env, account)
-            return ProviderFactory._validate_provider_contract(provider, provider_type, "builtin")
-        return None
-
-    @staticmethod
     def is_external_only_enabled(account):
         global_force = (
             account.env["ir.config_parameter"]
@@ -165,13 +145,7 @@ class ProviderFactory:
                 f"or install module sce_connector_{provider_type}."
             )
 
-        builtin = ProviderFactory._get_builtin_provider(account, provider_type)
-        if builtin:
-            return builtin
-
         raise UserError(
-            f"Provider not implemented yet for type: {provider_type}. "
-            f"Configure connector.provider_impl_path (e.g. "
-            f"'sce_connector_{provider_type}.services.provider.get_provider') "
-            f"or install module sce_connector_{provider_type}."
+            f"Provider no instalado para el tipo: {provider_type}. "
+            f"Instala el módulo comercial correspondiente."
         )

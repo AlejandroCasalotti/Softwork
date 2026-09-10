@@ -4,12 +4,11 @@
         <field name="name">sce.account.tree</field>
         <field name="model">sce.account</field>
         <field name="arch" type="xml">
-            <list string="Integraciones">
+            <list string="Cuentas Mercado Libre">
                 <field name="name"/>
-                <field name="connector_id"/>
-                <field name="last_connection_check"/>
+                <field name="external_user_id"/>
                 <field name="state" widget="badge" decoration-success="state == 'connected'" decoration-warning="state == 'draft'" decoration-danger="state == 'error'"/>
-                <field name="mode" widget="badge" decoration-success="mode == 'production'" decoration-warning="mode == 'sandbox'"/>
+                <field name="last_sync"/>
             </list>
         </field>
     </record>
@@ -18,147 +17,56 @@
         <field name="name">sce.account.form</field>
         <field name="model">sce.account</field>
         <field name="arch" type="xml">
-            <form string="Integración">
+            <form string="Mercado Libre">
                 <header>
                     <button name="action_start_onboarding_connection" type="object" string="Conectar Mercado Libre" class="btn-primary" invisible="state == 'connected' or provider_type != 'mercadolibre'"/>
                     <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
-                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="provider_type == 'mercadolibre' or state == 'connected'"/>
-                    <button name="action_check_integration_status" type="object" string="Ver estado" class="btn-secondary" icon="fa-random"/>
+                    <button name="action_sync_now" type="object" string="Sincronizar ahora" class="btn-secondary" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
+                    <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" confirm="¿Desconectar esta cuenta de Mercado Libre?" invisible="state == 'draft' or provider_type != 'mercadolibre'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
                 </header>
                 <sheet>
-                    <widget name="web_ribbon" title="Producción" bg_color="text-bg-success" invisible="mode != 'production'"/>
-                    <widget name="web_ribbon" title="Sandbox" bg_color="text-bg-warning" invisible="mode != 'sandbox'"/>
-
-                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'mercadolibre'">
+                    <div class="alert alert-info" role="alert" invisible="state == 'connected'">
                         <strong>Mercado Libre</strong>
-                        <p class="mb-0">Conectá tu cuenta para comenzar a publicar productos y sincronizar stock y precios.</p>
+                        <p class="mb-0">Conectá tu cuenta para sincronizar productos, precios, stock y ventas.</p>
                     </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'mercadolibre'">
-                        <strong>✓ Mercado Libre conectado</strong>
-                        <p class="mb-0">Tu cuenta está lista para publicar, sincronizar y operar.</p>
-                    </div>
-                    <div class="alert alert-info" role="alert" invisible="state == 'connected' or provider_type != 'odoo'">
-                        Completá los datos de Odoo Origen y Odoo Destino para conectar Odoo↔Odoo.
-                    </div>
-                    <div class="alert alert-success" role="alert" invisible="state != 'connected' or provider_type != 'odoo'">
-                        Cuenta conectada correctamente para migración Odoo↔Odoo.
+                    <div class="alert alert-success" role="alert" invisible="state != 'connected'">
+                        <strong>✓ Cuenta conectada</strong>
+                        <p class="mb-0">La cuenta está lista para sincronizar productos, precios, stock y ventas.</p>
                     </div>
                     <div class="alert alert-danger" role="alert" invisible="not last_error">
                         <field name="last_error" readonly="1" nolabel="1"/>
                     </div>
-
-                    <label for="name" class="oe_edit_only"/>
-                    <h1><field name="name" placeholder="Ej: Cuenta MercadoLibre Principal"/></h1>
-
+                    <h1><field name="name" placeholder="Ej: Mi Tienda Argentina"/></h1>
                     <group>
-                        <group>
-                            <field name="connector_id"/>
-                            <field name="provider_type"/>
+                        <group string="Cuenta">
+                            <field name="provider_type" invisible="1"/>
+                            <field name="connector_id" invisible="1"/>
                             <field name="company_id" invisible="1"/>
-                            <field name="mode"/>
-                            <field name="active" invisible="1"/>
+                            <field name="external_user_id" readonly="1" string="Vendedor"/>
+                            <field name="external_account_ref" readonly="1" invisible="not external_account_ref"/>
                         </group>
-                        <group>
-                            <field name="external_user_id" readonly="1" placeholder="Sin usuario validado"/>
-                            <field name="external_account_ref" invisible="1"/>
-                            <field name="last_connection_check" readonly="1"/>
-                            <field name="token_expires_at" readonly="1"/>
-                        </group>
-                    </group>
-
-                    <group string="Mercado Libre" invisible="provider_type != 'mercadolibre'">
-                        <group>
-                            <field name="state" readonly="1"/>
-                            <field name="external_user_id" readonly="1" string="Cuenta"/>
-                        </group>
-                        <group>
-                            <field name="last_connection_check" readonly="1" string="Última conexión"/>
-                            <field name="last_error" readonly="1" string="Estado"/>
+                        <group string="Sincronización">
+                            <field name="state" readonly="1" string="Estado"/>
+                            <field name="last_sync" readonly="1" string="Última sincronización"/>
+                            <field name="sync_orders"/>
+                            <field name="sync_prices"/>
+                            <field name="sync_stock"/>
                         </group>
                     </group>
-
-                    <group string="Conexión con Odoo (API)" invisible="provider_type == 'odoo'">
-                        <group>
-                            <field name="odoo_base_url" placeholder="https://tu-odoo.com"/>
-                            <field name="odoo_db_name" placeholder="nombre_bd"/>
-                        </group>
-                        <group>
-                            <field name="odoo_user"/>
-                            <field name="odoo_password" password="True"/>
-                        </group>
+                    <group string="Publicaciones">
+                        <field name="job_ids" readonly="1" nolabel="1">
+                            <list>
+                                <field name="name"/>
+                                <field name="state"/>
+                                <field name="create_date"/>
+                            </list>
+                        </field>
                     </group>
-
-                    <group string="App MercadoLibre" invisible="provider_type != 'mercadolibre'">
-                        <group>
-                            <field name="ml_client_id"/>
-                            <field name="ml_client_secret" password="True"/>
-                        </group>
-                        <group>
-                            <field name="ml_redirect_uri" placeholder="https://tu-odoo.com/sce/oauth/mercadolibre/callback"/>
-                            <field name="provider_timeout_seconds"/>
-                        </group>
-                    </group>
-
-                    <group string="Credenciales Marketplace" invisible="provider_type in ('mercadolibre','odoo')">
-                        <group>
-                            <field name="client_id"/>
-                            <field name="client_secret" password="True"/>
-                        </group>
-                        <group>
-                            <field name="redirect_uri"/>
-                            <field name="provider_timeout_seconds"/>
-                        </group>
-                    </group>
-
-                    <group string="Conexión con Odoo Origen (API)" invisible="provider_type != 'odoo'">
-                        <group>
-                            <field name="odoo_source_url" placeholder="https://odoo-origen.com"/>
-                            <field name="odoo_source_db" placeholder="bd_origen"/>
-                            <field name="odoo_source_user"/>
-                            <field name="odoo_source_api_key" password="True"/>
-                        </group>
-                    </group>
-
-                    <group string="Conexión con Odoo Destino (API)" invisible="provider_type != 'odoo'">
-                        <group>
-                            <field name="odoo_target_url" placeholder="https://odoo-destino.com"/>
-                            <field name="odoo_target_db" placeholder="bd_destino"/>
-                            <field name="odoo_target_user"/>
-                            <field name="odoo_target_api_key" password="True"/>
-                        </group>
-                    </group>
-
-                    <group string="Migración Odoo a Odoo" invisible="provider_type != 'odoo'">
-                        <group>
-                            <field name="migration_mode"/>
-                            <field name="migration_since" invisible="migration_mode != 'incremental'"/>
-                        </group>
-                        <group>
-                            <button name="action_test_odoo_connection" type="object" string="Probar conexión Odoo↔Odoo" class="btn-secondary"/>
-                            <button name="action_start_migration_wizard" type="object" string="Asistente de migración" class="btn-primary"/>
-                        </group>
-                    </group>
-
-                    <group string="OAuth / Tokens (avanzado)" invisible="1">
-                        <group>
-                            <field name="client_id"/>
-                            <field name="client_secret" password="True"/>
-                            <field name="redirect_uri"/>
-                            <field name="oauth_url" readonly="1"/>
-                            <field name="auth_code"/>
-                            <field name="access_token" password="True"/>
-                            <field name="refresh_token" password="True"/>
-                            <field name="token_type" readonly="1"/>
-                            <field name="token_refresh_in_progress" readonly="1"/>
-                            <field name="token_refresh_started_at" readonly="1"/>
-                            <field name="token_circuit_open_until" readonly="1"/>
-                            <field name="token_refresh_fail_count" readonly="1"/>
-                            <field name="last_token_refresh_error" readonly="1"/>
-                        </group>
-                        <group>
-                            <field name="credentials_json" widget="text"/>
-                        </group>
+                    <group string="Configuración OAuth" invisible="1">
+                        <field name="ml_client_id"/>
+                        <field name="ml_client_secret" password="True"/>
+                        <field name="ml_redirect_uri"/>
                     </group>
                 </sheet>
                 <chatter/>
@@ -167,9 +75,10 @@
     </record>
 
     <record id="action_sce_account" model="ir.actions.act_window">
-        <field name="name">Accounts</field>
+        <field name="name">Cuentas Mercado Libre</field>
         <field name="res_model">sce.account</field>
         <field name="view_mode">list,form</field>
+        <field name="domain">[('provider_type', '=', 'mercadolibre')]</field>
         <field name="context">{'default_provider_type': 'mercadolibre'}</field>
     </record>
 

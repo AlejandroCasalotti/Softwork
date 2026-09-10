@@ -26,6 +26,9 @@ class MarketplacePublication(models.Model):
     provider_type = fields.Selection(
         string="Tipo de proveedor", related="connector_id.provider_type", store=True, readonly=True
     )
+    account_state = fields.Selection(
+        related="account_id.state", string="Estado de cuenta", readonly=True
+    )
 
     # Identidad externa
     external_id = fields.Char(string="ID externo")
@@ -194,6 +197,20 @@ class MarketplacePublication(models.Model):
         if missing:
             raise UserError("La publicación no está lista. Completa: %s." % ", ".join(missing))
 
+    def check_ready_to_publish(self):
+        """Return actionable blockers before the publication job is created."""
+        self.ensure_one()
+        errors = []
+        if not self.account_id or self.account_id.state != "connected":
+            errors.append("Conecta una cuenta de MercadoLibre.")
+        if not self.listing_type:
+            errors.append("Selecciona el tipo de publicación.")
+        try:
+            self._validate_for_operation()
+        except UserError as error:
+            errors.append(str(error))
+        return errors
+
     def _apply_provider_result(self, result, published=False):
         self.ensure_one()
         result = result if isinstance(result, dict) else {}
@@ -290,6 +307,9 @@ class MarketplacePublication(models.Model):
 
     def action_publish(self):
         for publication in self:
+            errors = publication.check_ready_to_publish()
+            if errors:
+                raise UserError("No se puede publicar:\n- %s" % "\n- ".join(errors))
             publication._publication_service().enqueue(publication, "publish")
         return True
 

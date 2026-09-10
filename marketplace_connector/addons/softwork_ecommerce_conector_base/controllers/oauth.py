@@ -74,11 +74,6 @@ class SceOAuthController(http.Controller):
                         account.write(
                             {
                                 "state": "draft",
-                                "auth_code": False,
-                                "oauth_code_verifier": False,
-                                "access_token": False,
-                                "refresh_token": False,
-                                "token_type": False,
                                 "token_expires_at": False,
                                 "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
                             }

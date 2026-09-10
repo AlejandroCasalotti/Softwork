@@ -7,8 +7,27 @@
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
                 <button name="action_open_ml_publish_assistant" type="object"
-                        string="Configurar MercadoLibre" class="btn-primary"
+                        string="Completar publicación" class="btn-primary"
                         invisible="provider_type != 'mercadolibre'"/>
+            </xpath>
+            <xpath expr="//header/button[@name='action_publish']" position="attributes">
+                <attribute name="invisible">provider_type == 'mercadolibre' or state not in ('draft', 'ready', 'failed')</attribute>
+            </xpath>
+            <xpath expr="//sheet/div[@role='alert']" position="after">
+                <div class="alert alert-warning" role="alert"
+                     invisible="provider_type != 'mercadolibre' or account_state == 'connected'">
+                    Conecta tu cuenta de MercadoLibre para continuar con la publicación.
+                </div>
+                <div class="alert alert-success" role="alert"
+                     invisible="provider_type != 'mercadolibre' or account_state != 'connected'">
+                    Cuenta MercadoLibre conectada. Completa los pasos de la publicación para continuar.
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='provider_type']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='account_id']" position="after">
+                <field name="account_state" readonly="1" string="Estado de conexión"/>
             </xpath>
         </field>
     </record>

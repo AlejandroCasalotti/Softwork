@@ -398,11 +398,8 @@ class MarketplacePublicationSKUTests(unittest.TestCase):
     def test_11_normalize_variations_preserves_seller_sku_attributes(self):
         """La normalización compartida preserva attributes en ambos providers."""
         from odoo.addons.sce_connector_ml.services.ml_provider import MercadoLibreProvider
-        from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import (
-            MercadoLibreProvider as CoreMercadoLibreProvider,
-        )
 
-        provider = object.__new__(CoreMercadoLibreProvider)
+        provider = object.__new__(MercadoLibreProvider)
         provider._to_int = lambda value, default: int(value or default)
         provider._to_float = lambda value, default: float(value or default)
         attributes = [{"id": "SELLER_SKU", "value_name": "CANONICAL-SKU"}]

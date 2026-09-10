@@ -7,12 +7,8 @@ from odoo.exceptions import UserError
 from odoo.addons.sce_connector_ml.services.ml_provider import MercadoLibreProvider
 from odoo.addons.sce_connector_ml.services.provider import MercadoLibreExternalProvider
 from odoo.addons.softwork_ecommerce_conector_base.models.sce_job import SceJob
-from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import (
-    MercadoLibreProvider as LegacyMercadoLibreProvider,
-)
-from odoo.addons.softwork_provider_mercadolibre.services.provider import (
-    MercadoLibreExternalProvider as LegacyMercadoLibreExternalProvider,
-)
+LegacyMercadoLibreProvider = MercadoLibreProvider
+LegacyMercadoLibreExternalProvider = MercadoLibreExternalProvider
 
 from ..models.marketplace_publication import MarketplacePublication
 from ..models.sce_job_marketplace import SceMarketplaceJob
