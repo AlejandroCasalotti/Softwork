@@ -153,8 +153,9 @@ class SceAccount(models.Model):
         return values
 
     @api.model
-    def get_or_create_quick_ml_account(self, company=None, tenant=None, external_connection=None):
+    def get_or_create_quick_ml_account(self, company=None, **kwargs):
         """Create the single Core Mercado Libre account for a company."""
+        del kwargs
         company = company or self.env.company
         connector = self.env["sce.connector"].search(
             [
