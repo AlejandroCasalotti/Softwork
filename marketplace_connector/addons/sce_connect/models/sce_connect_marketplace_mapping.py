@@ -79,6 +79,12 @@ class SceConnectMarketplaceMapping(models.Model):
 
             if connection.tenant_id != mapping.tenant_id:
                 raise ValidationError("La conexión Odoo externa debe pertenecer al tenant del mapping.")
+            if marketplace_account.tenant_id != mapping.tenant_id:
+                raise ValidationError("La cuenta marketplace debe pertenecer al tenant del mapping.")
+            if marketplace_account.external_connection_id != connection:
+                raise ValidationError(
+                    "La conexión Odoo del mapping debe coincidir con la conexión principal de la cuenta."
+                )
             if product_mapping.external_connection_id != connection:
                 raise ValidationError("El producto externo debe pertenecer a la conexión Odoo indicada.")
             if product_mapping.external_model != "product.product":

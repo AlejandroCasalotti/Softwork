@@ -9,30 +9,40 @@ from ..models.sce_account import SceAccount
 from ..models.sce_connect_marketplace_mapping import SceConnectMarketplaceMapping
 
 
-def connect_account(tenant_id=1, seller_user_id="seller-1"):
-    return SimpleNamespace(tenant_id=tenant_id, seller_user_id=seller_user_id)
+def connect_account(tenant, seller_user_id="seller-1"):
+    return SimpleNamespace(tenant_id=tenant, seller_user_id=seller_user_id)
 
 
 def marketplace_account(tenant_id=1, seller_user_id="seller-1", external_user_id="seller-1"):
+    tenant = SimpleNamespace(id=tenant_id)
+    connection = SimpleNamespace(id=1, tenant_id=tenant)
     return SimpleNamespace(
         provider_type="mercadolibre",
         connector_id=SimpleNamespace(provider_type="mercadolibre"),
         external_user_id=external_user_id,
-        connect_mercadolibre_account_id=connect_account(tenant_id, seller_user_id),
+        tenant_id=tenant,
+        external_connection_id=connection,
+        connect_mercadolibre_account_id=connect_account(tenant, seller_user_id),
     )
 
 
 def mapping(tenant_id=1, connection_tenant_id=1, product_connection_matches=True, product_model="product.product"):
-    connection = SimpleNamespace(id=1, tenant_id=connection_tenant_id)
-    product_connection = connection if product_connection_matches else SimpleNamespace(id=2, tenant_id=tenant_id)
+    tenant = SimpleNamespace(id=tenant_id)
+    connection_tenant = tenant if connection_tenant_id == tenant_id else SimpleNamespace(id=connection_tenant_id)
+    connection = SimpleNamespace(id=1, tenant_id=connection_tenant)
+    product_connection = connection if product_connection_matches else SimpleNamespace(id=2, tenant_id=tenant)
+    account = marketplace_account(tenant_id)
+    account.tenant_id = tenant
+    account.external_connection_id = connection
+    account.connect_mercadolibre_account_id.tenant_id = tenant
     return SimpleNamespace(
-        tenant_id=tenant_id,
+        tenant_id=tenant,
         external_connection_id=connection,
         external_product_mapping_id=SimpleNamespace(
             external_connection_id=product_connection,
             external_model=product_model,
         ),
-        marketplace_account_id=marketplace_account(tenant_id),
+        marketplace_account_id=account,
     )
 
 
@@ -51,6 +61,20 @@ class SceAccountConnectCredentialsTests(unittest.TestCase):
     def test_non_mercadolibre_account_is_rejected(self):
         account = marketplace_account()
         account.provider_type = "odoo"
+
+        with self.assertRaises(ValidationError):
+            SceAccount._check_connect_mercadolibre_account([account])
+
+    def test_connection_from_another_tenant_is_rejected(self):
+        account = marketplace_account()
+        account.external_connection_id.tenant_id = SimpleNamespace(id=2)
+
+        with self.assertRaises(ValidationError):
+            SceAccount._check_connect_mercadolibre_account([account])
+
+    def test_identity_from_another_tenant_is_rejected(self):
+        account = marketplace_account()
+        account.connect_mercadolibre_account_id.tenant_id = SimpleNamespace(id=2)
 
         with self.assertRaises(ValidationError):
             SceAccount._check_connect_mercadolibre_account([account])
@@ -90,7 +114,9 @@ class SceConnectMarketplaceMappingTests(unittest.TestCase):
 
     def test_connect_account_from_another_tenant_is_rejected(self):
         record = mapping()
-        record.marketplace_account_id.connect_mercadolibre_account_id = connect_account(2)
+        record.marketplace_account_id.connect_mercadolibre_account_id = connect_account(
+            SimpleNamespace(id=2)
+        )
 
         with self.assertRaises(ValidationError):
             SceConnectMarketplaceMapping._check_identity_scope([record])

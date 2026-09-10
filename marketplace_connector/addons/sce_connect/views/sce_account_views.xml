@@ -5,10 +5,26 @@
         <field name="model">sce.account</field>
         <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='connector_id']" position="after">
+                <field name="tenant_id" string="Tenant SCE"/>
+                <field name="external_connection_id" string="Conexión Odoo"
+                       domain="[('tenant_id', '=', tenant_id), ('state', '=', 'connected')]"/>
+            </xpath>
             <xpath expr="//field[@name='external_user_id']" position="after">
                 <field name="connect_mercadolibre_account_id"
-                       domain="[('status', '=', 'connected')]"
+                      domain="[('tenant_id', '=', tenant_id), ('status', '=', 'connected')]"
                        invisible="provider_type != 'mercadolibre'"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_sce_account_tree_connect_ownership" model="ir.ui.view">
+        <field name="name">sce.account.tree.connect.ownership</field>
+        <field name="model">sce.account</field>
+        <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list/field[@name='connector_id']" position="after">
+                <field name="tenant_id" string="Tenant SCE"/>
+                <field name="external_connection_id" string="Conexión Odoo"/>
             </xpath>
         </field>
     </record>

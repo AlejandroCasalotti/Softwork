@@ -11,6 +11,39 @@ _logger = logging.getLogger(__name__)
 
 class SceWebhookController(http.Controller):
 
+    def _resolve_account(self, provider_key, payload, token):
+        accounts = request.env["sce.account"].sudo().search(
+            [("active", "=", True), ("connector_id.provider_type", "=", provider_key)]
+        )
+        seller_id = payload.get("user_id") or payload.get("seller_id")
+        if isinstance(payload.get("user"), dict):
+            seller_id = seller_id or payload["user"].get("id")
+
+        if seller_id:
+            identity_matches = accounts.filtered(
+                lambda account: str(account.external_user_id or "") == str(seller_id)
+                or str(
+                    getattr(account.connect_mercadolibre_account_id, "seller_user_id", False)
+                    if getattr(account, "connect_mercadolibre_account_id", False)
+                    else ""
+                ) == str(seller_id)
+            )
+            if len(identity_matches) == 1:
+                return identity_matches
+
+        token_matches = accounts.filtered(lambda account: self._webhook_token(account) == token)
+        return token_matches if len(token_matches) == 1 else request.env["sce.account"]
+
+    @staticmethod
+    def _webhook_token(account):
+        if not account.credentials_json:
+            return False
+        try:
+            credentials = json.loads(account.credentials_json)
+        except Exception:
+            return False
+        return credentials.get("webhook_token")
+
     @http.route(
         ["/sce/webhook/<string:provider>"],
         type="jsonrpc",
@@ -33,20 +66,15 @@ class SceWebhookController(http.Controller):
         if not isinstance(payload, dict):
             payload = {"raw": payload}
 
-        account = request.env["sce.account"].sudo().search(
-            [("active", "=", True), ("connector_id.provider_type", "=", provider_key)],
-            limit=1,
-        )
+        account = self._resolve_account(provider_key, payload, token)
         if not account:
-            return {"ok": False, "error": f"no active account for provider '{provider_key}'"}
+            _logger.warning(
+                "Webhook de %s no enrutable: no se identificó una única cuenta SCE.",
+                provider_key,
+            )
+            return {"ok": False, "error": f"no uniquely routable account for provider '{provider_key}'"}
 
-        expected = False
-        if account.credentials_json:
-            try:
-                credentials = json.loads(account.credentials_json)
-                expected = credentials.get("webhook_token")
-            except Exception:
-                expected = False
+        expected = self._webhook_token(account)
 
         if expected and token != expected:
             return {"ok": False, "error": "invalid webhook token"}

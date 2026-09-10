@@ -55,10 +55,13 @@ def make_product(product_id=11, connection_id=5, tenant_id=2, sku="SKU-11"):
 
 def make_account(account_id=8, tenant_id=2, provider_type="mercadolibre"):
     tenant = _Record(id=tenant_id)
+    connection = _Record(id=5, tenant_id=tenant)
     connect_account = _Record(id=20, tenant_id=tenant)
     return _Record(
         id=account_id,
         provider_type=provider_type,
+        tenant_id=tenant,
+        external_connection_id=connection,
         connect_mercadolibre_account_id=connect_account,
     )
 

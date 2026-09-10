@@ -5,6 +5,21 @@ from odoo.exceptions import ValidationError
 class SceAccount(models.Model):
     _inherit = "sce.account"
 
+    tenant_id = fields.Many2one(
+        "sce.tenant",
+        string="Tenant SCE",
+        required=False,
+        ondelete="restrict",
+        index=True,
+    )
+    external_connection_id = fields.Many2one(
+        "sce.external.connection",
+        string="Conexión Odoo",
+        required=False,
+        ondelete="restrict",
+        index=True,
+    )
+
     connect_mercadolibre_account_id = fields.Many2one(
         "sce.mercadolibre.account",
         string="Cuenta MercadoLibre Connect",
@@ -12,8 +27,30 @@ class SceAccount(models.Model):
         index=True,
         copy=False,
     )
+    connect_ownership_state = fields.Selection(
+        [
+            ("legacy", "Legacy / sin ownership Connect"),
+            ("incomplete", "Ownership Connect incompleto"),
+            ("ready", "Ownership Connect completo"),
+        ],
+        compute="_compute_connect_ownership_state",
+        string="Estado ownership Connect",
+    )
+
+    @api.depends("tenant_id", "external_connection_id", "connect_mercadolibre_account_id")
+    def _compute_connect_ownership_state(self):
+        for account in self:
+            values = (bool(account.tenant_id), bool(account.external_connection_id))
+            if not any(values) and not account.connect_mercadolibre_account_id:
+                account.connect_ownership_state = "legacy"
+            elif all(values):
+                account.connect_ownership_state = "ready"
+            else:
+                account.connect_ownership_state = "incomplete"
 
     @api.constrains(
+        "tenant_id",
+        "external_connection_id",
         "connect_mercadolibre_account_id",
         "provider_type",
         "connector_id",
@@ -21,9 +58,26 @@ class SceAccount(models.Model):
     )
     def _check_connect_mercadolibre_account(self):
         for account in self:
+            if bool(account.tenant_id) != bool(account.external_connection_id):
+                raise ValidationError(
+                    "La cuenta SCE Connect debe tener tenant y conexión Odoo juntos."
+                )
+            if account.tenant_id and account.external_connection_id:
+                if account.external_connection_id.tenant_id != account.tenant_id:
+                    raise ValidationError(
+                        "La conexión Odoo debe pertenecer al mismo tenant que la cuenta SCE."
+                    )
             connect_account = account.connect_mercadolibre_account_id
             if not connect_account:
                 continue
+            if not account.tenant_id or not account.external_connection_id:
+                raise ValidationError(
+                    "La identidad MercadoLibre Connect requiere tenant y conexión Odoo configurados."
+                )
+            if account.tenant_id and connect_account.tenant_id != account.tenant_id:
+                raise ValidationError(
+                    "La identidad MercadoLibre debe pertenecer al mismo tenant que la cuenta SCE."
+                )
             connector_type = account.connector_id.provider_type
             if account.provider_type != "mercadolibre" or connector_type != "mercadolibre":
                 raise ValidationError(

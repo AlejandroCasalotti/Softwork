@@ -22,6 +22,12 @@ class SceConnectMarketplaceMappingService(models.AbstractModel):
             raise ValidationError("La cuenta marketplace no es compatible con Connect.")
         if not connect_account:
             raise ValidationError("La cuenta marketplace no tiene una cuenta Connect vinculada.")
+        if marketplace_account.tenant_id != tenant:
+            raise ValidationError("La cuenta marketplace y el producto externo pertenecen a tenants distintos.")
+        if marketplace_account.external_connection_id != connection:
+            raise ValidationError(
+                "La cuenta marketplace utiliza una conexión Odoo distinta de la del producto externo."
+            )
         if connect_account.tenant_id != tenant:
             raise ValidationError("El producto externo y la cuenta marketplace pertenecen a tenants distintos.")
         return connection, tenant

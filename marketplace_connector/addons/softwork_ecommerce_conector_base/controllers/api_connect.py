@@ -32,9 +32,24 @@ class SceApiConnectController(http.Controller):
             return env.search(domain, limit=1)
         return None
 
-    def _get_or_create_quick_ml_account(self):
+    def _get_or_create_quick_ml_account(self, payload=None):
         company = request.env.company
-        return request.env["sce.account"].with_user(request.env.user).sudo().get_or_create_quick_ml_account(company=company)
+        payload = payload or {}
+        tenant = False
+        external_connection = False
+        if payload.get("tenant_id") and "sce.tenant" in request.env:
+            tenant = request.env["sce.tenant"].with_user(request.env.user).search(
+                [("id", "=", int(payload["tenant_id"]))], limit=1
+            )
+        if payload.get("external_connection_id") and "sce.external.connection" in request.env:
+            external_connection = request.env["sce.external.connection"].with_user(request.env.user).search(
+                [("id", "=", int(payload["external_connection_id"]))], limit=1
+            )
+        return request.env["sce.account"].with_user(request.env.user).sudo().get_or_create_quick_ml_account(
+            company=company,
+            tenant=tenant,
+            external_connection=external_connection,
+        )
 
     def _step_payload(self, account):
         if account.state == "connected":
@@ -66,7 +81,7 @@ class SceApiConnectController(http.Controller):
         payload = request.jsonrequest or {}
         account = self._resolve_account(payload)
         if not account:
-            account = self._get_or_create_quick_ml_account()
+            account = self._get_or_create_quick_ml_account(payload)
 
         if account.connector_id.provider_type != "mercadolibre":
             return self._json_error("Only mercadolibre provider is supported in this endpoint", 400)
