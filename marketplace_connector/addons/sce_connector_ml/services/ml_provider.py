@@ -12,6 +12,13 @@ from .oauth import MercadoLibreOAuth
 class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth):
     """Connector-owned entry point for MercadoLibre provider behavior."""
 
+    BASE_API_URL = "https://api.mercadolibre.com"
+    BASE_AUTH_URL = "https://api.mercadolibre.com/oauth/token"
+
+    def __init__(self, env, account):
+        self.env = env
+        self.account = account
+
     def _build_item_payload(self, payload):
         payload = dict(payload or {})
         title = (payload.get("title") or "").strip()
