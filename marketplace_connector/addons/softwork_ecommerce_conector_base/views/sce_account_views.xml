@@ -21,8 +21,6 @@
                 <header>
                     <button name="action_start_onboarding_connection" type="object" string="Conectar Mercado Libre" class="btn-primary" invisible="state == 'connected' or provider_type != 'mercadolibre'"/>
                     <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
-                    <button name="action_sync_now" type="object" string="Sincronizar ahora" class="btn-secondary" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
-                    <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" confirm="¿Desconectar esta cuenta de Mercado Libre?" invisible="state == 'draft' or provider_type != 'mercadolibre'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
                 </header>
                 <sheet>

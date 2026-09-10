@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_account_form_ml" model="ir.ui.view">
+        <field name="name">sce.account.form.mercadolibre</field>
+        <field name="model">sce.account</field>
+        <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="action_sync_now" type="object" string="Sincronizar ahora" class="btn-secondary" invisible="state != 'connected' or provider_type != 'mercadolibre'"/>
+                <button name="action_disconnect_mercadolibre" type="object" string="Desconectar" class="btn-secondary" confirm="¿Desconectar esta cuenta de Mercado Libre?" invisible="state == 'draft' or provider_type != 'mercadolibre'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
