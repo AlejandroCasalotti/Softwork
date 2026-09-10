@@ -88,8 +88,12 @@ class MercadoLibreProvider(IProvider):
             headers["Content-Type"] = "application/x-www-form-urlencoded"
 
         if with_auth:
-            token_getter = getattr(self.account, "_get_mercadolibre_access_token", None)
-            token = token_getter() if callable(token_getter) else self.account.access_token
+            try:
+                from odoo.addons.sce_connector_ml.services.mercadolibre_token_service import MercadoLibreTokenService
+
+                token = MercadoLibreTokenService(self.env).get_access_token(self.account)
+            except Exception:
+                token = self.account.access_token or ""
             if not token:
                 raise UserError("No hay access token configurado en la cuenta.")
             headers["Authorization"] = f"Bearer {token}"
@@ -122,13 +126,10 @@ class MercadoLibreProvider(IProvider):
 
         elapsed_ms = int((time.monotonic() - started_at) * 1000)
 
-        uses_connect_credentials = getattr(self.account, "_uses_connect_mercadolibre_credentials", None)
-        uses_connect_credentials = callable(uses_connect_credentials) and uses_connect_credentials()
         if (
             response.status_code in (401, 403)
             and with_auth
             and not _retried
-            and not uses_connect_credentials
             and self.account.refresh_token
         ):
             _logger.warning(

@@ -26,8 +26,13 @@ class MercadoLibreHttpTransport:
         if form_encoded:
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         if with_auth:
-            token_getter = getattr(self.account, "_get_mercadolibre_access_token", None)
-            token = token_getter() if callable(token_getter) else self.account.access_token
+            token = None
+            try:
+                from .mercadolibre_token_service import MercadoLibreTokenService
+
+                token = MercadoLibreTokenService(self.env).get_access_token(self.account)
+            except Exception:
+                token = getattr(self.account, "access_token", "") or ""
             if not token:
                 raise UserError("No hay access token configurado en la cuenta.")
             headers["Authorization"] = f"Bearer {token}"
@@ -56,14 +61,11 @@ class MercadoLibreHttpTransport:
             raise UserError(f"Error de red con MercadoLibre: {error}")
 
         elapsed_ms = int((time.monotonic() - started) * 1000)
-        uses_connect_credentials = getattr(self.account, "_uses_connect_mercadolibre_credentials", None)
-        uses_connect_credentials = callable(uses_connect_credentials) and uses_connect_credentials()
         if (
             response.status_code in (401, 403)
             and with_auth
             and not _retried
-            and not uses_connect_credentials
-            and self.account.refresh_token
+            and getattr(self.account, "refresh_token", False)
         ):
             refresh_result = self.refresh_token()
             if self._persist_refreshed_tokens(refresh_result):

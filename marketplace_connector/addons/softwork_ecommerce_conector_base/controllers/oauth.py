@@ -50,59 +50,41 @@ class SceOAuthController(http.Controller):
         if not state:
             return request.redirect("/web#action=base.action_res_users")
 
-        try:
-            account_id = int(state)
-        except Exception:
-            return request.redirect("/web#action=base.action_res_users")
-
-        account = request.env["sce.account"].sudo().browse(account_id)
-        if not account.exists():
-            return request.redirect("/web#action=base.action_res_users")
+        transaction = request.env["sce.oauth.transaction"].sudo().search(
+            [("state_hash", "=", request.env["sce.oauth.transaction"].hash_state(state))],
+            limit=1,
+        )
+        account = transaction.account_id if transaction else False
 
         if error:
-            account.write(
-                {
-                    "state": "error",
-                    "last_error": f"OAuth error: {error}",
-                }
-            )
+            if account:
+                account.write({"state": "error", "last_error": f"OAuth error: {error}"})
             return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
         if code:
             try:
                 clean_code = (code or "").strip()
-                if not account.oauth_code_verifier:
-                    account.write(
-                        {
-                            "state": "draft",
-                            "last_error": "Falta PKCE code_verifier vigente. Reautorizá la conexión.",
-                        }
-                    )
-                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
-                account.write({"auth_code": clean_code})
-                account.action_exchange_code()
+                from odoo.addons.sce_connector_ml.services.mercadolibre_oauth_service import MercadoLibreOAuthService
+
+                MercadoLibreOAuthService(request.env).complete(state, clean_code, request.env.user)
             except Exception as err:
                 err_msg = str(err)
-                if "invalid_grant" in err_msg:
-                    account.write(
-                        {
-                            "state": "draft",
-                            "auth_code": False,
-                            "oauth_code_verifier": False,
-                            "access_token": False,
-                            "refresh_token": False,
-                            "token_type": False,
-                            "token_expires_at": False,
-                            "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
-                        }
-                    )
-                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
-                account.write(
-                    {
-                        "state": "error",
-                        "last_error": err_msg,
-                    }
-                )
+                if account:
+                    if "invalid_grant" in err_msg:
+                        account.write(
+                            {
+                                "state": "draft",
+                                "auth_code": False,
+                                "oauth_code_verifier": False,
+                                "access_token": False,
+                                "refresh_token": False,
+                                "token_type": False,
+                                "token_expires_at": False,
+                                "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
+                            }
+                        )
+                        return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
+                    account.write({"state": "error", "last_error": err_msg})
                 return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
         return request.redirect("/sce/oauth/mercadolibre/result?status=ok")

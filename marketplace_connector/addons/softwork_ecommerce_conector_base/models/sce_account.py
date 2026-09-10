@@ -698,28 +698,11 @@ class SceAccount(models.Model):
         self.ensure_one()
         if self.provider_type != "mercadolibre":
             raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
-        if not self.client_id or not self.redirect_uri:
-            raise UserError(
-                "Falta configurar Client ID / Client Secret / Redirect URI. "
-                "Cargalos en Parámetros del sistema: "
-                "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
-            )
-        verifier, challenge = self._generate_pkce_pair()
-        self.write({"oauth_code_verifier": verifier})
-        params = urlencode(
-            {
-                "response_type": "code",
-                "client_id": self.client_id,
-                "redirect_uri": self.redirect_uri,
-                "state": str(self.id),
-                "code_challenge": challenge,
-                "code_challenge_method": "S256",
-            }
-        )
-        oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
+        from odoo.addons.sce_connector_ml.services.mercadolibre_oauth_service import MercadoLibreOAuthService
+
         return {
             "type": "ir.actions.act_url",
-            "url": oauth_url,
+            "url": MercadoLibreOAuthService(self.env).start(self),
             "target": "new",
         }
 
@@ -778,40 +761,28 @@ class SceAccount(models.Model):
                 clean[key] = "***"
         return clean
 
-    def action_exchange_code(self):
+    def action_exchange_code(self, state=None, code=None):
         event_model = self.env["sce.event"]
         log_service = self.env["sce.log.service"]
         for rec in self:
             try:
-                if not rec.auth_code:
+                current_code = (code or rec.auth_code or "").strip()
+                current_state = (state or "").strip()
+                if not current_state:
+                    raise UserError("Falta state OAuth válido.")
+                if not current_code:
                     raise UserError("Debes informar Authorization Code.")
-                from ..services.provider_factory import ProviderFactory
-                provider = ProviderFactory.get_provider(rec)
-                capabilities = rec._provider_capabilities(provider)
-                if capabilities.get("oauth_exchange", True) and not rec.oauth_code_verifier:
-                    raise UserError("La autorización expiró o no es válida. Presiona 'Conectar' nuevamente.")
-                if not capabilities.get("oauth_exchange", True):
-                    raise UserError("Este conector no soporta intercambio OAuth de Authorization Code.")
-                result = provider.authenticate()
-                if result.get("access_token"):
-                    rec.write(
-                        {
-                            "access_token": result.get("access_token"),
-                            "refresh_token": result.get("refresh_token"),
-                            "token_type": result.get("token_type"),
-                            "token_expires_at": result.get("token_expires_at"),
-                            "external_user_id": result.get("external_user_id"),
-                            "state": "connected",
-                            "last_error": False,
-                            "token_refresh_fail_count": 0,
-                            "last_token_refresh_error": False,
-                            "oauth_code_verifier": False,
-                            "auth_code": False,
-                        }
-                    )
-                    rec._sync_credentials_blob()
-                safe_result = rec._sanitize_result_for_logs(result)
-                elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False
+                from odoo.addons.sce_connector_ml.services.mercadolibre_oauth_service import MercadoLibreOAuthService
+
+                result = MercadoLibreOAuthService(rec.env).complete(current_state, current_code, rec.env.user)
+                if result:
+                    rec.write({
+                        "state": "connected",
+                        "last_error": False,
+                        "auth_code": False,
+                        "oauth_code_verifier": False,
+                    })
+                safe_result = {"account_id": rec.id, "state": current_state, "provider": rec.connector_id.provider_type}
                 log_service.log(
                     name="Token exchanged",
                     message=f"Token exchange executed for {rec.display_name}",
@@ -821,7 +792,6 @@ class SceAccount(models.Model):
                     details_json=json.dumps(safe_result, default=str),
                     provider=rec.connector_id.provider_type,
                     operation="token_exchange",
-                    elapsed_ms=elapsed_ms,
                 )
                 event_model.emit_event(
                     name=f"Token exchange success: {rec.display_name}",
@@ -831,67 +801,10 @@ class SceAccount(models.Model):
                 )
             except Exception as err:
                 err_msg = str(err)
-                used_refresh_fallback = False
-
-                if "invalid_grant" in err_msg and rec.refresh_token:
-                    try:
-                        from ..services.provider_factory import ProviderFactory
-                        provider = ProviderFactory.get_provider(rec)
-                        refresh_result = provider.refresh_token()
-                        if refresh_result.get("access_token"):
-                            rec.write(
-                                {
-                                    "access_token": refresh_result.get("access_token"),
-                                    "refresh_token": refresh_result.get("refresh_token") or rec.refresh_token,
-                                    "token_type": refresh_result.get("token_type") or rec.token_type,
-                                    "token_expires_at": refresh_result.get("token_expires_at"),
-                                    "state": "connected",
-                                    "last_error": False,
-                                    "token_refresh_fail_count": 0,
-                                    "last_token_refresh_error": False,
-                                    "token_circuit_open_until": False,
-                                    "auth_code": False,
-                                    "oauth_code_verifier": False,
-                                }
-                            )
-                            rec._sync_credentials_blob()
-                            used_refresh_fallback = True
-                    except Exception as refresh_err:
-                        err_msg = f"{err_msg} | refresh_fallback_error: {refresh_err}"
-                        used_refresh_fallback = False
-
-                if used_refresh_fallback:
-                    rec.write(
-                        {
-                            "state": "connected",
-                            "last_error": False,
-                            "auth_code": False,
-                            "oauth_code_verifier": False,
-                        }
-                    )
-                    event_model.emit_event(
-                        name=f"Token exchange fallback refresh success: {rec.display_name}",
-                        event_type="TokenExchangeFallbackRefreshSuccess",
-                        payload={"account_id": rec.id, "provider": rec.connector_id.provider_type},
-                        company=rec.company_id,
-                    )
-                    log_service.log(
-                        name="Token exchange fallback refresh success",
-                        message=f"OAuth code inválido en {rec.display_name}; se recuperó con refresh token.",
-                        level="WARNING",
-                        account=rec,
-                        connector=rec.connector_id,
-                        provider=rec.connector_id.provider_type,
-                        operation="token_exchange_fallback_refresh",
-                    )
-                    continue
-
                 rec.state = "error"
                 rec.last_error = err_msg
                 rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
                 rec.last_token_refresh_error = err_msg
-                if rec.token_refresh_fail_count >= 3:
-                    rec._open_token_circuit(minutes=10)
                 rec.oauth_code_verifier = False
                 rec.auth_code = False
                 event_model.emit_event(
