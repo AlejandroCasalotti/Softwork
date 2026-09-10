@@ -7,6 +7,7 @@ from ..services.connection_service import ConnectionService
 from odoo.addons.softwork_ecommerce_conector_base.services.provider_factory import ProviderFactory
 
 from .log_sanitizer import redact
+from .stock_policy_calculator import StockPolicyCalculator
 
 
 _logger = logging.getLogger(__name__)
@@ -65,6 +66,29 @@ class SceConnectStockService(models.AbstractModel):
             payload["variation_id"] = mapping.marketplace_variation_id
         return payload
 
+    def _active_policy(self, mapping):
+        if "sce.connect.stock.policy" not in self.env:
+            return False
+        if getattr(mapping.marketplace_account_id, "connect_ownership_state", False) != "ready":
+            return False
+        return self.env["sce.connect.stock.policy"].search(
+            [("account_id", "=", mapping.marketplace_account_id.id), ("active", "=", True)],
+            limit=1,
+        )
+
+    def _apply_policy(self, mapping, source_stock):
+        policy = self._active_policy(mapping)
+        if not policy:
+            return source_stock, "Sin reserva"
+        return policy.calculate(source_stock), self._reserve_label(policy)
+
+    @staticmethod
+    def _reserve_label(policy):
+        if policy.reserve_type == "none":
+            return "Sin reserva"
+        suffix = "%" if policy.reserve_type == "percent" else " unidades"
+        return "%s%s" % (policy.reserve_value, suffix)
+
     def _apply_rules(self, mapping, source_stock):
         context = {
             "stock": source_stock,
@@ -87,7 +111,8 @@ class SceConnectStockService(models.AbstractModel):
         mapping = self._validate_mapping(mapping)
         try:
             source_stock, _context = self._remote_stock(mapping)
-            rule_result, final_stock = self._apply_rules(mapping, source_stock)
+            policy_stock, _reserve = self._apply_policy(mapping, source_stock)
+            rule_result, final_stock = self._apply_rules(mapping, policy_stock)
             if not rule_result.get("allowed", True):
                 return {
                     "ok": True,
@@ -133,6 +158,16 @@ class SceConnectStockService(models.AbstractModel):
                 safe_error,
             )
             raise
+
+    def preview_mapping(self, mapping):
+        mapping = self._validate_mapping(mapping)
+        source_stock, _context = self._remote_stock(mapping)
+        available_quantity, reserve = self._apply_policy(mapping, source_stock)
+        return {
+            "source_stock": source_stock,
+            "reserve": reserve,
+            "available_quantity": available_quantity,
+        }
 
     def enqueue_mapping(self, mapping):
         mapping = self._validate_mapping(mapping)

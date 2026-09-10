@@ -14,3 +14,5 @@ from . import connect_marketplace_mapping_service
 from . import connect_stock_service
 from . import connect_price_service
 from . import rule_engine
+from . import stock_policy_calculator
+from . import price_policy_calculator

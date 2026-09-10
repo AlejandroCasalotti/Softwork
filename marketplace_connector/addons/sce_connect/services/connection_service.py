@@ -80,6 +80,23 @@ class ConnectionService:
             model, domain=domain, fields=fields, offset=offset, limit=limit, order=order, context=context
         )
 
+    def remote_pricelist_price(self, product_id, pricelist_id, quantity=1, context=None):
+        return self._adapter().get_product_pricelist_price(
+            product_id=product_id,
+            pricelist_id=pricelist_id,
+            quantity=quantity,
+            company_id=self.connection.external_company_id or False,
+            context=context,
+        )
+
+    def remote_pricelists(self, context=None):
+        return self.search_read(
+            "product.pricelist",
+            fields=["id", "name", "currency_id", "company_id"],
+            order="name asc",
+            context=context,
+        )
+
     def remote_company_context(self):
         context = self._adapter().current_user_context()
         if not isinstance(context, dict):

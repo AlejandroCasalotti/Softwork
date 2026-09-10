@@ -10,3 +10,7 @@ from . import sce_connect_rule
 from . import sce_secret_wizard
 from . import sce_oauth_transaction
 from . import sce_mercadolibre_account
+from . import sce_connect_stock_policy
+from . import sce_connect_price_policy
+from . import sce_connect_preview
+from . import sce_connect_pricelist_wizard

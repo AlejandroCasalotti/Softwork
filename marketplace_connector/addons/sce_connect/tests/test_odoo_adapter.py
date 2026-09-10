@@ -96,6 +96,25 @@ class OdooAdapterTests(unittest.TestCase):
         with self.assertRaises(OperationBlocked):
             adapter.execute("res.partner", "unlink", [[42]])
 
+    def test_remote_pricelist_operation_uses_explicit_bridge_endpoint(self):
+        adapter = self.adapter()
+        self.session.post.return_value = FakeResponse(payload={"price": "1250.00"})
+
+        result = adapter.get_product_pricelist_price(
+            product_id=11,
+            pricelist_id=4,
+            quantity=1,
+            company_id=2,
+            context={"allowed_company_ids": [2], "company_id": 2},
+        )
+
+        self.assertEqual(result["price"], "1250.00")
+        request = self.session.post.call_args
+        self.assertTrue(request.args[0].endswith("/json/2/sce.connect.agent/get_product_pricelist_price"))
+        self.assertEqual(request.kwargs["json"]["product_id"], 11)
+        self.assertEqual(request.kwargs["json"]["pricelist_id"], 4)
+        self.assertEqual(request.kwargs["json"]["context"]["company_id"], 2)
+
     def test_http_error_classification(self):
         cases = [(401, AuthenticationError), (403, PermissionError), (500, ApiError)]
         for status, error_type in cases:

@@ -20,6 +20,8 @@
         "views/sce_connect_marketplace_mapping_views.xml",
         "views/sce_account_views.xml",
         "views/sce_connect_rule_views.xml",
+        "views/sce_connect_policy_views.xml",
+        "security/sce_connect_policy_security.xml",
         "data/ir_cron.xml",
         "data/ir_cron_price.xml",
     ],

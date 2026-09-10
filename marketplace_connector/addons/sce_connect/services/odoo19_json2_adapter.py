@@ -188,6 +188,20 @@ class Odoo19Json2Adapter(BaseOdooAdapter):
             raise OperationBlocked("execute está bloqueado por defecto en Fase 1.")
         return self._call(model, method, {"args": args or [], "kwargs": kwargs or {}})
 
+    def get_product_pricelist_price(self, product_id, pricelist_id, quantity=1, date=None, company_id=None, context=None):
+        params = {
+            "product_id": product_id,
+            "pricelist_id": pricelist_id,
+            "quantity": quantity,
+            "date": date,
+            "company_id": company_id,
+        }
+        return self._call(
+            "sce.connect.agent",
+            "get_product_pricelist_price",
+            self._add_context(params, context),
+        )
+
     def metadata(self, model):
         return self._call(model, "fields_get", {"attributes": ["string", "type", "relation", "required", "readonly"]})
 

@@ -79,6 +79,9 @@ class ConnectStockServiceTests(unittest.TestCase):
         self.service._validate_mapping = SceConnectStockService._validate_mapping.__get__(self.service)
         self.service._remote_stock = SceConnectStockService._remote_stock.__get__(self.service)
         self.service._provider_payload = SceConnectStockService._provider_payload.__get__(self.service)
+        self.service._active_policy = SceConnectStockService._active_policy.__get__(self.service)
+        self.service._apply_policy = SceConnectStockService._apply_policy.__get__(self.service)
+        self.service._reserve_label = SceConnectStockService._reserve_label
         self.service._apply_rules = SceConnectStockService._apply_rules.__get__(self.service)
         self.service.sync_mapping = SceConnectStockService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectStockService.enqueue_mapping.__get__(self.service)

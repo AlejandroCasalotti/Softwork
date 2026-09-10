@@ -36,12 +36,33 @@ class SceAccount(models.Model):
         compute="_compute_connect_ownership_state",
         string="Estado ownership Connect",
     )
+    stock_policy_ids = fields.One2many(
+        "sce.connect.stock.policy", "account_id", string="Política de stock"
+    )
+    price_policy_ids = fields.One2many(
+        "sce.connect.price.policy", "account_id", string="Política de precio"
+    )
+
+    def action_open_connect_preview(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Previsualizar configuración",
+            "res_model": "sce.connect.preview.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_account_id": self.id},
+        }
 
     @api.depends("tenant_id", "external_connection_id", "connect_mercadolibre_account_id")
     def _compute_connect_ownership_state(self):
         for account in self:
-            values = (bool(account.tenant_id), bool(account.external_connection_id))
-            if not any(values) and not account.connect_mercadolibre_account_id:
+            values = (
+                bool(account.tenant_id),
+                bool(account.external_connection_id),
+                bool(account.connect_mercadolibre_account_id),
+            )
+            if not any(values):
                 account.connect_ownership_state = "legacy"
             elif all(values):
                 account.connect_ownership_state = "ready"

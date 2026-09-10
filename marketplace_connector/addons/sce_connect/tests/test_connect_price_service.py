@@ -89,6 +89,8 @@ class ConnectPriceServiceTests(unittest.TestCase):
         self.service._read_item = SceConnectPriceService._read_item.__get__(self.service)
         self.service._item_mappings = SceConnectPriceService._item_mappings.__get__(self.service)
         self.service._provider_payload = SceConnectPriceService._provider_payload.__get__(self.service)
+        self.service._active_policy = SceConnectPriceService._active_policy.__get__(self.service)
+        self.service._apply_policy = SceConnectPriceService._apply_policy.__get__(self.service)
         self.service._apply_rules = SceConnectPriceService._apply_rules.__get__(self.service)
         self.service.sync_mapping = SceConnectPriceService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectPriceService.enqueue_mapping.__get__(self.service)
