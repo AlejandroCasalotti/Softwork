@@ -117,6 +117,30 @@ class SceConnectPriceService(models.AbstractModel):
         final_price = self.calculate_price(result.get("value", price), context)
         return result, final_price
 
+    def _write_mappings(self, mappings, values):
+        if hasattr(mappings, "write"):
+            mappings.write(values)
+            return
+        for mapping in mappings:
+            mapping.write(values)
+
+    def _prepare_sync_price(self, mapping):
+        source_price, _context = self._remote_price(mapping)
+        source_price = self.calculate_price(source_price, {"marketplace_mapping_id": mapping.id})
+        policy_result = self._apply_policy(mapping, source_price)
+        if policy_result["blocked"]:
+            return {"blocked": True, "reason": policy_result["message"]}
+        rule_result, final_price = self._apply_rules(mapping, policy_result["price"])
+        if not rule_result.get("allowed", True):
+            return {"blocked": True, "blocked_by": rule_result.get("blocked_by")}
+        return {
+            "blocked": False,
+            "source_price": source_price,
+            "source_text": format(source_price, "f"),
+            "sent_price": final_price,
+            "sent_text": format(final_price, "f"),
+        }
+
     def _read_item(self, mapping):
         provider = ProviderFactory.get_provider(mapping.marketplace_account_id)
         result = provider.get_item(mapping.marketplace_item_id, params={"include_attributes": "all"}) or {}
@@ -173,20 +197,23 @@ class SceConnectPriceService(models.AbstractModel):
                     raise UserError(
                         "Existe una discrepancia entre las variaciones de MercadoLibre y los mappings de SCE Connect."
                     )
-                prices = []
+                prepared_prices = []
                 for item_mapping in item_mappings:
-                    source_price, _context = self._remote_price(item_mapping)
-                    prices.append(self.calculate_price(source_price, {"marketplace_mapping_id": item_mapping.id}))
-                if not prices:
+                    prepared = self._prepare_sync_price(item_mapping)
+                    if prepared["blocked"]:
+                        return {"ok": True, "blocked": True, **{k: v for k, v in prepared.items() if k != "blocked"}}
+                    prepared_prices.append(prepared)
+                if not prepared_prices:
                     raise UserError("La publicación tiene variaciones pero no hay mappings verificados.")
-                if len(set(prices)) != 1:
+                if len({item["source_text"] for item in prepared_prices}) != 1:
                     raise UserError("Las variantes de esta publicación requieren un precio común, pero Odoo tiene precios diferentes.")
-                price = prices[0]
-                policy_result = self._apply_policy(mapping, price)
-                if policy_result["blocked"]:
-                    return {"ok": True, "blocked": True, "reason": policy_result["message"]}
-                price = policy_result["price"]
-                source_text = format(price, "f")
+                if len({item["sent_text"] for item in prepared_prices}) != 1:
+                    raise UserError(
+                        "Las variantes de esta publicación requieren un precio común, pero la configuración actual produce precios diferentes."
+                    )
+                price = prepared_prices[0]["sent_price"]
+                source_text = prepared_prices[0]["source_text"]
+                sent_text = prepared_prices[0]["sent_text"]
                 variation_prices = [
                     {"id": item_mapping.marketplace_variation_id, "price": float(price)}
                     for item_mapping in item_mappings
@@ -194,47 +221,36 @@ class SceConnectPriceService(models.AbstractModel):
                 ]
                 if len(variation_prices) != len(item_mappings):
                     raise UserError("Falta variation_id en una variante de la publicación.")
-                rule_result, final_price = self._apply_rules(mapping, price)
-                if not rule_result.get("allowed", True):
-                    return {"ok": True, "blocked": True, "blocked_by": rule_result.get("blocked_by")}
-                variation_prices = [
-                    {"id": item_mapping.marketplace_variation_id, "price": float(final_price)}
-                    for item_mapping in item_mappings
-                ]
-                price = final_price
-                source_text = format(price, "f")
                 payload = {"item_id": mapping.marketplace_item_id, "variation_prices": variation_prices}
+                state_targets = item_mappings
             else:
-                source_price, _context = self._remote_price(mapping)
-                price = self.calculate_price(source_price, {"marketplace_mapping_id": mapping.id})
-                policy_result = self._apply_policy(mapping, price)
-                if policy_result["blocked"]:
-                    return {"ok": True, "blocked": True, "reason": policy_result["message"]}
-                price = policy_result["price"]
-                rule_result, final_price = self._apply_rules(mapping, price)
-                if not rule_result.get("allowed", True):
-                    return {"ok": True, "blocked": True, "blocked_by": rule_result.get("blocked_by")}
-                price = final_price
-                source_text = format(price, "f")
+                prepared = self._prepare_sync_price(mapping)
+                if prepared["blocked"]:
+                    return {"ok": True, "blocked": True, **{k: v for k, v in prepared.items() if k != "blocked"}}
+                price = prepared["sent_price"]
+                source_text = prepared["source_text"]
+                sent_text = prepared["sent_text"]
                 payload = self._provider_payload(mapping, price)
+                state_targets = mapping
             if (
                 mapping.last_price_sync_at
                 and mapping.last_price_source == source_text
-                and mapping.last_price_sent == source_text
+                and mapping.last_price_sent == sent_text
             ):
-                return {"ok": True, "skipped": True, "source_price": source_text, "price": source_text}
+                return {"ok": True, "skipped": True, "source_price": source_text, "price": sent_text}
             result = provider.update_price(payload) or {}
-            mapping.write(
+            self._write_mappings(
+                state_targets,
                 {
                     "last_price_source": source_text,
-                    "last_price_sent": source_text,
+                    "last_price_sent": sent_text,
                     "last_price_sync_at": fields.Datetime.now(),
                     "last_price_error": False,
-                }
+                },
             )
             result = dict(result)
             result.setdefault("source_price", source_text)
-            result.setdefault("price", source_text)
+            result.setdefault("price", sent_text)
             return result
         except Exception as error:
             mapping.write({"last_price_error": redact(str(error))})

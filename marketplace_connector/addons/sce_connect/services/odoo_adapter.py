@@ -19,6 +19,16 @@ class BaseOdooAdapter(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def metadata(self, model):
+        raise NotImplementedError
+
+    @abstractmethod
+    def current_user_context(self):
+        raise NotImplementedError
+
+
+class WriteCapableOdooAdapter(BaseOdooAdapter):
+    @abstractmethod
     def create(self, model, values, context=None):
         raise NotImplementedError
 
@@ -32,12 +42,4 @@ class BaseOdooAdapter(ABC):
 
     @abstractmethod
     def execute(self, model, method, args=None, kwargs=None):
-        raise NotImplementedError
-
-    @abstractmethod
-    def metadata(self, model):
-        raise NotImplementedError
-
-    @abstractmethod
-    def current_user_context(self):
         raise NotImplementedError

@@ -321,6 +321,61 @@ class ConnectPriceServiceTests(unittest.TestCase):
         factory.get_provider.return_value.update_price.assert_called_once_with(
             {"item_id": "ML123", "price": 12000.0}
         )
+        self.assertEqual(record.last_price_source, "10000.00")
+        self.assertEqual(record.last_price_sent, "12000.00")
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_variant_policy_is_evaluated_per_mapping(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B")]
+        records[0].last_price_sent = "90.00"
+        records[1].last_price_sent = "150.00"
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.side_effect = [[{"list_price": 100}], [{"list_price": 100}]]
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
+        }
+        policy = Record(
+            active=True,
+            remote_pricelist_id=False,
+            adjustment_percent=0,
+            adjustment_fixed=0,
+        )
+        policy.calculate = MagicMock(
+            side_effect=[
+                {"price": SceConnectPriceService.calculate_price("100"), "blocked": False},
+                {"price": SceConnectPriceService.calculate_price("100"), "blocked": True},
+            ]
+        )
+        self.service.env["sce.connect.price.policy"] = MagicMock(search=MagicMock(return_value=policy))
+        records[0].marketplace_account_id.connect_ownership_state = "ready"
+        records[1].marketplace_account_id.connect_ownership_state = "ready"
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        result = self.service.sync_mapping(records[0])
+
+        self.assertTrue(result["blocked"])
+        factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_variant_updates_all_mapping_sync_state(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B")]
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.side_effect = [[{"list_price": 15000}], [{"list_price": 15000}]]
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
+        }
+        factory.get_provider.return_value.update_price.return_value = {"ok": True}
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        self.service.sync_mapping(records[0])
+
+        for record in records:
+            self.assertEqual(record.last_price_source, "15000.00")
+            self.assertEqual(record.last_price_sent, "15000.00")
 
     def test_missing_item_is_rejected(self):
         with self.assertRaises(UserError):

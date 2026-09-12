@@ -13,10 +13,10 @@ from .errors import (
     OperationBlocked,
     PermissionError,
 )
-from .odoo_adapter import BaseOdooAdapter
+from .odoo_adapter import WriteCapableOdooAdapter
 
 
-class Odoo19Json2Adapter(BaseOdooAdapter):
+class Odoo19Json2Adapter(WriteCapableOdooAdapter):
     DEFAULT_TIMEOUT = 30
     DEFAULT_MODELS = (
         "res.partner",
