@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_connect_stock_policy_form" model="ir.ui.view">
+        <field name="name">sce.connect.stock.policy.form</field>
+        <field name="model">sce.connect.stock.policy</field>
+        <field name="arch" type="xml">
+            <form string="Política de stock">
+                <sheet>
+                    <group>
+                        <field name="account_id"/>
+                        <field name="active"/>
+                        <field name="source"/>
+                        <field name="reserve_type"/>
+                        <field name="reserve_value" invisible="reserve_type == 'none'"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_sce_connect_price_policy_form" model="ir.ui.view">
+        <field name="name">sce.connect.price.policy.form</field>
+        <field name="model">sce.connect.price.policy</field>
+        <field name="arch" type="xml">
+            <form string="Política de precio">
+                <sheet>
+                    <group>
+                        <field name="account_id"/>
+                        <field name="active"/>
+                        <field name="remote_pricelist_name" readonly="1"/>
+                        <field name="remote_pricelist_id" invisible="1"/>
+                        <button name="action_select_remote_pricelist" type="object" string="Seleccionar lista Odoo" class="btn-secondary"/>
+                        <field name="adjustment_percent"/>
+                        <field name="adjustment_fixed"/>
+                        <field name="commercial_rounding"/>
+                        <field name="safety_enabled"/>
+                        <field name="max_decrease_percent" invisible="not safety_enabled"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_sce_connect_preview_form" model="ir.ui.view">
+        <field name="name">sce.connect.preview.wizard.form</field>
+        <field name="model">sce.connect.preview.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Previsualizar configuración">
+                <group>
+                    <field name="account_id"/>
+                    <field name="mapping_id"/>
+                    <field name="preview_type"/>
+                </group>
+                <group string="Stock" invisible="preview_type != 'stock'">
+                    <field name="source_value"/>
+                    <field name="reserve_value"/>
+                    <field name="calculated_value"/>
+                </group>
+                <group string="Precio" invisible="preview_type != 'price'">
+                    <field name="base_price"/>
+                    <field name="adjustment_value"/>
+                    <field name="final_price"/>
+                </group>
+                <group>
+                    <field name="status"/>
+                    <field name="message" invisible="not message"/>
+                </group>
+                <footer>
+                    <button name="action_preview" type="object" string="Previsualizar" class="btn-primary"/>
+                    <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="view_sce_connect_pricelist_wizard_form" model="ir.ui.view">
+        <field name="name">sce.connect.pricelist.wizard.form</field>
+        <field name="model">sce.connect.pricelist.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Listas de precios Odoo">
+                <group>
+                    <field name="account_id"/>
+                    <field name="policy_id"/>
+                </group>
+                <field name="line_ids" nolabel="1">
+                    <list editable="top">
+                        <field name="selected"/>
+                        <field name="name"/>
+                        <field name="currency_name"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_load" type="object" string="Cargar listas" class="btn-secondary"/>
+                    <button name="action_apply" type="object" string="Usar seleccionada" class="btn-primary"/>
+                    <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

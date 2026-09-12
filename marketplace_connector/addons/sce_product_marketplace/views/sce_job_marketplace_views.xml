@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_job_tree_marketplace" model="ir.ui.view">
+        <field name="name">sce.job.tree.marketplace</field>
+        <field name="model">sce.job</field>
+        <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_job_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='job_type']" position="after">
+                <field name="publication_id" optional="show"/>
+                <field name="external_id" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sce_job_form_marketplace" model="ir.ui.view">
+        <field name="name">sce.job.form.marketplace</field>
+        <field name="model">sce.job</field>
+        <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_job_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_open_publication" type="object" string="Open Publication"
+                        invisible="not publication_id"/>
+            </xpath>
+            <xpath expr="//field[@name='account_id']" position="after">
+                <field name="publication_id" readonly="1"/>
+                <field name="external_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_product_template_form_marketplace" model="ir.ui.view">
+        <field name="name">product.template.form.marketplace.publication</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Marketplace" name="marketplace_publications">
+                    <div class="alert alert-info" role="alert">
+                        Cada fila es una publicación independiente del producto en una cuenta/marketplace.
+                    </div>
+                    <button name="action_open_marketplace_new_publication" type="object"
+                            string="+ Nueva publicación" class="btn-primary mb-2"/>
+                    <field name="publication_ids" nolabel="1">
+                        <list editable="bottom" create="0">
+                            <field name="account_id"/>
+                            <field name="provider_type" readonly="1"/>
+                            <field name="state" widget="badge"/>
+                            <field name="title"/>
+                            <field name="price"/>
+                            <field name="effective_qty" readonly="1"/>
+                            <field name="external_id" readonly="1"/>
+                            <field name="external_url" readonly="1" widget="url"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

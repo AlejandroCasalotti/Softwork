@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sale_order_form_marketplace" model="ir.ui.view">
+        <field name="name">sale.order.form.marketplace</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+            <button name="action_marketplace_reserve" type="object" string="Reservar stock"
+                invisible="not marketplace_external_order_id"/>
+            <button name="action_marketplace_mark_shipped" type="object" string="Marcar despachado"
+                invisible="not marketplace_external_order_id"/>
+            <button name="action_marketplace_validate_delivery" type="object" string="Validar entrega"
+                class="btn-primary" invisible="not marketplace_external_order_id"
+                confirm="¿Validar las entregas marketplace de esta orden?"/>
+            </xpath>
+            <xpath expr="//field[@name='client_order_ref']" position="after">
+                <group string="Marketplace" colspan="2" invisible="not marketplace_external_order_id">
+                    <field name="marketplace_account_id" readonly="1"/>
+                    <field name="marketplace_external_order_id" readonly="1"/>
+                    <field name="marketplace_order_state" readonly="1"/>
+                    <field name="marketplace_external_status" readonly="1"/>
+                    <field name="marketplace_shipping_status" readonly="1"/>
+                    <field name="marketplace_shipment_id" readonly="1"/>
+                    <field name="marketplace_tracking_number" readonly="1"/>
+                    <field name="marketplace_sync_date" readonly="1"/>
+                    <field name="marketplace_shipping_sync_date" readonly="1"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
