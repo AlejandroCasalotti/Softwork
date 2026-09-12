@@ -34,7 +34,8 @@ class SceConnectPricelistWizard(models.TransientModel):
                 "name": row.get("name") or str(row["id"]),
                 "currency_name": currency[1] if isinstance(currency, (list, tuple)) else "",
             })
-        self.env["sce.connect.pricelist.line"].create(values)
+        if values:
+            self.env["sce.connect.pricelist.line"].create(values)
         return {"type": "ir.actions.act_window", "res_model": self._name, "view_mode": "form", "res_id": self.id, "target": "new"}
 
     def action_apply(self):

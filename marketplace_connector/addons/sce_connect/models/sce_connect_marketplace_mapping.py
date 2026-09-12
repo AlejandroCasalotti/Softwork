@@ -99,6 +99,22 @@ class SceConnectMarketplaceMapping(models.Model):
     def action_sync_stock(self):
         self.ensure_one()
         result = self.env["sce.connect.stock.service"].sync_mapping(self)
+        if result.get("blocked"):
+            reason = result.get("reason") or (
+                "Sincronización de stock bloqueada por regla %s." % result.get("blocked_by")
+                if result.get("blocked_by")
+                else "Sincronización de stock bloqueada."
+            )
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": "Stock Connect",
+                    "message": reason,
+                    "type": "warning",
+                    "sticky": False,
+                },
+            }
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
@@ -119,6 +135,22 @@ class SceConnectMarketplaceMapping(models.Model):
     def action_sync_price(self):
         self.ensure_one()
         result = self.env["sce.connect.price.service"].sync_mapping(self)
+        if result.get("blocked"):
+            reason = result.get("reason") or (
+                "Sincronización de precio bloqueada por regla %s." % result.get("blocked_by")
+                if result.get("blocked_by")
+                else "Sincronización de precio bloqueada."
+            )
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": "Price Connect",
+                    "message": reason,
+                    "type": "warning",
+                    "sticky": False,
+                },
+            }
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",

@@ -49,6 +49,8 @@ class SceSecret(models.Model):
         self.ensure_one()
         if not self.env.context.get("sce_backend_secret_access"):
             raise AccessError("Los secretos solo pueden leerse desde el backend de SCE Connect.")
+        if not self.encrypted_value:
+            raise UserError("El secreto todavía no fue configurado.")
         return SecretStorage.from_environment().decrypt(self.encrypted_value)
 
     def action_set_value(self):

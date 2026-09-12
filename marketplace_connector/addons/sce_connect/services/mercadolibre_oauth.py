@@ -178,7 +178,13 @@ class MercadoLibreOAuthService:
                 "status": "disconnected",
                 "access_token_secret_id": False,
                 "refresh_token_secret_id": False,
+                "seller_user_id": False,
+                "seller_nickname": False,
+                "scopes": False,
+                "metadata_json": False,
                 "expires_at": False,
+                "connected_at": False,
+                "last_error": False,
                 "disconnected_at": fields.Datetime.now(),
             }
         )
