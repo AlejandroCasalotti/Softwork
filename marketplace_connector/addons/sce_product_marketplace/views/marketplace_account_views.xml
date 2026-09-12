@@ -8,10 +8,17 @@
             <xpath expr="//sheet" position="inside">
                 <notebook invisible="provider_type == 'odoo'">
                     <page string="🔗 Vinculación de Productos" name="page_matching">
-                        <group string="Reglas de Emparejamiento">
+                        <group string="Reglas de Emparejamiento &amp; Empresa">
                             <group>
                                 <field name="matching_field" widget="radio"/>
                                 <field name="exclude_domain" placeholder="[('type', '=', 'service')]"/>
+                            </group>
+                            <group string="Multicompañía Odoo">
+                                <label for="odoo_company_name"/>
+                                <div class="o_row">
+                                    <field name="odoo_company_name" placeholder="Ej: Mi Empresa / ID 1"/>
+                                    <button name="action_fetch_odoo_companies" type="object" icon="fa-search" title="Mapear Compañías desde Odoo" class="btn-secondary btn-sm"/>
+                                </div>
                             </group>
                         </group>
                     </page>
@@ -24,7 +31,11 @@
                             </group>
                             <group invisible="not sync_stock">
                                 <field name="safety_stock"/>
-                                <field name="stock_location_name" placeholder="Ej: WH/Stock"/>
+                                <label for="stock_location_name"/>
+                                <div class="o_row">
+                                    <field name="stock_location_name" placeholder="Ej: WH/Stock / ID 12"/>
+                                    <button name="action_fetch_odoo_stock_locations" type="object" icon="fa-search" title="Mapear Almacenes/Ubicaciones de Stock en Odoo" class="btn-secondary btn-sm"/>
+                                </div>
                             </group>
                         </group>
                     </page>
@@ -33,7 +44,11 @@
                         <group>
                             <group string="Reglas de Precio Base">
                                 <field name="sync_prices"/>
-                                <field name="pricelist_name" placeholder="Ej: Tarifa Pública" invisible="not sync_prices"/>
+                                <label for="pricelist_name" invisible="not sync_prices"/>
+                                <div class="o_row" invisible="not sync_prices">
+                                    <field name="pricelist_name" placeholder="Ej: Tarifa Pública / ID 1"/>
+                                    <button name="action_fetch_odoo_pricelists" type="object" icon="fa-search" title="Mapear Listas de Precios en Odoo" class="btn-secondary btn-sm"/>
+                                </div>
                                 <field name="price_security_factor" invisible="not sync_prices"/>
                                 <field name="price_surcharge_fixed" invisible="not sync_prices"/>
                                 <field name="price_surcharge_percent" invisible="not sync_prices"/>
@@ -65,9 +80,21 @@
                                 <field name="marketplace_auto_cancelled" invisible="not sync_orders"/>
                             </group>
                             <group string="Mapeo de Almacenes y Equipos" invisible="not sync_orders">
-                                <field name="sales_team_name" placeholder="Ej: Mercado Libre"/>
-                                <field name="warehouse_name" placeholder="Ej: Almacén Principal"/>
-                                <field name="fulfillment_warehouse_name" placeholder="Ej: Almacén Full ML"/>
+                                <label for="sales_team_name"/>
+                                <div class="o_row">
+                                    <field name="sales_team_name" placeholder="Ej: Mercado Libre (Si se vacía, se crea automático)"/>
+                                    <button name="action_fetch_odoo_sales_teams" type="object" icon="fa-search" title="Mapear Equipos de Ventas en Odoo" class="btn-secondary btn-sm"/>
+                                </div>
+                                <label for="warehouse_name"/>
+                                <div class="o_row">
+                                    <field name="warehouse_name" placeholder="Ej: Almacén Principal / ID 1"/>
+                                    <button name="action_fetch_odoo_warehouses" type="object" icon="fa-search" title="Mapear Almacenes Estándar en Odoo" class="btn-secondary btn-sm"/>
+                                </div>
+                                <label for="fulfillment_warehouse_name"/>
+                                <div class="o_row">
+                                    <field name="fulfillment_warehouse_name" placeholder="Ej: Almacén Full ML / ID 2"/>
+                                    <button name="action_fetch_odoo_fulfillment_warehouses" type="object" icon="fa-search" title="Mapear Almacenes Fulfillment en Odoo" class="btn-secondary btn-sm"/>
+                                </div>
                             </group>
                         </group>
                     </page>

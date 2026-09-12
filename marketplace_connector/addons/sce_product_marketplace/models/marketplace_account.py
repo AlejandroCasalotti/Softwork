@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 
 class MarketplaceAccount(models.Model):
     _inherit = "sce.account"
 
-    # --- 1. Vinculación Producto - Publicación ---
+    # --- 1. Vinculación Producto - Publicación & Multicompañía ---
     matching_field = fields.Selection(
         selection=[
             ("default", "Referencia Interna / SKU"),
@@ -19,6 +20,10 @@ class MarketplaceAccount(models.Model):
         string="Filtro de Exclusión de Productos",
         help="Sintaxis de dominio Odoo para ignorar productos en la sincronización, ej: [('type', '=', 'service')]",
     )
+    odoo_company_name = fields.Char(
+        string="Compañía Odoo",
+        help="Nombre o ID de la compañía en Odoo (para opción multicompañía).",
+    )
 
     # --- 2. Sincronización de Stock ---
     sync_stock_flex = fields.Boolean(
@@ -31,14 +36,14 @@ class MarketplaceAccount(models.Model):
         help="Cantidad fija a restar del stock disponible real de Odoo antes de publicar en Mercado Libre.",
     )
     stock_location_name = fields.Char(
-        string="Ubicación de Stock Odoo",
-        help="Nombre o código de la ubicación física en Odoo de la cual consultar el stock.",
+        string="Almacén de Stock",
+        help="Nombre, código o ID de la ubicación/almacén físico en Odoo del cual consultar el stock.",
     )
 
     # --- 3. Sincronización de Precios & Recargos ---
     pricelist_name = fields.Char(
         string="Lista de Precios Odoo",
-        help="Nombre de la lista de precios predeterminada en Odoo.",
+        help="Nombre o ID de la lista de precios predeterminada en Odoo.",
     )
     price_security_factor = fields.Float(
         string="Factor de Seguridad / Margen (%)",
@@ -89,15 +94,15 @@ class MarketplaceAccount(models.Model):
     )
     sales_team_name = fields.Char(
         string="Equipo de Ventas Odoo",
-        help="Nombre del equipo de ventas a asignar en Odoo.",
+        help="Nombre o ID del equipo de ventas a asignar en Odoo (Si se deja vacío, se creará/usará el equipo 'Mercado Libre').",
     )
     warehouse_name = fields.Char(
         string="Almacén Odoo Estándar",
-        help="Nombre del almacén para órdenes normales de Mercado Libre.",
+        help="Nombre o ID del almacén para órdenes normales de Mercado Libre.",
     )
     fulfillment_warehouse_name = fields.Char(
         string="Almacén Odoo Fulfillment",
-        help="Nombre del almacén para ventas FULL de Mercado Libre.",
+        help="Nombre o ID del almacén para ventas FULL de Mercado Libre.",
     )
 
     # --- 5. Simulador de Precios en Vivo (Live Price Simulator) ---
@@ -165,3 +170,116 @@ class MarketplaceAccount(models.Model):
         real = max(0, int(real_stock or 0))
         available = real - self.safety_stock
         return max(0, available)
+
+    # --- 6. Métodos RPC para mapear opciones desde el Odoo del cliente ---
+    def _get_remote_odoo_rpc(self):
+        self.ensure_one()
+        url = (self.odoo_base_url or "").strip().rstrip('/')
+        db = (self.odoo_db_name or "").strip()
+        user = (self.odoo_user or "").strip()
+        password = (self.odoo_password or "").strip()
+
+        if not url or not db or not user or not password:
+            raise UserError(
+                "Para mapear opciones, primero debes completar la URL, Base de datos, Usuario y Clave API de Odoo en la sección 'Conexión con Odoo'."
+            )
+
+        try:
+            import xmlrpc.client
+            common = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/common")
+            uid = common.authenticate(db, user, password, {})
+            if not uid:
+                raise UserError("Autenticación fallida con el Odoo remoto. Verificá tu usuario y contraseña/API Key.")
+            models_rpc = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object")
+            return db, uid, password, models_rpc
+        except UserError:
+            raise
+        except Exception as err:
+            raise UserError(f"No se pudo conectar con el Odoo remoto: {err}") from err
+
+    def _fetch_remote_odoo_records(self, model_name, domain=None, fields_to_read=None):
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        domain = domain or []
+        fields_to_read = fields_to_read or ["id", "name"]
+        try:
+            records = models_rpc.execute_kw(
+                db, uid, password,
+                model_name, "search_read",
+                [domain],
+                {"fields": fields_to_read, "limit": 25}
+            )
+            return records or []
+        except Exception as err:
+            raise UserError(f"Error al consultar '{model_name}' en Odoo remoto: {err}")
+
+    def _notify_odoo_options(self, title, records, code_field=None, note=None):
+        if not records:
+            msg = f"No se encontraron registros en tu Odoo para {title}."
+            if note:
+                msg += f"\n\n💡 Nota: {note}"
+        else:
+            items = []
+            for rec in records:
+                rec_id = rec.get("id")
+                name = rec.get("name") or rec.get("display_name") or "Sin nombre"
+                code = f" [{rec.get(code_field)}]" if code_field and rec.get(code_field) else ""
+                items.append(f"• ID {rec_id} : {name}{code}")
+            msg = f"📋 Opciones de {title} en tu Odoo:\n\n" + "\n".join(items)
+            if note:
+                msg += f"\n\n💡 Nota: {note}"
+            msg += "\n\nIngresá el nombre o el número de ID directamente en el campo."
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": f"Mapeo Odoo: {title}",
+                "message": msg,
+                "type": "info",
+                "sticky": True,
+            },
+        }
+
+    def action_fetch_odoo_companies(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records("res.company")
+        return self._notify_odoo_options("Compañías Odoo", records)
+
+    def action_fetch_odoo_stock_locations(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records(
+            "stock.warehouse",
+            fields_to_read=["id", "name", "code"]
+        )
+        if not records:
+            records = self._fetch_remote_odoo_records(
+                "stock.location",
+                domain=[("usage", "=", "internal")],
+                fields_to_read=["id", "complete_name", "name"]
+            )
+            for rec in records:
+                if rec.get("complete_name"):
+                    rec["name"] = rec["complete_name"]
+        return self._notify_odoo_options("Almacenes de Stock", records, code_field="code")
+
+    def action_fetch_odoo_pricelists(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records("product.pricelist")
+        return self._notify_odoo_options("Listas de Precios", records)
+
+    def action_fetch_odoo_sales_teams(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records("crm.team")
+        note = "Si no completás este campo, se creará o asignará automáticamente el equipo 'Mercado Libre' en tu Odoo."
+        return self._notify_odoo_options("Equipos de Ventas", records, note=note)
+
+    def action_fetch_odoo_warehouses(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records("stock.warehouse", fields_to_read=["id", "name", "code"])
+        return self._notify_odoo_options("Almacenes Estándar", records, code_field="code")
+
+    def action_fetch_odoo_fulfillment_warehouses(self):
+        self.ensure_one()
+        records = self._fetch_remote_odoo_records("stock.warehouse", fields_to_read=["id", "name", "code"])
+        note = "Seleccioná o ingresá el ID/nombre del almacén Odoo asignado para ventas FULL (Fulfillment)."
+        return self._notify_odoo_options("Almacenes Fulfillment", records, code_field="code", note=note)
