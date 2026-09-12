@@ -9,8 +9,16 @@ from ..services.core_secret_service import CoreSecretService
 class SceGlobalSettings(models.Model):
     _name = "sce.global.settings"
     _description = "SCE Global Settings"
+    _sql_constraints = [
+        (
+            "sce_global_settings_singleton_key_uniq",
+            "unique(singleton_key)",
+            "Solo puede existir un registro de configuración global de SCE.",
+        )
+    ]
 
     name = fields.Char(required=True, default="Configuración global SCE")
+    singleton_key = fields.Integer(default=1, required=True, copy=False)
     sce_core_keyring = fields.Char(
         string="SCE Core Keyring",
         compute="_compute_config_values",
@@ -59,12 +67,6 @@ class SceGlobalSettings(models.Model):
         "mercadolibre_client_secret": "sce.mercadolibre.client_secret",
         "mercadolibre_redirect_uri": "sce.mercadolibre.redirect_uri",
     }
-
-    @api.model_create_multi
-    def create(self, vals_list):
-        if self.search_count([]):
-            raise UserError("Solo puede existir un registro de configuración global de SCE.")
-        return super().create(vals_list)
 
     def _config_parameter_values(self):
         params = self.env["ir.config_parameter"].sudo()
@@ -115,14 +117,18 @@ class SceGlobalSettings(models.Model):
 
     def _inverse_config_values(self):
         for record in self:
-            record._write_config_values(
-                {
-                    "sce_core_keyring": record.sce_core_keyring,
-                    "mercadolibre_client_id": record.mercadolibre_client_id,
-                    "mercadolibre_client_secret": record.mercadolibre_client_secret,
-                    "mercadolibre_redirect_uri": record.mercadolibre_redirect_uri,
-                }
+            values = {
+                "mercadolibre_client_id": record.mercadolibre_client_id,
+                "mercadolibre_client_secret": record.mercadolibre_client_secret,
+                "mercadolibre_redirect_uri": record.mercadolibre_redirect_uri,
+            }
+            runtime_keyring, source = CoreSecretService.resolve_runtime_keyring(
+                environ=os.environ
             )
+            del runtime_keyring
+            if source != "environment":
+                values["sce_core_keyring"] = record.sce_core_keyring
+            record._write_config_values(values)
 
     @api.depends_context("uid")
     def _compute_keyring_runtime_state(self):

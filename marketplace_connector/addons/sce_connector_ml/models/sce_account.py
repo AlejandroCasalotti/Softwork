@@ -72,6 +72,19 @@ class SceAccount(models.Model):
     )
     def _compute_ml_dashboard(self):
         Publication = self.env["marketplace.publication"].sudo()
+        sync_job_types = {
+            "sync_products",
+            "sync_stock",
+            "sync_prices",
+            "import_orders",
+            "publish_product",
+            "update_product",
+            "sync_publication_stock",
+            "sync_publication_price",
+            "sync_publication",
+            "import_order",
+            "delete_product",
+        }
         mercadolibre_accounts = self.filtered(
             lambda account: account.provider_type == "mercadolibre"
         )
@@ -104,7 +117,10 @@ class SceAccount(models.Model):
 
             identity = identity_map.get(account.id)
             publications = publication_map.get(account.id, Publication.browse())
-            running_jobs = account.job_ids.filtered(lambda job: job.state in ("queued", "running"))
+            running_jobs = account.job_ids.filtered(
+                lambda job: job.state in ("queued", "running")
+                and job.job_type in sync_job_types
+            )
 
             account.ml_seller_nickname = identity.seller_nickname if identity else False
             account.ml_site_id = identity.site_id if identity else False

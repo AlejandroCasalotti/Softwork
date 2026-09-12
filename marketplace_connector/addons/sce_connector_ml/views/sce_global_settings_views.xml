@@ -13,6 +13,7 @@
                     <button name="action_validate_keyring" type="object" string="Validar keyring" class="btn-secondary"/>
                 </header>
                 <sheet>
+                    <field name="singleton_key" invisible="1"/>
                     <div class="alert alert-success" role="alert" invisible="keyring_runtime_status != 'ready'">
                         <strong>Keyring operativo</strong>
                         <p class="mb-0"><field name="keyring_runtime_message" readonly="1" nolabel="1"/></p>
@@ -27,7 +28,7 @@
                     </div>
                     <group>
                         <group string="Seguridad SCE">
-                            <field name="sce_core_keyring" password="True"/>
+                            <field name="sce_core_keyring" password="True" readonly="keyring_runtime_source == 'environment'"/>
                             <field name="keyring_runtime_source" readonly="1"/>
                         </group>
                         <group string="Aplicación Mercado Libre">

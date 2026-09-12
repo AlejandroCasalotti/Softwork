@@ -214,11 +214,9 @@ class SceAccount(models.Model):
         raise UserError("Este tipo de proveedor no tiene flujo de conexión definido.")
 
     def action_test_and_confirm(self):
-        self.ensure_one()
-        if self.provider_type == "mercadolibre":
-            self._get_mercadolibre_app_config()
-            return self.action_start_onboarding_connection()
         for rec in self:
+            if rec.provider_type == "mercadolibre":
+                rec._get_mercadolibre_app_config()
             rec.write({"state": "connected", "last_error": False})
         return True
 
