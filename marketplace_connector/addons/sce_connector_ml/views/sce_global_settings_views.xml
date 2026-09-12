@@ -27,12 +27,12 @@
                     </div>
                     <group>
                         <group string="Seguridad SCE">
-                            <field name="sce_core_keyring" ******/>>
+                            <field name="sce_core_keyring" password="True"/>
                             <field name="keyring_runtime_source" readonly="1"/>
                         </group>
                         <group string="Aplicación Mercado Libre">
                             <field name="mercadolibre_client_id"/>
-                            <field name="mercadolibre_client_secret" ******/>>
+                            <field name="mercadolibre_client_secret" password="True"/>
                             <field name="mercadolibre_redirect_uri"/>
                         </group>
                     </group>
