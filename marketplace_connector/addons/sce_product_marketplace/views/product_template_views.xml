@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Marketplace" name="marketplace_publications">
-                    <div class="alert alert-info alert-link" role="status">
+                    <div class="alert alert-info" role="status">
                         Cada fila es una publicación independiente del producto en una cuenta/marketplace.
                     </div>
                     <button name="action_open_marketplace_new_publication" type="object"

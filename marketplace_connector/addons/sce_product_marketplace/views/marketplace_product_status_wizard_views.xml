@@ -6,16 +6,16 @@
         <field name="arch" type="xml">
             <form string="Estado y Conciliación de Productos">
                 <sheet>
-                    <div class="alert alert-success alert-link" role="status" invisible="status_state != 'full'">
-                        <h4 class="alert-heading">🎉 ¡Excelente! Catálogo 100% Conciliado</h4>
+                    <div class="alert alert-success" role="status" invisible="status_state != 'full'">
+                        <h4 class="fw-bold fs-5">🎉 ¡Excelente! Catálogo 100% Conciliado</h4>
                         <p class="mb-0">Todos los productos publicados en Mercado Libre están vinculados correctamente con tus productos de Odoo.</p>
                     </div>
-                    <div class="alert alert-warning alert-link" role="status" invisible="status_state != 'partial'">
-                        <h4 class="alert-heading">⚠️ Conciliación Parcial de Productos</h4>
+                    <div class="alert alert-warning" role="status" invisible="status_state != 'partial'">
+                        <h4 class="fw-bold fs-5">⚠️ Conciliación Parcial de Productos</h4>
                         <p class="mb-0">Tenés publicaciones en Mercado Libre o en Odoo que aún no han sido emparejadas por completo.</p>
                     </div>
-                    <div class="alert alert-danger alert-link" role="status" invisible="status_state != 'none'">
-                        <h4 class="alert-heading">🔴 Sin Conciliar</h4>
+                    <div class="alert alert-danger" role="status" invisible="status_state != 'none'">
+                        <h4 class="fw-bold fs-5">🔴 Sin Conciliar</h4>
                         <p class="mb-0">No se detectaron publicaciones vinculadas entre Mercado Libre y tu catálogo de Odoo.</p>
                     </div>
 
