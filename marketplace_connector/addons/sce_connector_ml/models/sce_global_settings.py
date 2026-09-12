@@ -116,6 +116,12 @@ class SceGlobalSettings(models.Model):
         values = self._config_parameter_values()
         for record in self:
             for field_name, value in values.items():
+                if field_name == "sce_core_keyring":
+                    _, source = CoreSecretService.resolve_runtime_keyring(
+                        env=record.env, environ=os.environ
+                    )
+                    if source == "environment":
+                        value = ""
                 record[field_name] = value
 
     def _inverse_config_values(self):
@@ -178,11 +184,15 @@ class SceGlobalSettings(models.Model):
         runtime_keyring, source = CoreSecretService.resolve_runtime_keyring(
             env=self.env, environ=os.environ
         )
-        if not runtime_keyring:
+        candidate_keyring = runtime_keyring
+        if source != "environment":
+            candidate_keyring = (self.sce_core_keyring or "").strip()
+            source = "database" if candidate_keyring else False
+        if not candidate_keyring:
             raise UserError(
                 "No hay keyring operativo. Configurá SCE Core Keyring o la variable de entorno SCE_CORE_KEYRING."
             )
-        CoreSecretService(keyring=runtime_keyring)
+        CoreSecretService(keyring=candidate_keyring)
         source_label = (
             "variable de entorno"
             if source == "environment"

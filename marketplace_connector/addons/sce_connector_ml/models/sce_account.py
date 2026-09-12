@@ -146,7 +146,11 @@ class SceAccount(models.Model):
             account.ml_running_sync_jobs = len(running_jobs)
 
             identity_status = identity.status if identity else "disconnected"
-            if running_jobs and account.state == "connected":
+            if (
+                running_jobs
+                and account.state == "connected"
+                and identity_status == "connected"
+            ):
                 account.ml_connection_status = "syncing"
                 account.ml_status_message = "Mercado Libre está sincronizando la cuenta."
             elif identity_status == "connected" and account.state == "connected":
@@ -237,6 +241,10 @@ class SceAccount(models.Model):
                 sync_counts["stock"] += 1
 
         if self.sync_orders:
+            self.env.cr.execute(
+                "SELECT id FROM %s WHERE id = %%s FOR UPDATE" % self._table,
+                [self.id],
+            )
             pending_orders_job = self.env["sce.job"].search(
                 [
                     ("account_id", "=", self.id),

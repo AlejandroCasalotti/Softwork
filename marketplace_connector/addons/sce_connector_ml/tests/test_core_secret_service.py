@@ -163,7 +163,17 @@ class _SecretModel:
 
 
 class _SettingsRecord(SimpleNamespace):
-    pass
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
+
+class _SettingsSet(list):
+    def __init__(self, records, values):
+        super().__init__(records)
+        self._values = values
+
+    def _config_parameter_values(self):
+        return self._values
 
 
 class SceGlobalSettingsTests(unittest.TestCase):
@@ -230,6 +240,34 @@ class SceGlobalSettingsTests(unittest.TestCase):
         ):
             SceGlobalSettings._inverse_config_values([record])
         self.assertEqual(writes[0]["sce_core_keyring"], self.db_key)
+
+    def test_compute_masks_database_keyring_when_env_source_is_active(self):
+        record = _SettingsRecord(env=_Env({}))
+        settings = _SettingsSet(
+            [record],
+            {
+                "sce_core_keyring": self.db_key,
+                "mercadolibre_client_id": "id",
+                "mercadolibre_client_secret": "secret",
+                "mercadolibre_redirect_uri": "https://example.com/callback",
+            },
+        )
+        with patch.object(
+            CoreSecretService,
+            "resolve_runtime_keyring",
+            return_value=(self.env_key, "environment"),
+        ):
+            SceGlobalSettings._compute_config_values(settings)
+        self.assertEqual(record.sce_core_keyring, "")
+
+    def test_action_validate_keyring_uses_unsaved_database_value(self):
+        record = _SettingsRecord(env=_Env({}), sce_core_keyring=self.db_key)
+        record.ensure_one = lambda: None
+        with patch.object(
+            CoreSecretService, "resolve_runtime_keyring", return_value=("", False)
+        ):
+            result = SceGlobalSettings.action_validate_keyring(record)
+        self.assertEqual(result["params"]["title"], "Keyring válido")
 
     def test_unlink_is_forbidden(self):
         with self.assertRaises(UserError):
