@@ -453,9 +453,18 @@ class SceAccount(models.Model):
             try:
                 from ..services.provider_factory import ProviderFactory
                 provider = ProviderFactory.get_provider(self)
-                data = provider._request("GET", "/users/me/items/search", with_auth=True, params={"limit": 1})
-                total = data.get("paging", {}).get("total", 0) if isinstance(data, dict) else 0
-                add_test("MercadoLibre Items", "success", f"Se encontraron {total} publicaciones en su cuenta de MercadoLibre")
+                user_id = self.external_user_id
+                if not user_id:
+                    me = provider._request("GET", "/users/me", with_auth=True)
+                    user_id = me.get("id") if isinstance(me, dict) else False
+                    if user_id:
+                        self.sudo().write({"external_user_id": str(user_id)})
+                if user_id:
+                    data = provider._request("GET", f"/users/{user_id}/items/search", with_auth=True, params={"limit": 1})
+                    total = data.get("paging", {}).get("total", 0) if isinstance(data, dict) else 0
+                    add_test("MercadoLibre Items", "success", f"Se encontraron {total} publicaciones en su cuenta de MercadoLibre")
+                else:
+                    add_test("MercadoLibre Items", "warning", "No se pudo determinar el ID de usuario de MercadoLibre", action_type="reconnect")
             except Exception as err:
                 add_test("MercadoLibre Items", "warning", "No se pudo obtener el total de publicaciones", str(err), action_type="reconnect")
         else:

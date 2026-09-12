@@ -291,8 +291,15 @@ class MarketplaceAccount(models.Model):
         if self.provider_type == "mercadolibre":
             try:
                 provider = self.env["sce.provider.factory"].get_provider(self)
-                res = provider._request("GET", "/users/me/items/search", with_auth=True, params={"limit": 1})
-                total_ml = res.get("paging", {}).get("total", 0) if isinstance(res, dict) else 0
+                user_id = self.external_user_id
+                if not user_id:
+                    me = provider._request("GET", "/users/me", with_auth=True)
+                    user_id = me.get("id") if isinstance(me, dict) else False
+                    if user_id:
+                        self.sudo().write({"external_user_id": str(user_id)})
+                if user_id:
+                    res = provider._request("GET", f"/users/{user_id}/items/search", with_auth=True, params={"limit": 1})
+                    total_ml = res.get("paging", {}).get("total", 0) if isinstance(res, dict) else 0
             except Exception:
                 total_ml = 0
 
