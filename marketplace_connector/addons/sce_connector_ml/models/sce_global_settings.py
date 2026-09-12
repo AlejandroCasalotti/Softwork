@@ -117,6 +117,7 @@ class SceGlobalSettings(models.Model):
 
     def _inverse_config_values(self):
         for record in self:
+            current_values = record._config_parameter_values()
             values = {
                 "mercadolibre_client_id": record.mercadolibre_client_id,
                 "mercadolibre_client_secret": record.mercadolibre_client_secret,
@@ -128,6 +129,12 @@ class SceGlobalSettings(models.Model):
             del runtime_keyring
             if source != "environment":
                 values["sce_core_keyring"] = record.sce_core_keyring
+            elif (record.sce_core_keyring or "").strip() != (
+                current_values["sce_core_keyring"] or ""
+            ).strip():
+                raise UserError(
+                    "No podés modificar el keyring en base de datos mientras SCE_CORE_KEYRING esté definido en el entorno."
+                )
             record._write_config_values(values)
 
     @api.depends_context("uid")

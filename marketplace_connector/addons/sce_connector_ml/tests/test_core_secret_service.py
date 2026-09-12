@@ -68,6 +68,24 @@ class CoreSecretServiceTests(unittest.TestCase):
         self.assertEqual(keyring, self.db_key)
         self.assertEqual(source, "database")
 
+    def test_resolve_runtime_keyring_trims_whitespace(self):
+        env = _Env(
+            {"ir.config_parameter": _Params({"sce.core.keyring": f"  {self.db_key}  "})}
+        )
+        keyring, source = CoreSecretService.resolve_runtime_keyring(
+            env=env,
+            environ={CoreSecretService.KEYRING_ENV: f"  {self.env_key}  "},
+        )
+        self.assertEqual(keyring, self.env_key)
+        self.assertEqual(source, "environment")
+
+    def test_resolve_runtime_keyring_returns_missing_tuple(self):
+        env = _Env({"ir.config_parameter": _Params({})})
+        self.assertEqual(
+            CoreSecretService.resolve_runtime_keyring(env=env, environ={}),
+            ("", False),
+        )
+
     def test_missing_keyring_raises(self):
         with self.assertRaises(UserError):
             CoreSecretService(environ={})

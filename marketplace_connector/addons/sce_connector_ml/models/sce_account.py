@@ -88,12 +88,14 @@ class SceAccount(models.Model):
         mercadolibre_accounts = self.filtered(
             lambda account: account.provider_type == "mercadolibre"
         )
-        publication_map = {account.id: Publication.browse() for account in mercadolibre_accounts}
+        publication_ids_by_account = {account.id: [] for account in mercadolibre_accounts}
         if mercadolibre_accounts:
             for publication in Publication.search(
                 [("account_id", "in", mercadolibre_accounts.ids)]
             ):
-                publication_map[publication.account_id.id] |= publication
+                publication_ids_by_account[publication.account_id.id].append(
+                    publication.id
+                )
             identity_map = {
                 identity.account_id.id: identity
                 for identity in self.env["sce.mercadolibre.account"].sudo().search(
@@ -116,7 +118,9 @@ class SceAccount(models.Model):
                 continue
 
             identity = identity_map.get(account.id)
-            publications = publication_map.get(account.id, Publication.browse())
+            publications = Publication.browse(
+                publication_ids_by_account.get(account.id, [])
+            )
             running_jobs = account.job_ids.filtered(
                 lambda job: job.state in ("queued", "running")
                 and job.job_type in sync_job_types
@@ -243,7 +247,7 @@ class SceAccount(models.Model):
                         "payload_json": "{}",
                     }
                 )
-            sync_counts["ventas"] = 1
+                sync_counts["ventas"] = 1
 
         if not created_jobs:
             raise UserError("Todavía no hay publicaciones ni ventas pendientes para sincronizar.")
