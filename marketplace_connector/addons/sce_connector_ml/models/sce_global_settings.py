@@ -123,7 +123,7 @@ class SceGlobalSettings(models.Model):
                 "mercadolibre_redirect_uri": record.mercadolibre_redirect_uri,
             }
             runtime_keyring, source = CoreSecretService.resolve_runtime_keyring(
-                environ=os.environ
+                env=record.env, environ=os.environ
             )
             del runtime_keyring
             if source != "environment":

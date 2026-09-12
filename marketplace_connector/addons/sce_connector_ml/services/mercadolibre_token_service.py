@@ -23,6 +23,23 @@ class MercadoLibreTokenService:
     def _credential(self, secret):
         return secret.with_context(sce_core_credential_access=True).get_value()
 
+    def _clear_identity_tokens(self, identity, status, message):
+        (identity.access_token_secret_id | identity.refresh_token_secret_id).sudo().write(
+            {"active": False, "encrypted_value": False}
+        )
+        identity.sudo().write(
+            {
+                "access_token_secret_id": False,
+                "refresh_token_secret_id": False,
+                "expires_at": False,
+                "status": status,
+                "last_error": message,
+            }
+        )
+        identity.account_id._sync_mercadolibre_runtime_state(
+            identity=identity, last_error=message
+        )
+
     def store_tokens(self, identity, access_token, refresh_token):
         secret_model = self.env["sce.credential.secret"].sudo()
         access_secret = secret_model.create(
@@ -72,8 +89,13 @@ class MercadoLibreTokenService:
                 if status == "auth_required"
                 else "Mercado Libre rechazó temporalmente la sincronización. Podés intentarlo nuevamente."
             )
-            identity.sudo().write({"status": status, "last_error": user_message})
-            identity.account_id._sync_mercadolibre_runtime_state(identity=identity, last_error=user_message)
+            if status == "auth_required":
+                self._clear_identity_tokens(identity, status, user_message)
+            else:
+                identity.sudo().write({"status": status, "last_error": user_message})
+                identity.account_id._sync_mercadolibre_runtime_state(
+                    identity=identity, last_error=user_message
+                )
             raise UserError(user_message) from error
         access_token = payload.get("access_token")
         if not access_token:
@@ -91,3 +113,11 @@ class MercadoLibreTokenService:
         )
         identity.sudo().write({"access_token_secret_id": False, "refresh_token_secret_id": False, "expires_at": False, "status": "disconnected", "disconnected_at": fields.Datetime.now()})
         account._sync_mercadolibre_runtime_state(identity=identity)
+
+    def mark_auth_required(self, account, message=None):
+        identity = self._identity(account)
+        self._clear_identity_tokens(
+            identity,
+            "auth_required",
+            message or "Mercado Libre necesita que vuelvas a autorizar la conexión.",
+        )

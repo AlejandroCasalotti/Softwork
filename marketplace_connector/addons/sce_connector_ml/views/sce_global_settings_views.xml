@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="sce_global_settings_singleton" model="sce.global.settings">
-        <field name="name">Configuración global SCE</field>
-    </record>
+    <data noupdate="1">
+        <record id="sce_global_settings_singleton" model="sce.global.settings">
+            <field name="name">Configuración global SCE</field>
+        </record>
+    </data>
 
     <record id="view_sce_global_settings_form" model="ir.ui.view">
         <field name="name">sce.global.settings.form</field>

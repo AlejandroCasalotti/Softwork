@@ -75,7 +75,18 @@ class SceOAuthController(http.Controller):
             except Exception as err:
                 err_msg = str(err)
                 if account:
-                    if "invalid_grant" in err_msg:
+                    if "invalid_grant" in err_msg or "volver a autorizar la conexión" in err_msg:
+                        try:
+                            from odoo.addons.sce_connector_ml.services.mercadolibre_token_service import (
+                                MercadoLibreTokenService,
+                            )
+
+                            MercadoLibreTokenService(request.env).mark_auth_required(account)
+                        except Exception:
+                            _logger.exception(
+                                "No se pudieron limpiar los tokens ML luego de invalid_grant para account_id=%s",
+                                account.id,
+                            )
                         account.write(
                             {
                                 "state": "error",
