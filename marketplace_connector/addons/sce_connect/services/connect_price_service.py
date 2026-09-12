@@ -174,6 +174,7 @@ class SceConnectPriceService(models.AbstractModel):
             [
                 ("marketplace_account_id", "=", mapping.marketplace_account_id.id),
                 ("marketplace_item_id", "=", mapping.marketplace_item_id),
+                ("external_connection_id", "=", mapping.external_connection_id.id),
                 ("active", "=", True),
                 ("mapping_status", "=", "verified"),
             ]

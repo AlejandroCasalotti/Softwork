@@ -4,6 +4,7 @@ from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
 from ..services.errors import AuthenticationError
+from ..services.log_sanitizer import redact
 from ..services.mercadolibre_oauth import MercadoLibreOAuthService
 
 
@@ -72,7 +73,7 @@ class SceMercadoLibreAccount(models.Model):
             except Exception as error:
                 account.sudo().write({
                     "status": "auth_required" if isinstance(error, AuthenticationError) else "error",
-                    "last_error": str(error),
+                    "last_error": redact(str(error)),
                 })
                 raise
             account.sudo().write({"status": result["status"]})

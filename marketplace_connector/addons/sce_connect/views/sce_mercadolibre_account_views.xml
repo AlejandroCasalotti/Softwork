@@ -62,5 +62,5 @@
         <field name="res_model">sce.mercadolibre.account</field>
         <field name="view_mode">list,form</field>
     </record>
-    <menuitem id="menu_sce_connect_mercadolibre_account" name="MercadoLibre Accounts" parent="menu_sce_connect_root" action="action_sce_mercadolibre_account" sequence="25" groups="sce_connect.group_sce_connect_user"/>
+    <menuitem id="menu_sce_connect_mercadolibre_account" name="MercadoLibre Accounts" parent="menu_sce_connect_root" action="action_sce_mercadolibre_account" sequence="25" groups="sce_connect.group_sce_connect_admin"/>
 </odoo>

@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, InvalidOperation
 
 from odoo import fields, models
 from odoo.exceptions import UserError
@@ -52,10 +53,10 @@ class SceConnectStockService(models.AbstractModel):
             raise UserError("No se encontró el producto externo para sincronizar stock.")
         source_value = rows[0].get(self.SOURCE_FIELD)
         try:
-            source_stock = int(float(source_value or 0))
-        except (TypeError, ValueError):
+            source_stock = Decimal(str(source_value or 0))
+        except (InvalidOperation, TypeError, ValueError):
             raise UserError("El stock remoto no tiene un valor numérico válido.")
-        return max(0, source_stock), context
+        return max(Decimal("0"), source_stock), context
 
     def _provider_payload(self, mapping, quantity):
         payload = {

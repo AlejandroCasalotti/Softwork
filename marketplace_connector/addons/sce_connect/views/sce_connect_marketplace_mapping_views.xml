@@ -70,5 +70,5 @@
     </record>
     <menuitem id="menu_sce_connect_marketplace_mapping" name="Marketplace Mappings"
               parent="menu_sce_connect_root" action="action_sce_connect_marketplace_mapping"
-              sequence="30" groups="sce_connect.group_sce_connect_user"/>
+              sequence="30" groups="sce_connect.group_sce_connect_admin"/>
 </odoo>

@@ -40,5 +40,5 @@
         <field name="view_mode">list,form</field>
     </record>
     <menuitem id="menu_sce_connect_root" name="SCE Connect" parent="softwork_ecommerce_conector_base.menu_sce_root" sequence="5"/>
-    <menuitem id="menu_sce_connect_tenant" name="Tenants" parent="menu_sce_connect_root" action="action_sce_tenant" sequence="10" groups="sce_connect.group_sce_connect_user"/>
+    <menuitem id="menu_sce_connect_tenant" name="Tenants" parent="menu_sce_connect_root" action="action_sce_tenant" sequence="10" groups="sce_connect.group_sce_connect_admin"/>
 </odoo>
