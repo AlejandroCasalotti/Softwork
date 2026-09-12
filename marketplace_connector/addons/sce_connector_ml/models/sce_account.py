@@ -88,14 +88,29 @@ class SceAccount(models.Model):
         mercadolibre_accounts = self.filtered(
             lambda account: account.provider_type == "mercadolibre"
         )
-        publication_ids_by_account = {account.id: [] for account in mercadolibre_accounts}
+        publication_count_map = {account.id: 0 for account in mercadolibre_accounts}
+        synced_count_map = {account.id: 0 for account in mercadolibre_accounts}
+        problem_count_map = {account.id: 0 for account in mercadolibre_accounts}
         if mercadolibre_accounts:
-            for publication in Publication.search(
-                [("account_id", "in", mercadolibre_accounts.ids)]
-            ):
-                publication_ids_by_account[publication.account_id.id].append(
-                    publication.id
+            def _count_by_account(domain):
+                rows = Publication.read_group(
+                    domain + [("account_id", "in", mercadolibre_accounts.ids)],
+                    ["account_id"],
+                    ["account_id"],
                 )
+                return {
+                    row["account_id"][0]: row["account_id_count"]
+                    for row in rows
+                    if row.get("account_id")
+                }
+
+            publication_count_map.update(_count_by_account([]))
+            synced_count_map.update(
+                _count_by_account(
+                    [("external_id", "!=", False), ("error_message", "=", False)]
+                )
+            )
+            problem_count_map.update(_count_by_account([("error_message", "!=", False)]))
             identity_map = {
                 identity.account_id.id: identity
                 for identity in self.env["sce.mercadolibre.account"].sudo().search(
@@ -118,9 +133,6 @@ class SceAccount(models.Model):
                 continue
 
             identity = identity_map.get(account.id)
-            publications = Publication.browse(
-                publication_ids_by_account.get(account.id, [])
-            )
             running_jobs = account.job_ids.filtered(
                 lambda job: job.state in ("queued", "running")
                 and job.job_type in sync_job_types
@@ -128,13 +140,9 @@ class SceAccount(models.Model):
 
             account.ml_seller_nickname = identity.seller_nickname if identity else False
             account.ml_site_id = identity.site_id if identity else False
-            account.ml_publication_count = len(publications)
-            account.ml_publication_synced_count = len(
-                publications.filtered(lambda publication: publication.external_id and not publication.error_message)
-            )
-            account.ml_publication_problem_count = len(
-                publications.filtered(lambda publication: bool(publication.error_message))
-            )
+            account.ml_publication_count = publication_count_map.get(account.id, 0)
+            account.ml_publication_synced_count = synced_count_map.get(account.id, 0)
+            account.ml_publication_problem_count = problem_count_map.get(account.id, 0)
             account.ml_running_sync_jobs = len(running_jobs)
 
             identity_status = identity.status if identity else "disconnected"
@@ -216,6 +224,7 @@ class SceAccount(models.Model):
         )
         created_jobs = self.env["sce.job"]
         sync_counts = {"productos": 0, "precios": 0, "stock": 0, "ventas": 0}
+        reused_order_sync = False
 
         for publication in publications:
             created_jobs |= publication_service.enqueue(publication, "sync")
@@ -238,6 +247,7 @@ class SceAccount(models.Model):
             )
             if pending_orders_job:
                 created_jobs |= pending_orders_job
+                reused_order_sync = True
             else:
                 created_jobs |= self.env["sce.job"].create(
                     {
@@ -257,7 +267,11 @@ class SceAccount(models.Model):
             f"Productos: {sync_counts['productos']}",
             f"Precios: {sync_counts['precios']}",
             f"Stock: {sync_counts['stock']}",
-            f"Ventas: {sync_counts['ventas']}",
+            (
+                "Ventas: ya había una sincronización en cola"
+                if reused_order_sync
+                else f"Ventas: {sync_counts['ventas']}"
+            ),
         ]
         return {
             "type": "ir.actions.client",

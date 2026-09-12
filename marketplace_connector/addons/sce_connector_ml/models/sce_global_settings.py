@@ -75,6 +75,9 @@ class SceGlobalSettings(models.Model):
             for field_name, param_name in self._CONFIG_PARAMS.items()
         }
 
+    def unlink(self):
+        raise UserError("No podés eliminar la configuración global de SCE.")
+
     def _validate_database_keyring(self, value):
         keyring = (value or "").strip()
         params = self.env["ir.config_parameter"].sudo()
