@@ -13,10 +13,11 @@ class CoreSecretService:
     """Encrypt provider credentials without coupling the ML connector to Connect."""
 
     KEYRING_ENV = "SCE_CORE_KEYRING"
+    KEYRING_PARAM = "sce.core.keyring"
 
-    def __init__(self, keyring=None, environ=None):
+    def __init__(self, keyring=None, environ=None, env=None):
         environ = environ if environ is not None else os.environ
-        keyring = keyring or environ.get(self.KEYRING_ENV, "")
+        keyring = keyring or self.resolve_runtime_keyring(env=env, environ=environ)[0]
         keys = [key.strip() for key in keyring.split(",") if key.strip()]
         if not keys:
             raise UserError(
@@ -30,8 +31,22 @@ class CoreSecretService:
             raise UserError("El keyring de credenciales de MercadoLibre no es válido.") from error
 
     @classmethod
-    def from_runtime(cls):
-        return cls()
+    def from_runtime(cls, env=None, environ=None):
+        return cls(env=env, environ=environ)
+
+    @classmethod
+    def resolve_runtime_keyring(cls, env=None, environ=None):
+        environ = environ if environ is not None else os.environ
+        runtime_keyring = (environ.get(cls.KEYRING_ENV, "") or "").strip()
+        if runtime_keyring:
+            return runtime_keyring, "environment"
+        if env is not None:
+            runtime_keyring = (
+                env["ir.config_parameter"].sudo().get_param(cls.KEYRING_PARAM, "") or ""
+            ).strip()
+            if runtime_keyring:
+                return runtime_keyring, "database"
+        return "", False
 
     def encrypt(self, value):
         if not value:

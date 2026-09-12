@@ -39,9 +39,8 @@ class MercadoLibreOAuthService:
         }
         if not all(values.values()):
             raise UserError(
-                "Falta la configuración operativa de la aplicación MercadoLibre. "
-                "Configura sce.mercadolibre.client_id, sce.mercadolibre.client_secret "
-                "y sce.mercadolibre.redirect_uri en Parámetros del sistema."
+                "Falta la configuración interna de la aplicación Mercado Libre. "
+                "Un administrador debe completar Client ID, Client Secret y Redirect URI una sola vez."
             )
         return values
 
@@ -91,6 +90,7 @@ class MercadoLibreOAuthService:
             }
         )
         identity.write({"status": "auth_pending", "last_error": False})
+        account._sync_mercadolibre_runtime_state(identity=identity)
         return f"{self.AUTHORIZATION_URL}?{urlencode({'response_type': 'code', 'client_id': config['client_id'], 'redirect_uri': config['redirect_uri'], 'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256'})}"
 
     def complete(self, state, code, user):
@@ -121,8 +121,18 @@ class MercadoLibreOAuthService:
             data.raise_for_status()
             payload = data.json()
         except requests.RequestException as error:
-            transaction.mercadolibre_account_id.write({"status": "error", "last_error": str(error)})
-            raise UserError("No se pudo completar la autorización con MercadoLibre.") from error
+            status = "auth_required" if "invalid_grant" in str(error) else "error"
+            message = (
+                "Mercado Libre necesita que vuelvas a autorizar la conexión."
+                if status == "auth_required"
+                else "No se pudo completar la autorización con Mercado Libre."
+            )
+            transaction.mercadolibre_account_id.write({"status": status, "last_error": message})
+            transaction.account_id._sync_mercadolibre_runtime_state(
+                identity=transaction.mercadolibre_account_id,
+                last_error=message,
+            )
+            raise UserError(message) from error
         access_token = payload.get("access_token")
         refresh_token = payload.get("refresh_token")
         if not access_token or not refresh_token:
@@ -136,7 +146,13 @@ class MercadoLibreOAuthService:
             response.raise_for_status()
             seller = response.json()
         except requests.RequestException as error:
-            raise UserError("No se pudo identificar al vendedor autenticado de MercadoLibre.") from error
+            message = "No se pudo recuperar la identidad de la cuenta autorizada en Mercado Libre."
+            transaction.mercadolibre_account_id.write({"status": "error", "last_error": message})
+            transaction.account_id._sync_mercadolibre_runtime_state(
+                identity=transaction.mercadolibre_account_id,
+                last_error=message,
+            )
+            raise UserError(message) from error
         from .mercadolibre_token_service import MercadoLibreTokenService
 
         identity = transaction.mercadolibre_account_id
@@ -157,7 +173,5 @@ class MercadoLibreOAuthService:
             }
         )
         transaction.code_verifier_secret_id.sudo().write({"active": False, "encrypted_value": False})
-        transaction.account_id.sudo().write(
-            {"state": "connected", "external_user_id": identity.seller_user_id, "last_error": False}
-        )
+        transaction.account_id._sync_mercadolibre_runtime_state(identity=identity)
         return identity

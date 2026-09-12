@@ -13,6 +13,7 @@
     ],
     "data": [
         "security/ir.model.access.csv",
+        "views/sce_global_settings_views.xml",
         "views/ml_category_search_wizard_views.xml",
         "views/ml_attribute_option_picker_wizard_views.xml",
         "views/marketplace_publication_views.xml",

@@ -24,7 +24,7 @@ class SceOAuthController(http.Controller):
             return request.redirect(action.get("url"))
         except Exception as err:
             msg = str(err) or "No se pudo iniciar la conexión OAuth."
-            if "sce.mercadolibre.client_id" in msg or "Redirect URI" in msg:
+            if "configuración interna de la aplicación Mercado Libre" in msg:
                 return request.redirect("/sce/oauth/mercadolibre/result?status=missing_config")
             return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
@@ -58,7 +58,12 @@ class SceOAuthController(http.Controller):
 
         if error:
             if account:
-                account.write({"state": "error", "last_error": f"OAuth error: {error}"})
+                account.write(
+                    {
+                        "state": "error",
+                        "last_error": "Mercado Libre no pudo autorizar la conexión. Reintentá nuevamente.",
+                    }
+                )
             return request.redirect("/sce/oauth/mercadolibre/result?status=error")
 
         if code:
@@ -70,12 +75,23 @@ class SceOAuthController(http.Controller):
             except Exception as err:
                 err_msg = str(err)
                 if account:
-                    if "invalid_grant" in err_msg:
+                    if "invalid_grant" in err_msg or "volver a autorizar la conexión" in err_msg:
+                        try:
+                            from odoo.addons.sce_connector_ml.services.mercadolibre_token_service import (
+                                MercadoLibreTokenService,
+                            )
+
+                            MercadoLibreTokenService(request.env).mark_auth_required(account)
+                        except Exception:
+                            _logger.exception(
+                                "No se pudieron limpiar los tokens ML luego de invalid_grant para account_id=%s",
+                                account.id,
+                            )
                         account.write(
                             {
-                                "state": "draft",
+                                "state": "error",
                                 "token_expires_at": False,
-                                "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
+                                "last_error": "Mercado Libre necesita que vuelvas a autorizar la conexión.",
                             }
                         )
                         return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
@@ -97,31 +113,23 @@ class SceOAuthController(http.Controller):
             html = """
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
             <h2>✅ Cuenta conectada correctamente</h2>
-            <p>Tu cuenta de MercadoLibre ya está conectada y sincronizada automáticamente.</p>
+            <p>Tu cuenta de Mercado Libre ya quedó conectada y lista para sincronizar productos, precios, stock y ventas.</p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
             """
         elif status == "missing_config":
             html = """
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
-            <h2>⚙️ Falta configuración inicial</h2>
-            <p>Para conectar MercadoLibre necesitamos configurar credenciales OAuth una sola vez.</p>
-            <p>Parámetros requeridos:</p>
-            <ul>
-              <li><code>sce.mercadolibre.client_id</code></li>
-              <li><code>sce.mercadolibre.client_secret</code></li>
-              <li><code>sce.mercadolibre.redirect_uri</code></li>
-            </ul>
-            <p><a href="/web#action=base.action_system_parameter">Ir a Parámetros del sistema</a></p>
+            <h2>⚙️ Falta la configuración interna de Mercado Libre</h2>
+            <p>La conexión comercial está lista, pero un administrador todavía debe completar la configuración técnica de la aplicación una sola vez.</p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
             """
         elif status == "reauthorize":
             html = """
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
-            <h2>🔁 Reautorización requerida</h2>
-            <p>El código OAuth o el refresh token de MercadoLibre son inválidos (expirados/revocados).</p>
-            <p>Se limpiaron los tokens previos para evitar bucles. Para continuar, autorizá nuevamente la conexión.</p>
+            <h2>🔁 Mercado Libre necesita autorización</h2>
+            <p>La autorización anterior ya no es válida. Para continuar, autorizá nuevamente la conexión.</p>
             <p><a href="/sce/oauth/mercadolibre/start">Reintentar conexión ahora</a></p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
@@ -130,7 +138,7 @@ class SceOAuthController(http.Controller):
             html = """
             <html><body style="font-family: Arial, sans-serif; padding: 24px;">
             <h2>⚠️ No se pudo completar la conexión</h2>
-            <p>Reintentá la conexión desde Odoo. Si persiste, revisá la configuración OAuth.</p>
+            <p>Reintentá la conexión desde Odoo. Si el problema continúa, revisá la configuración interna de Mercado Libre desde administración.</p>
             <p><a href="/web">Volver a Odoo</a></p>
             </body></html>
             """
