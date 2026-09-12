@@ -9,6 +9,9 @@ class SceConnectPriceJob(models.Model):
         selection_add=[("sync_connect_price", "Sync Connect Price")],
         ondelete={"sync_connect_price": "set default"},
     )
+    connect_marketplace_mapping_id = fields.Many2one(
+        "sce.connect.marketplace.mapping", string="Connect Marketplace Mapping", ondelete="cascade", index=True
+    )
 
     def _execute_provider_operation(self, provider, payload):
         if self.job_type != "sync_connect_price":

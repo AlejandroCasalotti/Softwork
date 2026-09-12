@@ -92,6 +92,9 @@ class ConnectPriceServiceTests(unittest.TestCase):
         self.service._active_policy = SceConnectPriceService._active_policy.__get__(self.service)
         self.service._apply_policy = SceConnectPriceService._apply_policy.__get__(self.service)
         self.service._apply_rules = SceConnectPriceService._apply_rules.__get__(self.service)
+        self.service._write_mappings = SceConnectPriceService._write_mappings.__get__(self.service)
+        self.service._iter_mappings = SceConnectPriceService._iter_mappings
+        self.service._prepare_sync_price = SceConnectPriceService._prepare_sync_price.__get__(self.service)
         self.service.sync_mapping = SceConnectPriceService.sync_mapping.__get__(self.service)
         self.service.enqueue_mapping = SceConnectPriceService.enqueue_mapping.__get__(self.service)
         self.service.calculate_price = SceConnectPriceService.calculate_price
@@ -282,6 +285,27 @@ class ConnectPriceServiceTests(unittest.TestCase):
 
         self.assertTrue(result["skipped"])
         factory.get_provider.return_value.update_price.assert_not_called()
+
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
+    @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")
+    def test_variant_skip_requires_all_mappings_to_be_current(self, connection_service_cls, factory):
+        records = [mapping(variation_id=value) for value in ("A", "B")]
+        records[0].last_price_source = "15000.00"
+        records[0].last_price_sent = "15000.00"
+        records[0].last_price_sync_at = datetime(2026, 1, 1)
+        connection_service_cls.return_value.remote_product_context.return_value = None
+        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
+        connection_service_cls.return_value.search_read.side_effect = [[{"list_price": 15000}], [{"list_price": 15000}]]
+        factory.get_provider.return_value.get_item.return_value = {
+            "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
+        }
+        factory.get_provider.return_value.update_price.return_value = {"ok": True}
+        self.service.env["sce.connect.marketplace.mapping"].extend(records)
+
+        result = self.service.sync_mapping(records[0])
+
+        self.assertFalse(result.get("skipped"))
+        factory.get_provider.return_value.update_price.assert_called_once()
 
     @patch("odoo.addons.sce_connect.services.connect_price_service.ProviderFactory")
     @patch("odoo.addons.sce_connect.services.connect_price_service.ConnectionService")

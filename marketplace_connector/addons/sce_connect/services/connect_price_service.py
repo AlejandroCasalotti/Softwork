@@ -118,11 +118,19 @@ class SceConnectPriceService(models.AbstractModel):
         return result, final_price
 
     def _write_mappings(self, mappings, values):
-        if hasattr(mappings, "write"):
+        if hasattr(mappings, "write") and hasattr(mappings, "__iter__"):
             mappings.write(values)
             return
-        for mapping in mappings:
+        for mapping in self._iter_mappings(mappings):
             mapping.write(values)
+
+    @staticmethod
+    def _iter_mappings(mappings):
+        if isinstance(mappings, (list, tuple, set)):
+            return mappings
+        if hasattr(mappings, "__iter__"):
+            return mappings
+        return mappings if isinstance(mappings, (list, tuple, set)) else [mappings]
 
     def _prepare_sync_price(self, mapping):
         source_price, _context = self._remote_price(mapping)
@@ -232,10 +240,11 @@ class SceConnectPriceService(models.AbstractModel):
                 sent_text = prepared["sent_text"]
                 payload = self._provider_payload(mapping, price)
                 state_targets = mapping
-            if (
-                mapping.last_price_sync_at
-                and mapping.last_price_source == source_text
-                and mapping.last_price_sent == sent_text
+            if all(
+                target.last_price_sync_at
+                and target.last_price_source == source_text
+                and target.last_price_sent == sent_text
+                for target in self._iter_mappings(state_targets)
             ):
                 return {"ok": True, "skipped": True, "source_price": source_text, "price": sent_text}
             result = provider.update_price(payload) or {}

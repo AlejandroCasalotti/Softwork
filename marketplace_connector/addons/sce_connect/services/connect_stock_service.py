@@ -36,8 +36,8 @@ class SceConnectStockService(models.AbstractModel):
 
     def _remote_stock(self, mapping):
         connection = mapping.external_connection_id
-        context = ConnectionService(connection, env=self.env).remote_product_context()
         product_service = ConnectionService(connection, env=self.env)
+        context = product_service.remote_product_context()
         metadata = product_service.metadata("product.product")
         if self.SOURCE_FIELD not in metadata:
             raise UserError("El Odoo remoto no expone free_qty para sincronizar stock.")
