@@ -55,9 +55,43 @@ class SceMarketplaceJob(models.Model):
         }:
             return super()._execute_provider_operation(provider, payload)
         service = self.env["marketplace.publication.service"]
+
+        if not self.publication_id:
+            ext_id = (
+                self.external_id
+                or (isinstance(payload, dict) and payload.get("external_id"))
+                or (isinstance(payload, dict) and payload.get("item_id"))
+                or (isinstance(payload, dict) and payload.get("publication_id"))
+            )
+            if ext_id:
+                ext_id_str = str(ext_id).strip()
+                pub = self.env["marketplace.publication"].search(
+                    [("account_id", "=", self.account_id.id), ("external_id", "=", ext_id_str)],
+                    limit=1,
+                )
+                if pub:
+                    self.publication_id = pub
+                elif self.job_type != "import_order":
+                    prod_id = isinstance(payload, dict) and payload.get("product_tmpl_id")
+                    product_tmpl = self.env["product.template"].browse(prod_id) if prod_id else False
+                    if not product_tmpl and isinstance(payload, dict) and payload.get("sku"):
+                        product_tmpl = self.env["product.template"].search(
+                            [("default_code", "=", str(payload["sku"]))], limit=1
+                        )
+                    pub_vals = {
+                        "account_id": self.account_id.id,
+                        "external_id": ext_id_str,
+                        "title": product_tmpl.name if product_tmpl else f"Publicación {ext_id_str}",
+                    }
+                    if product_tmpl:
+                        pub_vals["product_tmpl_id"] = product_tmpl.id
+                    pub = self.env["marketplace.publication"].create(pub_vals)
+                    self.publication_id = pub
+
         if not self.publication_id:
             if self.job_type == "import_order":
-                return service.import_order(self.account_id, self.external_id)
+                ext_id = self.external_id or (isinstance(payload, dict) and payload.get("external_id"))
+                return service.import_order(self.account_id, ext_id)
             raise UserError("El job de marketplace necesita una publicación asociada.")
 
         operations = {

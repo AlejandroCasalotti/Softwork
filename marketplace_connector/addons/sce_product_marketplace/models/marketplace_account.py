@@ -283,3 +283,65 @@ class MarketplaceAccount(models.Model):
         records = self._fetch_remote_odoo_records("stock.warehouse", fields_to_read=["id", "name", "code"])
         note = "Seleccioná o ingresá el ID/nombre del almacén Odoo asignado para ventas FULL (Fulfillment)."
         return self._notify_odoo_options("Almacenes Fulfillment", records, code_field="code", note=note)
+
+    # --- 7. Test de Conciliación y Estado de Productos ---
+    def action_check_products_status(self):
+        self.ensure_one()
+        total_ml = 0
+        if self.provider_type == "mercadolibre":
+            try:
+                provider = self.env["sce.provider.factory"].get_provider(self)
+                res = provider._request("GET", "/users/me/items/search", with_auth=True, params={"limit": 1})
+                total_ml = res.get("paging", {}).get("total", 0) if isinstance(res, dict) else 0
+            except Exception:
+                total_ml = 0
+
+        pub_model = self.env["marketplace.publication"]
+        total_sce = pub_model.search_count([("account_id", "=", self.id)])
+        reconciled = pub_model.search_count([
+            ("account_id", "=", self.id),
+            ("external_id", "!=", False),
+            ("product_tmpl_id", "!=", False),
+        ])
+        unreconciled_ml = max(0, total_ml - reconciled)
+
+        if total_ml > 0:
+            rate = round((reconciled / float(total_ml)) * 100.0, 1)
+        elif total_sce > 0:
+            rate = 100.0 if reconciled == total_sce else round((reconciled / float(total_sce)) * 100.0, 1)
+        else:
+            rate = 0.0
+
+        if rate >= 100.0 and total_ml > 0:
+            status_state = "full"
+            summary_msg = f"Se encontraron {total_ml} publicaciones en Mercado Libre y las {reconciled} están totalmente conciliadas y vinculadas con productos en Odoo."
+            rec_notes = "Todo está sincronizado correctamente. No se requieren acciones adicionales."
+        elif reconciled > 0:
+            status_state = "partial"
+            summary_msg = f"De un total de {total_ml} publicaciones en Mercado Libre, {reconciled} están vinculadas con Odoo y {unreconciled_ml} se encuentran pendientes de conciliar."
+            rec_notes = "Te recomendamos ejecutar la sincronización para importar y vincular los productos faltantes de Mercado Libre."
+        else:
+            status_state = "none"
+            summary_msg = f"Mercado Libre reporta {total_ml} publicaciones en tu cuenta, pero ninguna está asociada a productos de Odoo todavía."
+            rec_notes = "Haz clic en 'Sincronizar Faltantes desde Mercado Libre' para vincular tus publicaciones automáticamente."
+
+        wizard = self.env["marketplace.product.status.wizard"].create({
+            "account_id": self.id,
+            "total_ml_items": total_ml,
+            "total_sce_publications": total_sce,
+            "reconciled_count": reconciled,
+            "unreconciled_ml_count": unreconciled_ml,
+            "reconciliation_rate": min(100.0, rate),
+            "status_state": status_state,
+            "summary_message": summary_msg,
+            "recommendation_notes": rec_notes,
+        })
+
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Estados de productos y conciliación",
+            "res_model": "marketplace.product.status.wizard",
+            "view_mode": "form",
+            "res_id": wizard.id,
+            "target": "new",
+        }

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_marketplace_product_status_wizard_form" model="ir.ui.view">
+        <field name="name">marketplace.product.status.wizard.form</field>
+        <field name="model">marketplace.product.status.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Estado y Conciliación de Productos">
+                <sheet>
+                    <div class="alert alert-success" role="alert" invisible="status_state != 'full'">
+                        <h4 class="alert-heading">🎉 ¡Excelente! Catálogo 100% Conciliado</h4>
+                        <p class="mb-0">Todos los productos publicados en Mercado Libre están vinculados correctamente con tus productos de Odoo.</p>
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="status_state != 'partial'">
+                        <h4 class="alert-heading">⚠️ Conciliación Parcial de Productos</h4>
+                        <p class="mb-0">Tenés publicaciones en Mercado Libre o en Odoo que aún no han sido emparejadas por completo.</p>
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="status_state != 'none'">
+                        <h4 class="alert-heading">🔴 Sin Conciliar</h4>
+                        <p class="mb-0">No se detectaron publicaciones vinculadas entre Mercado Libre y tu catálogo de Odoo.</p>
+                    </div>
+
+                    <group>
+                        <group string="Resumen de Conciliación">
+                            <field name="account_id" readonly="1"/>
+                            <field name="status_state" widget="badge"
+                                   decoration-success="status_state == 'full'"
+                                   decoration-warning="status_state == 'partial'"
+                                   decoration-danger="status_state == 'none'"/>
+                            <field name="reconciliation_rate" widget="progressbar"/>
+                        </group>
+                        <group string="Métricas de Publicaciones">
+                            <field name="total_ml_items" readonly="1"/>
+                            <field name="reconciled_count" class="text-success oe_bold" readonly="1"/>
+                            <field name="unreconciled_ml_count" class="text-danger" readonly="1"/>
+                            <field name="total_sce_publications" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group string="Diagnóstico y Recomendaciones">
+                        <field name="summary_message" nolabel="1" readonly="1"/>
+                        <field name="recommendation_notes" nolabel="1" readonly="1" class="text-muted"/>
+                    </group>
+
+                    <footer>
+                        <button name="action_open_publications" type="object" string="📋 Ver Publicaciones" class="btn-primary" icon="fa-list"/>
+                        <button name="action_sync_from_ml" type="object" string="🔄 Sincronizar Faltantes desde Mercado Libre" class="btn-secondary" icon="fa-refresh"/>
+                        <button string="Cerrar" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

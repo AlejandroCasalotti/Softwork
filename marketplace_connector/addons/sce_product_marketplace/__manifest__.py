@@ -26,6 +26,7 @@ extienden marketplace.publication con sus propios campos y servicios.
         "views/marketplace_sale_order_views.xml",
         "views/sce_job_marketplace_views.xml",
         "views/product_template_views.xml",
+        "views/marketplace_product_status_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

@@ -99,6 +99,12 @@ class MercadoLibreExternalProvider(IProvider):
     def webhook(self, payload):
         return self._delegate.webhook(payload)
 
+    def _request(self, *args, **kwargs):
+        return self._delegate._request(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._delegate, name)
+
 
 def get_provider(env, account):
     provider_type = (account.connector_id.provider_type or "").strip().lower()
