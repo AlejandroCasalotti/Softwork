@@ -63,7 +63,7 @@ class MarketplacePublication(models.Model):
     )
     shipping_mode = fields.Char(string="Modo de envío")
 
-    price = fields.Float(string="Precio publicado")
+    price = fields.Float(string="Precio publicado", compute="_compute_price", store=True, readonly=False)
     price_uom_id = fields.Many2one("uom.uom", string="UoM de precio")
     pricelist_id = fields.Many2one("product.pricelist", string="Lista de precios")
     use_pricelist_price = fields.Boolean(string="Usar precio de lista", default=True)
@@ -86,12 +86,45 @@ class MarketplacePublication(models.Model):
         "Ya existe una publicación de este producto para esta cuenta.",
     )
 
-    @api.depends("product_tmpl_id.qty_available", "stock_reserve_qty")
+    @api.depends(
+        "product_tmpl_id.qty_available",
+        "stock_reserve_qty",
+        "account_id.safety_stock",
+        "account_id.sync_stock",
+    )
     def _compute_effective_qty(self):
         for publication in self:
             reserve = max(0.0, publication.stock_reserve_qty or 0.0)
             available = publication.product_tmpl_id.qty_available if publication.product_tmpl_id else 0.0
-            publication.effective_qty = int(max(0.0, available - reserve))
+            real_stock = max(0.0, available - reserve)
+            if publication.account_id:
+                publication.effective_qty = publication.account_id.calculate_marketplace_stock(real_stock)
+            else:
+                publication.effective_qty = int(max(0.0, real_stock))
+
+    @api.depends(
+        "product_tmpl_id.list_price",
+        "account_id.price_security_factor",
+        "account_id.price_surcharge_fixed",
+        "account_id.price_surcharge_percent",
+        "account_id.surcharge_clasica_percent",
+        "account_id.surcharge_premium_percent",
+        "account_id.free_shipping_threshold",
+        "account_id.free_shipping_fee",
+        "manual_price_override",
+        "listing_type",
+    )
+    def _compute_price(self):
+        for publication in self:
+            if publication.manual_price_override:
+                continue
+            base_price = publication.product_tmpl_id.list_price if publication.product_tmpl_id else 0.0
+            if publication.account_id:
+                publication.price = publication.account_id.calculate_marketplace_price(
+                    base_price, listing_type=publication.listing_type or "gold_special"
+                )
+            else:
+                publication.price = base_price
 
     def name_get(self):
         result = []

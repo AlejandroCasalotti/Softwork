@@ -5,11 +5,73 @@
         <field name="model">sce.account</field>
         <field name="inherit_id" ref="softwork_ecommerce_conector_base.view_sce_account_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='ml_redirect_uri']" position="after">
-                <group string="Reglas de órdenes marketplace" invisible="provider_type == 'odoo'">
-                    <field name="marketplace_auto_confirm_paid"/>
-                    <field name="marketplace_auto_cancelled"/>
-                </group>
+            <xpath expr="//sheet" position="inside">
+                <notebook invisible="provider_type == 'odoo'">
+                    <page string="🔗 Vinculación de Productos" name="page_matching">
+                        <group string="Reglas de Emparejamiento">
+                            <group>
+                                <field name="matching_field" widget="radio"/>
+                                <field name="exclude_domain" placeholder="[('type', '=', 'service')]"/>
+                            </group>
+                        </group>
+                    </page>
+
+                    <page string="📦 Sincronización de Stock" name="page_stock">
+                        <group string="Configuración de Stock">
+                            <group>
+                                <field name="sync_stock"/>
+                                <field name="sync_stock_flex" invisible="not sync_stock"/>
+                            </group>
+                            <group invisible="not sync_stock">
+                                <field name="safety_stock"/>
+                                <field name="stock_location_name" placeholder="Ej: WH/Stock"/>
+                            </group>
+                        </group>
+                    </page>
+
+                    <page string="🏷️ Sincronización de Precios &amp; Cuotas" name="page_prices">
+                        <group>
+                            <group string="Reglas de Precio Base">
+                                <field name="sync_prices"/>
+                                <field name="pricelist_name" placeholder="Ej: Tarifa Pública" invisible="not sync_prices"/>
+                                <field name="price_security_factor" invisible="not sync_prices"/>
+                                <field name="price_surcharge_fixed" invisible="not sync_prices"/>
+                                <field name="price_surcharge_percent" invisible="not sync_prices"/>
+                            </group>
+                            <group string="Recargo por Cuotas y Modalidad ML" invisible="not sync_prices">
+                                <field name="surcharge_clasica_percent"/>
+                                <field name="surcharge_premium_percent"/>
+                                <field name="free_shipping_threshold"/>
+                                <field name="free_shipping_fee"/>
+                            </group>
+                        </group>
+                        <group string="⚡ Simulador de Precios en Vivo" invisible="not sync_prices">
+                            <group>
+                                <field name="sim_base_price"/>
+                            </group>
+                            <group>
+                                <field name="sim_calculated_clasica" readonly="1" class="oe_bold"/>
+                                <field name="sim_calculated_premium" readonly="1" class="oe_bold"/>
+                            </group>
+                        </group>
+                    </page>
+
+                    <page string="🛒 Sincronización de Ventas &amp; Logística" name="page_orders">
+                        <group>
+                            <group string="Reglas de Ventas">
+                                <field name="sync_orders"/>
+                                <field name="sync_orders_full" invisible="not sync_orders"/>
+                                <field name="marketplace_auto_confirm_paid" invisible="not sync_orders"/>
+                                <field name="marketplace_auto_cancelled" invisible="not sync_orders"/>
+                            </group>
+                            <group string="Mapeo de Almacenes y Equipos" invisible="not sync_orders">
+                                <field name="sales_team_name" placeholder="Ej: Mercado Libre"/>
+                                <field name="warehouse_name" placeholder="Ej: Almacén Principal"/>
+                                <field name="fulfillment_warehouse_name" placeholder="Ej: Almacén Full ML"/>
+                            </group>
+                        </group>
+                    </page>
+                </notebook>
             </xpath>
         </field>
     </record>
