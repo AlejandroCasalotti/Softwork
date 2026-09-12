@@ -72,6 +72,24 @@ class SceAccount(models.Model):
     )
     def _compute_ml_dashboard(self):
         Publication = self.env["marketplace.publication"].sudo()
+        mercadolibre_accounts = self.filtered(
+            lambda account: account.provider_type == "mercadolibre"
+        )
+        publication_map = {account.id: Publication.browse() for account in mercadolibre_accounts}
+        if mercadolibre_accounts:
+            for publication in Publication.search(
+                [("account_id", "in", mercadolibre_accounts.ids)]
+            ):
+                publication_map[publication.account_id.id] |= publication
+            identity_map = {
+                identity.account_id.id: identity
+                for identity in self.env["sce.mercadolibre.account"].sudo().search(
+                    [("account_id", "in", mercadolibre_accounts.ids)]
+                )
+            }
+        else:
+            identity_map = {}
+
         for account in self:
             if account.provider_type != "mercadolibre":
                 account.ml_connection_status = False
@@ -84,8 +102,8 @@ class SceAccount(models.Model):
                 account.ml_running_sync_jobs = 0
                 continue
 
-            identity = account._get_mercadolibre_identity()
-            publications = Publication.search([("account_id", "=", account.id)])
+            identity = identity_map.get(account.id)
+            publications = publication_map.get(account.id, Publication.browse())
             running_jobs = account.job_ids.filtered(lambda job: job.state in ("queued", "running"))
 
             account.ml_seller_nickname = identity.seller_nickname if identity else False

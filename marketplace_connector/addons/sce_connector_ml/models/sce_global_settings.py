@@ -75,14 +75,24 @@ class SceGlobalSettings(models.Model):
 
     def _validate_database_keyring(self, value):
         keyring = (value or "").strip()
+        params = self.env["ir.config_parameter"].sudo()
+        current_keyring = (
+            params.get_param(CoreSecretService.KEYRING_PARAM, "") or ""
+        ).strip()
+        active_secret_count = self.env["sce.credential.secret"].sudo().search_count(
+            [("active", "=", True), ("encrypted_value", "!=", False)]
+        )
         if not keyring:
-            if self.env["sce.credential.secret"].sudo().search_count(
-                [("active", "=", True), ("encrypted_value", "!=", False)]
-            ):
+            if active_secret_count:
                 raise UserError(
                     "No podés limpiar el keyring mientras existan secretos SCE activos."
                 )
             return ""
+        if current_keyring and keyring != current_keyring and active_secret_count:
+            raise UserError(
+                "No podés cambiar el keyring mientras existan secretos SCE activos. "
+                "Primero tendrías que re-cifrar o limpiar esas credenciales."
+            )
         CoreSecretService(keyring=keyring)
         return keyring
 
