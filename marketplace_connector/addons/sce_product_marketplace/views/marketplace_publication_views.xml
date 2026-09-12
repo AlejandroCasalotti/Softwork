@@ -22,7 +22,7 @@
                            statusbar_visible="draft,category,attributes,pricing,shipping,pictures,ready,published"/>
                 </header>
                 <sheet>
-                    <div class="alert alert-danger" role="alert" invisible="not error_message">
+                    <div class="alert alert-danger" role="status" invisible="not error_message">
                         <field name="error_message" readonly="1" nolabel="1"/>
                     </div>
                     <group>

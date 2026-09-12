@@ -14,15 +14,15 @@
                         <field name="account_id" readonly="1" label="Cuenta ML"/>
                     </group>
                 </group>
-                <div class="alert alert-warning" role="alert" invisible="not is_editing">Estás editando una publicación ya activa en MercadoLibre.</div>
+                <div class="alert alert-warning" role="status" invisible="not is_editing">Estás editando una publicación ya activa en MercadoLibre.</div>
 
-                <div class="alert alert-info" role="alert" invisible="step != 'base'">Elegí la categoría y el tipo de publicación. Luego cargá sus atributos.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'pricing_stock'">Definí el precio y el stock que se enviarán a MercadoLibre.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'sale_format'">Completá la unidad de venta y el rendimiento solo cuando apliquen a la categoría.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'delivery'">Elegí cómo se entregará el producto al comprador.</div>
-                <div class="alert alert-warning" role="alert" invisible="step != 'attributes'">Completá las filas obligatorias. Usá la lupa cuando haya opciones disponibles.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'variants_photos'">Agregá URLs públicas de imágenes adicionales si las necesitás.</div>
-                <div class="alert alert-info" role="alert" invisible="step != 'review'">Validá los datos antes de publicar.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'base'">Elegí la categoría y el tipo de publicación. Luego cargá sus atributos.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'pricing_stock'">Definí el precio y el stock que se enviarán a MercadoLibre.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'sale_format'">Completá la unidad de venta y el rendimiento solo cuando apliquen a la categoría.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'delivery'">Elegí cómo se entregará el producto al comprador.</div>
+                <div class="alert alert-warning" role="status" invisible="step != 'attributes'">Completá las filas obligatorias. Usá la lupa cuando haya opciones disponibles.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'variants_photos'">Agregá URLs públicas de imágenes adicionales si las necesitás.</div>
+                <div class="alert alert-info" role="status" invisible="step != 'review'">Validá los datos antes de publicar.</div>
 
                 <group invisible="step != 'base'" string="Paso 1: Base - Configuración inicial">
                     <group>
