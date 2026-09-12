@@ -415,6 +415,143 @@ class MarketplacePublicationService(models.AbstractModel):
             raise UserError("La orden necesita una cuenta de marketplace.")
         return self.env["sce.provider.factory"].get_provider(account)
 
+    def import_account_publications(self, account):
+        if not account:
+            raise UserError("Se requiere una cuenta de marketplace para importar publicaciones.")
+        provider = self._get_provider_for_account(account)
+
+        user_id = account.external_user_id
+        if not user_id and account.provider_type == "mercadolibre":
+            try:
+                me = provider._request("GET", "/users/me", with_auth=True)
+                user_id = me.get("id") if isinstance(me, dict) else False
+                if user_id:
+                    account.sudo().write({"external_user_id": str(user_id)})
+            except Exception as err:
+                raise UserError(f"No se pudo consultar la cuenta de Mercado Libre: {err}")
+
+        all_item_ids = []
+        if account.provider_type == "mercadolibre" and user_id:
+            offset = 0
+            limit = 50
+            while True:
+                res = provider._request(
+                    "GET",
+                    f"/users/{user_id}/items/search",
+                    with_auth=True,
+                    params={"limit": limit, "offset": offset},
+                )
+                items = res.get("results", []) if isinstance(res, dict) else []
+                if not items:
+                    break
+                all_item_ids.extend(items)
+                paging = res.get("paging", {}) if isinstance(res, dict) else {}
+                total = paging.get("total", 0)
+                offset += len(items)
+                if offset >= total or len(items) < limit or offset >= 1000:
+                    break
+
+        if not all_item_ids:
+            return {"imported": 0, "reconciled": 0, "total_items": 0}
+
+        pub_model = self.env["marketplace.publication"].sudo()
+        tmpl_model = self.env["product.template"].sudo()
+        product_model = self.env["product.product"].sudo()
+
+        imported_count = 0
+        reconciled_count = 0
+        matching_field = getattr(account, "matching_field", "default") or "default"
+
+        for item_id in all_item_ids:
+            item_id_str = str(item_id).strip()
+            if not item_id_str:
+                continue
+
+            try:
+                item_res = provider.get_item(item_id_str)
+                item = item_res.get("item") if isinstance(item_res, dict) else {}
+                if not isinstance(item, dict):
+                    continue
+            except Exception:
+                continue
+
+            title = item.get("title") or f"Publicación {item_id_str}"
+            permalink = item.get("permalink") or ""
+            status = item.get("status") or "active"
+            price = float(item.get("price") or 0.0)
+            category_id = item.get("category_id") or ""
+            listing_type_id = item.get("listing_type_id") or ""
+
+            sku = (item.get("seller_custom_field") or "").strip()
+            if not sku:
+                for attr in (item.get("attributes") or []):
+                    if isinstance(attr, dict) and attr.get("id") in ("SELLER_SKU", "SKU"):
+                        sku = str(attr.get("value_name") or attr.get("value_id") or "").strip()
+                        if sku:
+                            break
+
+            barcode = ""
+            for attr in (item.get("attributes") or []):
+                if isinstance(attr, dict) and attr.get("id") in ("GTIN", "EAN", "BARCODE"):
+                    barcode = str(attr.get("value_name") or attr.get("value_id") or "").strip()
+                    if barcode:
+                        break
+
+            matched_tmpl = False
+            if matching_field == "barcode" and barcode:
+                matched_tmpl = tmpl_model.search([("barcode", "=", barcode)], limit=1)
+                if not matched_tmpl:
+                    var = product_model.search([("barcode", "=", barcode)], limit=1)
+                    matched_tmpl = var.product_tmpl_id if var else False
+
+            if not matched_tmpl and sku:
+                matched_tmpl = tmpl_model.search([("default_code", "=", sku)], limit=1)
+                if not matched_tmpl:
+                    var = product_model.search([("default_code", "=", sku)], limit=1)
+                    matched_tmpl = var.product_tmpl_id if var else False
+
+            if not matched_tmpl and hasattr(tmpl_model, "ml_item_id"):
+                matched_tmpl = tmpl_model.search([("ml_item_id", "=", item_id_str)], limit=1)
+
+            if not matched_tmpl and title:
+                matched_tmpl = tmpl_model.search([("name", "=", title)], limit=1)
+
+            pub = pub_model.search(
+                [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
+                limit=1,
+            )
+
+            pub_vals = {
+                "account_id": account.id,
+                "external_id": item_id_str,
+                "title": title,
+                "external_url": permalink,
+                "external_status": status,
+                "price": price,
+                "category_ref": category_id,
+                "listing_type": listing_type_id,
+                "sync_date": fields.Datetime.now(),
+            }
+
+            if matched_tmpl:
+                pub_vals["product_tmpl_id"] = matched_tmpl.id
+
+            if pub:
+                if matched_tmpl and not pub.product_tmpl_id:
+                    reconciled_count += 1
+                pub.write(pub_vals)
+            else:
+                if matched_tmpl:
+                    reconciled_count += 1
+                pub_model.create(pub_vals)
+                imported_count += 1
+
+        return {
+            "imported": imported_count,
+            "reconciled": reconciled_count,
+            "total_items": len(all_item_ids),
+        }
+
     def delete(self, publication):
         publication.ensure_one()
         if not publication.external_id:

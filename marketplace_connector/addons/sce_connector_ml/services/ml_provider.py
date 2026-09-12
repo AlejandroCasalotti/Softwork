@@ -314,7 +314,7 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
                 payload = {"raw": payload}
 
         operations = {
-            "sync_products": lambda: self.update_product(payload) if payload.get("id") or payload.get("item_id") or payload.get("ml_item_id") else self.publish_product(payload),
+            "sync_products": lambda: self.update_product(payload) if payload.get("id") or payload.get("item_id") or payload.get("ml_item_id") else (self.publish_product(payload) if payload.get("title") else self._ok(action="sync_products", params=params)),
             "sync_stock": lambda: self.update_stock(payload),
             "sync_prices": lambda: self.update_price(payload),
             "import_orders": lambda: self.get_orders(params),

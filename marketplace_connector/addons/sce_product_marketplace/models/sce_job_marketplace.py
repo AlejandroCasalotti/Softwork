@@ -44,6 +44,11 @@ class SceMarketplaceJob(models.Model):
         }
 
     def _execute_provider_operation(self, provider, payload):
+        service = self.env["marketplace.publication.service"]
+
+        if self.job_type == "sync_products":
+            return service.import_account_publications(self.account_id)
+
         if self.job_type not in {
             "publish_product",
             "update_product",
@@ -54,7 +59,6 @@ class SceMarketplaceJob(models.Model):
             "delete_product",
         }:
             return super()._execute_provider_operation(provider, payload)
-        service = self.env["marketplace.publication.service"]
 
         if not self.publication_id:
             ext_id = (
