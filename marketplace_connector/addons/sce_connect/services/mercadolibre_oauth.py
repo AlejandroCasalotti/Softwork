@@ -7,7 +7,14 @@ from urllib.parse import urlencode
 from odoo import fields
 from odoo.exceptions import UserError
 
-from .errors import AuthenticationError, ConfigurationError, NetworkError, PermissionError
+from .errors import (
+    AuthenticationError,
+    ConfigurationError,
+    NetworkError,
+    PermissionError,
+    SecretStorageError,
+)
+from .log_sanitizer import redact
 from .mercadolibre_transport import MercadoLibreConnectTransport
 from .oauth_state import OAuthStateService
 
@@ -40,6 +47,34 @@ class MercadoLibreOAuthService:
 
     def _transport(self):
         return MercadoLibreConnectTransport(session=self.session)
+
+    @staticmethod
+    def _iter_records(records):
+        if not records:
+            return []
+        if isinstance(records, (list, tuple, set)):
+            return records
+        return records
+
+    def _linked_execution_accounts(self, account):
+        return self.env["sce.account"].sudo().search(
+            [("connect_mercadolibre_account_id", "=", account.id)]
+        )
+
+    def _validate_linked_execution_accounts(self, account, seller_user_id):
+        linked_accounts = self._linked_execution_accounts(account)
+        seller_user_id = str(seller_user_id)
+        mismatched = [
+            linked_account
+            for linked_account in self._iter_records(linked_accounts)
+            if getattr(linked_account, "external_user_id", False)
+            and str(linked_account.external_user_id) != seller_user_id
+        ]
+        if mismatched:
+            raise UserError(
+                "El vendedor MercadoLibre Connect no coincide con el usuario externo de la cuenta SCE vinculada."
+            )
+        return linked_accounts
 
     def start(self, account):
         config = self._config()
@@ -83,6 +118,7 @@ class MercadoLibreOAuthService:
         if not seller_id:
             raise AuthenticationError("No se pudo identificar el vendedor de MercadoLibre.")
         account = transaction.mercadolibre_account_id.sudo()
+        linked_accounts = self._validate_linked_execution_accounts(account, seller_id)
         access_secret, refresh_secret = self._store_tokens(account, access_token, refresh_token)
         expires_in = int(data.get("expires_in", 0) or 0)
         account.write(
@@ -99,6 +135,8 @@ class MercadoLibreOAuthService:
                 "last_error": False,
             }
         )
+        if linked_accounts and hasattr(linked_accounts, "_check_connect_mercadolibre_account"):
+            linked_accounts._check_connect_mercadolibre_account()
         transaction.code_verifier_secret_id.sudo().write({"active": False, "encrypted_value": False})
         _logger.info("MercadoLibre OAuth completed tenant_id=%s seller_id=%s", account.tenant_id.id, account.seller_user_id)
         return account
@@ -147,8 +185,21 @@ class MercadoLibreOAuthService:
             )
             _logger.info("MercadoLibre token refreshed tenant_id=%s seller_id=%s", account.tenant_id.id, account.seller_user_id)
             return account
-        except (AuthenticationError, PermissionError, NetworkError, ConfigurationError) as error:
-            account.sudo().write({"status": "auth_required" if isinstance(error, AuthenticationError) else "error", "last_error": str(error)})
+        except (AuthenticationError, UserError) as error:
+            account.sudo().write(
+                {
+                    "status": "auth_required",
+                    "last_error": redact(str(error)),
+                }
+            )
+            raise
+        except (PermissionError, NetworkError, ConfigurationError, SecretStorageError) as error:
+            account.sudo().write(
+                {
+                    "status": "error",
+                    "last_error": redact(str(error)),
+                }
+            )
             raise
 
     def test_connection(self, account):

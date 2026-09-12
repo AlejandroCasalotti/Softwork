@@ -246,7 +246,10 @@ class ConnectStockServiceTests(unittest.TestCase):
     def test_cron_enqueues_only_verified_active_mappings(self):
         model = MagicMock()
         verified = Record(id=1)
-        model.search.return_value = [verified]
+        verified._has_syncable_connect_account = MagicMock(return_value=True)
+        blocked = Record(id=2)
+        blocked._has_syncable_connect_account = MagicMock(return_value=False)
+        model.search.return_value = [verified, blocked]
         service = MagicMock()
         model.env.__getitem__.return_value = service
 
@@ -262,6 +265,7 @@ class ConnectStockServiceTests(unittest.TestCase):
             order="id asc",
         )
         service.enqueue_mapping.assert_called_once_with(verified)
+        blocked._has_syncable_connect_account.assert_called_once_with()
 
     def test_provider_simple_uses_item_endpoint_only(self):
         provider = MercadoLibreProvider(MagicMock(), MagicMock())

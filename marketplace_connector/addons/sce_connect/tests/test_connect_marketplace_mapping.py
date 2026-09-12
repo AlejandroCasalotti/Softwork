@@ -10,7 +10,12 @@ from ..models.sce_connect_marketplace_mapping import SceConnectMarketplaceMappin
 
 
 def connect_account(tenant, seller_user_id="seller-1"):
-    return SimpleNamespace(tenant_id=tenant, seller_user_id=seller_user_id)
+    return SimpleNamespace(
+        tenant_id=tenant,
+        seller_user_id=seller_user_id,
+        status="connected",
+        access_token_secret_id=object(),
+    )
 
 
 def marketplace_account(tenant_id=1, seller_user_id="seller-1", external_user_id="seller-1"):
@@ -148,6 +153,18 @@ class SceConnectMarketplaceMappingTests(unittest.TestCase):
             "UNIQUE(external_product_mapping_id, marketplace_account_id)",
             inspect.getsource(SceConnectMarketplaceMapping),
         )
+
+    def test_syncable_connect_account_requires_connected_status_and_access_token(self):
+        record = mapping()
+
+        self.assertTrue(SceConnectMarketplaceMapping._has_syncable_connect_account(record))
+
+        record.marketplace_account_id.connect_mercadolibre_account_id.status = "auth_required"
+        self.assertFalse(SceConnectMarketplaceMapping._has_syncable_connect_account(record))
+
+        record.marketplace_account_id.connect_mercadolibre_account_id.status = "connected"
+        record.marketplace_account_id.connect_mercadolibre_account_id.access_token_secret_id = False
+        self.assertFalse(SceConnectMarketplaceMapping._has_syncable_connect_account(record))
 
 
 if __name__ == "__main__":

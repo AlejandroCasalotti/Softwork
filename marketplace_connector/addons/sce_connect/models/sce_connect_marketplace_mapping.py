@@ -166,6 +166,15 @@ class SceConnectMarketplaceMapping(models.Model):
             },
         }
 
+    def _has_syncable_connect_account(self):
+        self.ensure_one()
+        connect_account = self.marketplace_account_id.connect_mercadolibre_account_id
+        return bool(
+            connect_account
+            and connect_account.status == "connected"
+            and connect_account.access_token_secret_id
+        )
+
     @api.model
     def cron_enqueue_price_sync(self):
         mappings = self.search(
@@ -179,6 +188,8 @@ class SceConnectMarketplaceMapping(models.Model):
         )
         service = self.env["sce.connect.price.service"]
         for mapping in mappings:
+            if not mapping._has_syncable_connect_account():
+                continue
             service.enqueue_mapping(mapping)
 
     @api.model
@@ -194,4 +205,6 @@ class SceConnectMarketplaceMapping(models.Model):
         )
         service = self.env["sce.connect.stock.service"]
         for mapping in mappings:
+            if not mapping._has_syncable_connect_account():
+                continue
             service.enqueue_mapping(mapping)

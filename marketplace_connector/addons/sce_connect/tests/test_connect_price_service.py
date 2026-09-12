@@ -432,6 +432,30 @@ class ConnectPriceServiceTests(unittest.TestCase):
         self.assertEqual(result, pending)
         self.service.env["sce.job"].create.assert_not_called()
 
+    def test_cron_enqueues_only_syncable_verified_mappings(self):
+        model = MagicMock()
+        verified = Record(id=1)
+        verified._has_syncable_connect_account = MagicMock(return_value=True)
+        blocked = Record(id=2)
+        blocked._has_syncable_connect_account = MagicMock(return_value=False)
+        model.search.return_value = [verified, blocked]
+        service = MagicMock()
+        model.env.__getitem__.return_value = service
+
+        SceConnectMarketplaceMapping.cron_enqueue_price_sync(model)
+
+        model.search.assert_called_once_with(
+            [
+                ("active", "=", True),
+                ("mapping_status", "=", "verified"),
+                ("marketplace_item_id", "!=", False),
+            ],
+            limit=100,
+            order="id asc",
+        )
+        service.enqueue_mapping.assert_called_once_with(verified)
+        blocked._has_syncable_connect_account.assert_called_once_with()
+
     def test_no_publication_or_stock_dependency_in_price_service(self):
         names = SceConnectPriceService.sync_mapping.__code__.co_names
         self.assertNotIn("marketplace.publication", names)
