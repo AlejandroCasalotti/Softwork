@@ -15,4 +15,5 @@ from . import ml_publish_assistant_picture_line
 from . import sce_credential_secret
 from . import sce_mercadolibre_account
 from . import sce_oauth_transaction
+from . import sce_global_settings
 from . import sce_account

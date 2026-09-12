@@ -30,7 +30,7 @@ class SceCredentialSecret(models.Model):
             raise AccessError("Las credenciales solo pueden gestionarse desde servicios internos de SCE.")
         self.sudo().write(
             {
-                "encrypted_value": CoreSecretService.from_runtime().encrypt(value),
+                "encrypted_value": CoreSecretService.from_runtime(self.env).encrypt(value),
                 "last_rotated_at": fields.Datetime.now(),
             }
         )
@@ -39,4 +39,4 @@ class SceCredentialSecret(models.Model):
         self.ensure_one()
         if not self.env.context.get("sce_core_credential_access"):
             raise AccessError("Las credenciales solo pueden leerse desde servicios internos de SCE.")
-        return CoreSecretService.from_runtime().decrypt(self.encrypted_value)
+        return CoreSecretService.from_runtime(self.env).decrypt(self.encrypted_value)
