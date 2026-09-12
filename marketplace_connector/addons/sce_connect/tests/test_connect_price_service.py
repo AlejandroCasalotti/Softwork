@@ -331,14 +331,16 @@ class ConnectPriceServiceTests(unittest.TestCase):
         records[0].last_price_sent = "90.00"
         records[1].last_price_sent = "150.00"
         connection_service_cls.return_value.remote_product_context.return_value = None
-        connection_service_cls.return_value.metadata.return_value = {"list_price": {}}
-        connection_service_cls.return_value.search_read.side_effect = [[{"list_price": 100}], [{"list_price": 100}]]
+        connection_service_cls.return_value.remote_pricelist_price.side_effect = [
+            {"price": "100.00"},
+            {"price": "100.00"},
+        ]
         factory.get_provider.return_value.get_item.return_value = {
             "item": {"id": "ML123", "variations": [{"id": "A"}, {"id": "B"}]}
         }
         policy = Record(
             active=True,
-            remote_pricelist_id=False,
+            remote_pricelist_id=4,
             adjustment_percent=0,
             adjustment_fixed=0,
         )
