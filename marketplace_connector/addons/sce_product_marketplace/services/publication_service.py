@@ -28,11 +28,11 @@ class MarketplacePublicationService(models.AbstractModel):
 
         payload = {
             "publication_id": publication.id,
-            "product_tmpl_id": publication.product_tmpl_id.id,
+            "product_tmpl_id": publication.product_tmpl_id.id if publication.product_tmpl_id else False,
             "account_id": publication.account_id.id,
             "external_id": publication.external_id or False,
             "status": publication.external_status or False,
-            "title": publication.title or publication.product_tmpl_id.name,
+            "title": publication.title or (publication.product_tmpl_id.name if publication.product_tmpl_id else ""),
             "category_id": publication.category_ref or False,
             "listing_type": publication.listing_type or False,
             "listing_type_id": publication.listing_type or False,
@@ -46,15 +46,15 @@ class MarketplacePublicationService(models.AbstractModel):
             "sale_terms": load_json(publication.sale_terms_json, []),
             "provider_data": provider_data,
         }
-        variants = publication.product_tmpl_id.product_variant_ids.filtered("active")
+        variants = publication.product_tmpl_id.product_variant_ids.filtered("active") if publication.product_tmpl_id else self.env["product.product"]
         if len(variants) > 1:
-            target_uom = publication.price_uom_id or publication.product_tmpl_id.uom_id
+            target_uom = publication.price_uom_id or (publication.product_tmpl_id.uom_id if publication.product_tmpl_id else False)
             try:
                 uom_factor = target_uom._compute_quantity(
                     1.0,
                     publication.product_tmpl_id.uom_id,
                     round=False,
-                )
+                ) if (target_uom and publication.product_tmpl_id) else 1.0
             except Exception:
                 uom_factor = 1.0
             payload["variations"] = [

@@ -13,7 +13,7 @@ class MarketplacePublication(models.Model):
 
     # Relación
     product_tmpl_id = fields.Many2one(
-        "product.template", string="Producto", required=True, ondelete="cascade", index=True
+        "product.template", string="Producto", required=False, ondelete="cascade", index=True
     )
     account_id = fields.Many2one(
         "sce.account", string="Cuenta", required=True, index=True, ondelete="restrict"
@@ -129,8 +129,13 @@ class MarketplacePublication(models.Model):
     def name_get(self):
         result = []
         for publication in self:
-            label = publication.title or publication.product_tmpl_id.display_name
-            account_name = publication.account_id.display_name
+            label = (
+                publication.title
+                or (publication.product_tmpl_id.display_name if publication.product_tmpl_id else False)
+                or publication.external_id
+                or "Publicación"
+            )
+            account_name = publication.account_id.display_name if publication.account_id else "Sin cuenta"
             result.append((publication.id, f"{label} [{account_name}]"))
         return result
 
@@ -199,9 +204,9 @@ class MarketplacePublication(models.Model):
             )
             mapping_values = {
                 "publication_id": self.id,
-                "product_tmpl_id": self.product_tmpl_id.id,
+                "product_tmpl_id": self.product_tmpl_id.id if self.product_tmpl_id else False,
                 "product_id": self.product_tmpl_id.product_variant_id.id
-                if len(self.product_tmpl_id.product_variant_ids) == 1
+                if self.product_tmpl_id and len(self.product_tmpl_id.product_variant_ids) == 1
                 else False,
                 "external_id": str(external_id),
             }
@@ -213,6 +218,8 @@ class MarketplacePublication(models.Model):
 
     def _apply_variant_mappings(self, result, external_id):
         self.ensure_one()
+        if not self.product_tmpl_id:
+            return
         raw = result.get("raw") if isinstance(result, dict) else {}
         variations = raw.get("variations") if isinstance(raw, dict) else []
         if not isinstance(variations, list):
