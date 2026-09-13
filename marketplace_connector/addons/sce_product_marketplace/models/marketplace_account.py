@@ -303,13 +303,20 @@ class MarketplaceAccount(models.Model):
             except Exception:
                 total_ml = 0
 
-        pub_model = self.env["marketplace.publication"]
-        total_sce = pub_model.search_count([("account_id", "=", self.id)])
-        reconciled = pub_model.search_count([
+        mapping_model = self.env["marketplace.product.mapping"]
+        total_sce = mapping_model.search_count([("account_id", "=", self.id)])
+        reconciled = mapping_model.search_count([
             ("account_id", "=", self.id),
             ("external_id", "!=", False),
-            ("product_tmpl_id", "!=", False),
+            ("product_id", "!=", False),
         ])
+        if reconciled == 0:
+            reconciled = mapping_model.search_count([
+                ("account_id", "=", self.id),
+                ("external_id", "!=", False),
+                ("product_tmpl_id", "!=", False),
+            ])
+            
         unreconciled_ml = max(0, total_ml - reconciled)
 
         if total_ml > 0:
