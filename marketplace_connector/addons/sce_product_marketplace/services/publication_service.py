@@ -342,20 +342,49 @@ class MarketplacePublicationService(models.AbstractModel):
                 or item.get("variation_id")
                 or ""
             )
+            line_sku = str(
+                line.get("seller_custom_field")
+                or line.get("seller_sku")
+                or item.get("seller_custom_field")
+                or item.get("seller_sku")
+                or ""
+            ).strip()
+            line_barcode = str(line.get("barcode") or item.get("barcode") or "").strip()
+
             mapping_domain = [("account_id", "=", account.id), ("external_id", "=", item_id)]
             if variant_id:
                 mapping_domain.append(("external_variant_id", "=", variant_id))
             mapping = self.env["marketplace.product.mapping"].sudo().search(mapping_domain, limit=1)
+
+            product = False
             if mapping and mapping.product_id:
                 product = mapping.product_id
-            else:
-                product = self.env["product.product"].sudo().search(
-                    [("default_code", "=", item_id)], limit=1
-                )
+            elif mapping and mapping.product_tmpl_id:
+                product = mapping.product_tmpl_id.product_variant_id
+
+            matching_field = getattr(account, "matching_field", "default") or "default"
+            if not product and matching_field == "barcode" and line_barcode:
+                product = self.env["product.product"].sudo().search([("barcode", "=", line_barcode)], limit=1)
+                if not product:
+                    tmpl = self.env["product.template"].sudo().search([("barcode", "=", line_barcode)], limit=1)
+                    product = tmpl.product_variant_id if tmpl else False
+
+            if not product and line_sku:
+                product = self.env["product.product"].sudo().search([("default_code", "=", line_sku)], limit=1)
+                if not product:
+                    tmpl = self.env["product.template"].sudo().search([("default_code", "=", line_sku)], limit=1)
+                    product = tmpl.product_variant_id if tmpl else False
+
             if not product and mapping and mapping.sku:
-                product = self.env["product.product"].sudo().search(
-                    [("default_code", "=", mapping.sku)], limit=1
+                product = self.env["product.product"].sudo().search([("default_code", "=", mapping.sku)], limit=1)
+
+            if not product and item_id:
+                pub = self.env["marketplace.publication"].sudo().search(
+                    [("account_id", "=", account.id), ("external_id", "=", item_id)], limit=1
                 )
+                if pub and pub.product_tmpl_id:
+                    product = pub.product_tmpl_id.product_variant_id
+
             if not product:
                 missing_items.append(item_id or item.get("title") or "unknown")
                 continue
@@ -535,6 +564,22 @@ class MarketplacePublicationService(models.AbstractModel):
 
             if matched_tmpl:
                 pub_vals["product_tmpl_id"] = matched_tmpl.id
+                mapping_model = self.env["marketplace.product.mapping"].sudo()
+                mapping = mapping_model.search(
+                    [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
+                    limit=1,
+                )
+                map_vals = {
+                    "account_id": account.id,
+                    "external_id": item_id_str,
+                    "product_tmpl_id": matched_tmpl.id,
+                    "product_id": matched_tmpl.product_variant_id.id if len(matched_tmpl.product_variant_ids) == 1 else False,
+                    "sku": sku or False,
+                }
+                if mapping:
+                    mapping.write(map_vals)
+                else:
+                    mapping_model.create(map_vals)
 
             if pub:
                 if matched_tmpl and not pub.product_tmpl_id:
