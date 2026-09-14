@@ -556,26 +556,71 @@ class MarketplacePublicationService(models.AbstractModel):
                 if matched_tmpl:
                     matched_var = matched_tmpl.product_variant_id
 
-            # 1. Crear / actualizar el Mapeo de Producto Liviano (Zero-Storage / Direct Product Link)
-            if matched_tmpl or matched_var:
-                mapping_model = self.env["marketplace.product.mapping"].sudo()
-                mapping = mapping_model.search(
-                    [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
-                    limit=1,
-                )
-                map_vals = {
-                    "account_id": account.id,
-                    "external_id": item_id_str,
-                    "product_tmpl_id": matched_tmpl.id if matched_tmpl else False,
-                    "product_id": matched_var.id if matched_var else (matched_tmpl.product_variant_id.id if matched_tmpl and len(matched_tmpl.product_variant_ids) == 1 else False),
-                    "sku": sku or False,
-                }
-                if mapping:
-                    mapping.write(map_vals)
-                else:
-                    mapping_model.create(map_vals)
-                reconciled_count += 1
+            # Consulta remota XML-RPC a Odoo si no hubo coincidencia local y hay conexión configurada
+            if not matched_tmpl and not matched_var and (account.odoo_base_url or "").strip():
+                try:
+                    if matching_field == "barcode" and barcode:
+                        remote_prods = account._fetch_remote_odoo_records(
+                            "product.product",
+                            domain=[("barcode", "=", barcode)],
+                            fields_to_read=["id", "name", "default_code", "barcode"]
+                        )
+                        if remote_prods:
+                            r_prod = remote_prods[0]
+                            matched_var = product_model.search([("barcode", "=", barcode)], limit=1)
+                            if not matched_var and r_prod.get("default_code"):
+                                matched_var = product_model.search([("default_code", "=", r_prod["default_code"])], limit=1)
+                            if not matched_var:
+                                matched_tmpl = tmpl_model.create({
+                                    "name": r_prod.get("name") or title,
+                                    "default_code": r_prod.get("default_code") or sku or False,
+                                    "barcode": r_prod.get("barcode") or barcode or False,
+                                })
+                                matched_var = matched_tmpl.product_variant_id
+                            else:
+                                matched_tmpl = matched_var.product_tmpl_id
 
+                    if not matched_tmpl and not matched_var and sku:
+                        remote_prods = account._fetch_remote_odoo_records(
+                            "product.product",
+                            domain=[("default_code", "=", sku)],
+                            fields_to_read=["id", "name", "default_code", "barcode"]
+                        )
+                        if remote_prods:
+                            r_prod = remote_prods[0]
+                            matched_var = product_model.search([("default_code", "=", sku)], limit=1)
+                            if not matched_var:
+                                matched_tmpl = tmpl_model.create({
+                                    "name": r_prod.get("name") or title,
+                                    "default_code": r_prod.get("default_code") or sku,
+                                    "barcode": r_prod.get("barcode") or False,
+                                })
+                                matched_var = matched_tmpl.product_variant_id
+                            else:
+                                matched_tmpl = matched_var.product_tmpl_id
+                except Exception:
+                    pass
+
+            # 1. Crear / actualizar el Mapeo de Producto Liviano (Zero-Storage / Direct Product Link)
+            mapping_model = self.env["marketplace.product.mapping"].sudo()
+            mapping = mapping_model.search(
+                [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
+                limit=1,
+            )
+            map_vals = {
+                "account_id": account.id,
+                "external_id": item_id_str,
+                "product_tmpl_id": matched_tmpl.id if matched_tmpl else False,
+                "product_id": matched_var.id if matched_var else (matched_tmpl.product_variant_id.id if matched_tmpl and len(matched_tmpl.product_variant_ids) == 1 else False),
+                "sku": sku or False,
+            }
+            if mapping:
+                mapping.write(map_vals)
+            else:
+                mapping = mapping_model.create(map_vals)
+
+            if matched_tmpl or matched_var:
+                reconciled_count += 1
                 # 2. Si el producto Odoo tiene el módulo cliente 'ml_product' instalado, enriquecer sus campos
                 if matched_tmpl and hasattr(matched_tmpl, "ml_item_id"):
                     enrich_vals = {
@@ -588,13 +633,15 @@ class MarketplacePublicationService(models.AbstractModel):
                     if not matched_tmpl.ml_account_id:
                         enrich_vals["ml_account_id"] = account.id
                     matched_tmpl.with_context(ml_skip_bidirectional_sync=True).write(enrich_vals)
+            else:
+                imported_count += 1
 
             # 3. Solo crear/actualizar publicación si existía o si se requiere
             pub = pub_model.search(
                 [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
                 limit=1,
             )
-            if pub or matched_tmpl:
+            if pub or (matched_tmpl and hasattr(matched_tmpl, "ml_item_id")):
                 pub_vals = {
                     "account_id": account.id,
                     "external_id": item_id_str,
@@ -613,7 +660,6 @@ class MarketplacePublicationService(models.AbstractModel):
                     pub.write(pub_vals)
                 else:
                     pub_model.create(pub_vals)
-                    imported_count += 1
 
         return {
             "imported": imported_count,
