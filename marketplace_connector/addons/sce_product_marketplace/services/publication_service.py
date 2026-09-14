@@ -31,6 +31,8 @@ class MarketplacePublicationService(models.AbstractModel):
             "product_tmpl_id": publication.product_tmpl_id.id if publication.product_tmpl_id else False,
             "account_id": publication.account_id.id,
             "external_id": publication.external_id or False,
+            "id": publication.external_id or False,
+            "item_id": publication.external_id or False,
             "status": publication.external_status or False,
             "title": publication.title or (publication.product_tmpl_id.name if publication.product_tmpl_id else ""),
             "category_id": publication.category_ref or False,
@@ -674,3 +676,155 @@ class MarketplacePublicationService(models.AbstractModel):
         result = self._get_provider(publication).delete_product(self._build_payload(publication)) or {}
         publication.write({"state": "draft", "external_id": False, "external_url": False})
         return result
+
+    def sync_account_stock(self, account, payload=None):
+        if not account:
+            raise UserError("Se requiere una cuenta de marketplace para sincronizar stock.")
+        payload = payload or {}
+        item_id = (
+            payload.get("external_id")
+            or payload.get("item_id")
+            or payload.get("id")
+            or payload.get("ml_item_id")
+        )
+        provider = self._get_provider_for_account(account)
+
+        if item_id:
+            item_id_str = str(item_id).strip()
+            mapping = self.env["marketplace.product.mapping"].sudo().search(
+                [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
+                limit=1,
+            )
+            qty = 0
+            if mapping and (mapping.product_id or mapping.product_tmpl_id):
+                prod = mapping.product_id or mapping.product_tmpl_id.product_variant_id
+                real_stock = prod.qty_available if prod else 0
+                qty = account.calculate_marketplace_stock(real_stock)
+            else:
+                qty = max(0, int(payload.get("available_quantity") or payload.get("stock") or 0))
+            return provider.update_stock({
+                "external_id": item_id_str,
+                "id": item_id_str,
+                "item_id": item_id_str,
+                "available_quantity": qty,
+            })
+
+        mappings = self.env["marketplace.product.mapping"].sudo().search([
+            ("account_id", "=", account.id),
+            ("external_id", "!=", False),
+        ])
+        updated = 0
+        errors = []
+        for mapping in mappings:
+            prod = mapping.product_id or (mapping.product_tmpl_id.product_variant_id if mapping.product_tmpl_id else False)
+            if not prod:
+                continue
+            real_stock = prod.qty_available or 0.0
+            qty = account.calculate_marketplace_stock(real_stock)
+            try:
+                provider.update_stock({
+                    "external_id": mapping.external_id,
+                    "id": mapping.external_id,
+                    "item_id": mapping.external_id,
+                    "available_quantity": qty,
+                })
+                updated += 1
+            except Exception as err:
+                errors.append(f"{mapping.external_id}: {err}")
+
+        publications = self.env["marketplace.publication"].sudo().search([
+            ("account_id", "=", account.id),
+            ("external_id", "!=", False),
+        ])
+        for pub in publications:
+            if not any(m.external_id == pub.external_id for m in mappings):
+                try:
+                    provider.update_stock({
+                        "external_id": pub.external_id,
+                        "id": pub.external_id,
+                        "item_id": pub.external_id,
+                        "available_quantity": pub.effective_qty,
+                    })
+                    updated += 1
+                except Exception as err:
+                    errors.append(f"{pub.external_id}: {err}")
+
+        return {"updated_count": updated, "errors": errors, "total_mappings": len(mappings)}
+
+    def sync_account_prices(self, account, payload=None):
+        if not account:
+            raise UserError("Se requiere una cuenta de marketplace para sincronizar precios.")
+        payload = payload or {}
+        item_id = (
+            payload.get("external_id")
+            or payload.get("item_id")
+            or payload.get("id")
+            or payload.get("ml_item_id")
+        )
+        provider = self._get_provider_for_account(account)
+
+        if item_id:
+            item_id_str = str(item_id).strip()
+            mapping = self.env["marketplace.product.mapping"].sudo().search(
+                [("account_id", "=", account.id), ("external_id", "=", item_id_str)],
+                limit=1,
+            )
+            price = 0.0
+            if mapping and (mapping.product_id or mapping.product_tmpl_id):
+                tmpl = mapping.product_tmpl_id or mapping.product_id.product_tmpl_id
+                base_price = tmpl.list_price if tmpl else 0.0
+                price = account.calculate_marketplace_price(base_price)
+            else:
+                price = max(0.0, float(payload.get("price") or 0.0))
+            return provider.update_price({
+                "external_id": item_id_str,
+                "id": item_id_str,
+                "item_id": item_id_str,
+                "price": price,
+            })
+
+        mappings = self.env["marketplace.product.mapping"].sudo().search([
+            ("account_id", "=", account.id),
+            ("external_id", "!=", False),
+        ])
+        updated = 0
+        errors = []
+        for mapping in mappings:
+            tmpl = mapping.product_tmpl_id or (mapping.product_id.product_tmpl_id if mapping.product_id else False)
+            if not tmpl:
+                continue
+            base_price = tmpl.list_price or 0.0
+            price = account.calculate_marketplace_price(base_price)
+            if price <= 0:
+                continue
+            try:
+                provider.update_price({
+                    "external_id": mapping.external_id,
+                    "id": mapping.external_id,
+                    "item_id": mapping.external_id,
+                    "price": price,
+                })
+                updated += 1
+            except Exception as err:
+                errors.append(f"{mapping.external_id}: {err}")
+
+        publications = self.env["marketplace.publication"].sudo().search([
+            ("account_id", "=", account.id),
+            ("external_id", "!=", False),
+        ])
+        for pub in publications:
+            if not any(m.external_id == pub.external_id for m in mappings):
+                if pub.price <= 0:
+                    continue
+                try:
+                    provider.update_price({
+                        "external_id": pub.external_id,
+                        "id": pub.external_id,
+                        "item_id": pub.external_id,
+                        "price": pub.price,
+                    })
+                    updated += 1
+                except Exception as err:
+                    errors.append(f"{pub.external_id}: {err}")
+
+        return {"updated_count": updated, "errors": errors, "total_mappings": len(mappings)}

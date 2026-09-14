@@ -176,7 +176,13 @@ class MercadoLibreProvider(IProvider):
 
     def _extract_item_id(self, payload):
         payload = payload or {}
-        item_id = payload.get("id") or payload.get("item_id") or payload.get("ml_item_id")
+        item_id = (
+            payload.get("id")
+            or payload.get("item_id")
+            or payload.get("external_id")
+            or payload.get("ml_item_id")
+            or payload.get("publication_id")
+        )
         if not item_id:
             raise UserError("Falta item_id/id para operar publicación de MercadoLibre.")
         return str(item_id).strip()
