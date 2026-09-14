@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from markupsafe import Markup
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+
+
+_logger = logging.getLogger(__name__)
 
 
 class MarketplaceAccount(models.Model):
@@ -322,14 +327,28 @@ class MarketplaceAccount(models.Model):
             if not pricelists:
                 return fallback_price
             db, uid, password, models_rpc = self._get_remote_odoo_rpc()
-            values = models_rpc.execute_kw(
-                db, uid, password,
-                "product.pricelist", "price_get",
-                [[pricelists[0]["id"]], product_id, 1.0],
+            pricelist_id = pricelists[0]["id"]
+            try:
+                values = models_rpc.execute_kw(
+                    db, uid, password,
+                    "product.pricelist", "get_products_price",
+                    [[pricelist_id], [product_id], [1.0]],
+                )
+                if isinstance(values, dict):
+                    return float(values.get(str(product_id), values.get(product_id, fallback_price)))
+            except Exception:
+                values = models_rpc.execute_kw(
+                    db, uid, password,
+                    "product.pricelist", "price_get",
+                    [[pricelist_id], product_id, 1.0],
+                )
+                if isinstance(values, dict):
+                    return float(values.get(str(pricelist_id), fallback_price))
+        except Exception as err:
+            _logger.warning(
+                "No se pudo calcular la lista de precios remota account_id=%s product_id=%s: %s",
+                self.id, product_id, err,
             )
-            if isinstance(values, dict):
-                return values.get(str(pricelists[0]["id"]), fallback_price)
-        except Exception:
             return fallback_price
         return fallback_price
 
@@ -347,7 +366,10 @@ class MarketplaceAccount(models.Model):
                 {"quantity": 1.0},
             )
             return result.get("total_included", price_unit) if isinstance(result, dict) else price_unit
-        except Exception:
+        except Exception as err:
+            _logger.warning(
+                "No se pudo calcular impuestos remotos account_id=%s: %s", self.id, err
+            )
             return price_unit
 
     @api.model
