@@ -2,6 +2,7 @@
 import json
 import logging
 import re
+from datetime import timedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -471,8 +472,49 @@ class ProductTemplate(models.Model):
                 )
                 continue
 
+    def _should_auto_marketplace_sync(self, vals):
+        """Determina si un cambio real justifica encolar sincronización automática."""
+        if not vals:
+            return False
+
+        relevant_fields = {
+            "list_price",
+            "ml_price",
+            "ml_stock_reserve_qty",
+            "ml_use_pricelist_price",
+            "ml_manual_price_override",
+            "ml_pricelist_id",
+            "ml_publish_enabled",
+            "ml_item_id",
+        }
+        if not any(field in vals for field in relevant_fields):
+            return False
+
+        if "list_price" in vals:
+            old_value = self.list_price or 0.0
+            new_value = float(vals.get("list_price") or old_value)
+            if abs(new_value - old_value) < 0.01:
+                return False
+
+        if "ml_price" in vals:
+            old_value = self.ml_price or 0.0
+            new_value = float(vals.get("ml_price") or old_value)
+            if abs(new_value - old_value) < 0.01:
+                return False
+
+        if "ml_stock_reserve_qty" in vals:
+            old_value = self.ml_stock_reserve_qty or 0.0
+            new_value = float(vals.get("ml_stock_reserve_qty") or old_value)
+            if abs(new_value - old_value) < 1.0:
+                return False
+
+        return True
+
     def _queue_auto_marketplace_sync_jobs(self):
         """Encola jobs automáticos de stock/precio solo para productos ya vinculados a una cuenta ML activa."""
+        cooldown_minutes = 5
+        cutoff = fields.Datetime.now() - timedelta(minutes=cooldown_minutes)
+
         for product in self:
             mappings = self.env["marketplace.product.mapping"].sudo().search([
                 ("active", "=", True),
@@ -485,14 +527,16 @@ class ProductTemplate(models.Model):
                 ])
             if not mappings:
                 continue
+
             for account in mappings.mapped("account_id").filtered(lambda a: a.active and a.provider_type == "mercadolibre"):
                 if account.sync_stock:
-                    existing = self.env["sce.job"].search([
+                    recent = self.env["sce.job"].search([
                         ("account_id", "=", account.id),
                         ("job_type", "=", "sync_stock"),
+                        ("create_date", ">=", cutoff),
                         ("state", "in", ["queued", "running"]),
                     ], limit=1)
-                    if not existing:
+                    if not recent:
                         self.env["sce.job"].create({
                             "name": f"Auto sync stock - {product.display_name} - {account.display_name}",
                             "account_id": account.id,
@@ -502,13 +546,15 @@ class ProductTemplate(models.Model):
                                 "trigger": "auto_product_sync",
                             }),
                         })
+
                 if account.sync_prices:
-                    existing = self.env["sce.job"].search([
+                    recent = self.env["sce.job"].search([
                         ("account_id", "=", account.id),
                         ("job_type", "=", "sync_prices"),
+                        ("create_date", ">=", cutoff),
                         ("state", "in", ["queued", "running"]),
                     ], limit=1)
-                    if not existing:
+                    if not recent:
                         self.env["sce.job"].create({
                             "name": f"Auto sync prices - {product.display_name} - {account.display_name}",
                             "account_id": account.id,
@@ -536,7 +582,8 @@ class ProductTemplate(models.Model):
             for rec, vals in zip(records, vals_list):
                 if any(field in vals for field in sync_trigger_fields):
                     rec._sync_price_stock_to_ml()
-                rec._queue_auto_marketplace_sync_jobs()
+                if rec._should_auto_marketplace_sync(vals):
+                    rec._queue_auto_marketplace_sync_jobs()
         return records
 
     def write(self, vals):
@@ -556,7 +603,8 @@ class ProductTemplate(models.Model):
         }
         if any(field in vals for field in sync_trigger_fields):
             self._sync_price_stock_to_ml()
-        self._queue_auto_marketplace_sync_jobs()
+        if self._should_auto_marketplace_sync(vals):
+            self._queue_auto_marketplace_sync_jobs()
         return res
 
     def action_sync_price_stock_ml(self):
