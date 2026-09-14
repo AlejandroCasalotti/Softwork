@@ -171,6 +171,41 @@ class MarketplaceAccount(models.Model):
         available = real - self.safety_stock
         return max(0, available)
 
+    def _resolve_local_pricelist(self):
+        """Busca la lista de precios local configurada en la cuenta (por ID o nombre)."""
+        self.ensure_one()
+        name = (self.pricelist_name or "").strip()
+        if not name:
+            return self.env["product.pricelist"]
+        domain = [("id", "=", int(name))] if name.isdigit() else [("name", "=", name)]
+        return self.env["product.pricelist"].search(domain, limit=1)
+
+    def get_product_base_price_with_tax(self, product_tmpl=False, product=False):
+        """Precio de venta (según la lista de precios de la cuenta) con impuestos del producto incluidos."""
+        self.ensure_one()
+        product_tmpl = product_tmpl or (product.product_tmpl_id if product else False)
+        if not product_tmpl:
+            return 0.0
+        variant = product or product_tmpl.product_variant_id
+
+        pricelist = self._resolve_local_pricelist()
+        if pricelist:
+            try:
+                price = pricelist._get_product_price(variant or product_tmpl, 1.0)
+            except Exception:
+                price = product_tmpl.list_price
+        else:
+            price = product_tmpl.list_price
+
+        taxes = product_tmpl.taxes_id
+        if taxes:
+            try:
+                res = taxes.compute_all(price, product=variant or product_tmpl, partner=False)
+                price = res.get("total_included", price)
+            except Exception:
+                pass
+        return price
+
     # --- 6. Métodos RPC para mapear opciones desde el Odoo del cliente ---
     def _get_remote_odoo_rpc(self):
         self.ensure_one()
@@ -213,7 +248,7 @@ class MarketplaceAccount(models.Model):
             raise UserError(f"Error al consultar '{model_name}' en Odoo remoto: {err}")
 
     def get_remote_product_stock_price(self, sku=None, barcode=None):
-        """Lee stock pronosticado y precio de venta directo del Odoo remoto del cliente, sin crear ningún registro local."""
+        """Lee stock pronosticado y precio de venta (con impuestos del producto) directo del Odoo remoto del cliente, sin crear ningún registro local."""
         self.ensure_one()
         domain = []
         if barcode:
@@ -225,9 +260,32 @@ class MarketplaceAccount(models.Model):
         records = self._fetch_remote_odoo_records(
             "product.product",
             domain=domain,
-            fields_to_read=["id", "virtual_available", "list_price"],
+            fields_to_read=["id", "virtual_available", "list_price", "taxes_id"],
         )
-        return records[0] if records else False
+        if not records:
+            return False
+        record = records[0]
+        record["price_with_tax"] = self._get_remote_price_with_tax(
+            record.get("list_price") or 0.0, record.get("taxes_id") or []
+        )
+        return record
+
+    def _get_remote_price_with_tax(self, price_unit, tax_ids):
+        """Aplica los impuestos del producto llamando a account.tax.compute_all en el Odoo remoto."""
+        self.ensure_one()
+        if not tax_ids or price_unit <= 0:
+            return price_unit
+        try:
+            db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+            result = models_rpc.execute_kw(
+                db, uid, password,
+                "account.tax", "compute_all",
+                [tax_ids, price_unit],
+                {"quantity": 1.0},
+            )
+            return result.get("total_included", price_unit) if isinstance(result, dict) else price_unit
+        except Exception:
+            return price_unit
 
     def _notify_odoo_options(self, title, records, code_field=None, note=None):
         if not records:

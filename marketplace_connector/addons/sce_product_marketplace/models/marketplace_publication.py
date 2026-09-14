@@ -104,6 +104,8 @@ class MarketplacePublication(models.Model):
 
     @api.depends(
         "product_tmpl_id.list_price",
+        "product_tmpl_id.taxes_id",
+        "account_id.pricelist_name",
         "account_id.price_security_factor",
         "account_id.price_surcharge_fixed",
         "account_id.price_surcharge_percent",
@@ -118,13 +120,15 @@ class MarketplacePublication(models.Model):
         for publication in self:
             if publication.manual_price_override:
                 continue
-            base_price = publication.product_tmpl_id.list_price if publication.product_tmpl_id else 0.0
-            if publication.account_id:
+            if publication.account_id and publication.product_tmpl_id:
+                base_price = publication.account_id.get_product_base_price_with_tax(
+                    product_tmpl=publication.product_tmpl_id
+                )
                 publication.price = publication.account_id.calculate_marketplace_price(
                     base_price, listing_type=publication.listing_type or "gold_special"
                 )
             else:
-                publication.price = base_price
+                publication.price = publication.product_tmpl_id.list_price if publication.product_tmpl_id else 0.0
 
     def name_get(self):
         result = []

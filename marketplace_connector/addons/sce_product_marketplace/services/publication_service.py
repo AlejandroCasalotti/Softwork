@@ -772,7 +772,7 @@ class MarketplacePublicationService(models.AbstractModel):
             price = 0.0
             if mapping and (mapping.product_id or mapping.product_tmpl_id):
                 tmpl = mapping.product_tmpl_id or mapping.product_id.product_tmpl_id
-                base_price = tmpl.list_price if tmpl else 0.0
+                base_price = account.get_product_base_price_with_tax(product_tmpl=tmpl, product=mapping.product_id)
                 price = account.calculate_marketplace_price(base_price)
             else:
                 price = max(0.0, float(payload.get("price") or 0.0))
@@ -797,11 +797,11 @@ class MarketplacePublicationService(models.AbstractModel):
                     remote = account.get_remote_product_stock_price(sku=mapping.sku, barcode=mapping.barcode)
                     if not remote:
                         continue
-                    base_price = remote.get("list_price") or 0.0
+                    base_price = remote.get("price_with_tax") or remote.get("list_price") or 0.0
                 else:
                     continue
             else:
-                base_price = tmpl.list_price or 0.0
+                base_price = account.get_product_base_price_with_tax(product_tmpl=tmpl, product=mapping.product_id)
             price = account.calculate_marketplace_price(base_price)
             if price <= 0:
                 continue
