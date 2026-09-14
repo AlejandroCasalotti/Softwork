@@ -80,6 +80,7 @@ class MarketplacePublication(models.Model):
 
     published_date = fields.Datetime(string="Fecha de publicación", readonly=True)
     sync_date = fields.Datetime(string="Última sincronización", readonly=True)
+    last_synced_price = fields.Float(string="Último precio sincronizado a ML", readonly=True)
 
     _uniq_product_account = models.Constraint(
         "UNIQUE(product_tmpl_id, account_id)",
@@ -106,11 +107,8 @@ class MarketplacePublication(models.Model):
         "product_tmpl_id.list_price",
         "product_tmpl_id.taxes_id",
         "account_id.pricelist_name",
-        "account_id.price_security_factor",
         "account_id.price_surcharge_fixed",
         "account_id.price_surcharge_percent",
-        "account_id.surcharge_clasica_percent",
-        "account_id.surcharge_premium_percent",
         "account_id.free_shipping_threshold",
         "account_id.free_shipping_fee",
         "manual_price_override",
@@ -124,9 +122,7 @@ class MarketplacePublication(models.Model):
                 base_price = publication.account_id.get_product_base_price_with_tax(
                     product_tmpl=publication.product_tmpl_id
                 )
-                publication.price = publication.account_id.calculate_marketplace_price(
-                    base_price, listing_type=publication.listing_type or "gold_special"
-                )
+                publication.price = publication.account_id.calculate_marketplace_price(base_price)
             else:
                 publication.price = publication.product_tmpl_id.list_price if publication.product_tmpl_id else 0.0
 

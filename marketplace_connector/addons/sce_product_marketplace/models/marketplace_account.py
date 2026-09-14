@@ -27,6 +27,29 @@ class MarketplaceAccount(models.Model):
         help="Nombre o ID de la compañía en Odoo (para opción multicompañía).",
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        accounts = super().create(vals_list)
+        for account in accounts:
+            if account.provider_type == "mercadolibre" and not account.installment_rule_ids:
+                account._seed_default_installment_rules()
+        return accounts
+
+    def _seed_default_installment_rules(self):
+        """Precarga las reglas de recargo por cuotas típicas de Mercado Libre (editables por el usuario)."""
+        self.ensure_one()
+        defaults = [
+            {"sequence": 10, "name": "No quiero agregar cuotas", "installments_qty": 1, "no_interest": True, "surcharge_percent": 0.0},
+            {"sequence": 20, "name": "3 a 12 cuotas con interés bajo", "applies_to_any_qty": True, "no_interest": False, "surcharge_percent": 0.0},
+            {"sequence": 30, "name": "3 cuotas al mismo precio que publicaste", "installments_qty": 3, "no_interest": True, "surcharge_percent": 0.0},
+            {"sequence": 40, "name": "6 cuotas al mismo precio que publicaste", "installments_qty": 6, "no_interest": True, "surcharge_percent": 0.0},
+            {"sequence": 50, "name": "9 cuotas al mismo precio que publicaste", "installments_qty": 9, "no_interest": True, "surcharge_percent": 0.0},
+            {"sequence": 60, "name": "12 cuotas al mismo precio que publicaste", "installments_qty": 12, "no_interest": True, "surcharge_percent": 0.0},
+        ]
+        for vals in defaults:
+            vals["account_id"] = self.id
+        self.env["marketplace.installment.rule"].create(defaults)
+
     # --- 2. Sincronización de Stock ---
     sync_stock_flex = fields.Boolean(
         string="Sincronizar Stock Flex",
@@ -48,9 +71,9 @@ class MarketplaceAccount(models.Model):
         help="Nombre o ID de la lista de precios predeterminada en Odoo.",
     )
     price_security_factor = fields.Float(
-        string="Factor de Seguridad / Margen (%)",
+        string="Factor de Seguridad Precio (%)",
         default=0.0,
-        help="Porcentaje adicional a sumar sobre el precio base de Odoo.",
+        help="Si el nuevo precio calculado cae más de este porcentaje respecto al último precio sincronizado, ese producto no se sincroniza.",
     )
     price_surcharge_fixed = fields.Float(
         string="Recargo Fijo por Venta ($)",
@@ -61,15 +84,9 @@ class MarketplaceAccount(models.Model):
         default=0.0,
     )
 
-    # Recargos por Cuotas / Modalidad de Publicación ML
-    surcharge_clasica_percent = fields.Float(
-        string="Recargo Publicación Clásica (%)",
-        default=0.0,
-    )
-    surcharge_premium_percent = fields.Float(
-        string="Recargo Publicación Premium / Cuotas (%)",
-        default=0.0,
-        help="Recargo porcentual para publicaciones con cuotas sin interés.",
+    # Recargo por Cuotas / Modalidad de Publicación ML (tabla configurable)
+    installment_rule_ids = fields.One2many(
+        "marketplace.installment.rule", "account_id", string="Recargo por Cuotas"
     )
     free_shipping_threshold = fields.Float(
         string="Precio Umbral Envío Fijo ($)",
@@ -112,59 +129,68 @@ class MarketplaceAccount(models.Model):
         string="Precio Base de Prueba ($)",
         default=10000.0,
     )
-    sim_calculated_clasica = fields.Float(
-        string="Precio Calculado (Clásica)",
-        compute="_compute_simulated_prices",
+    sim_installment_rule_id = fields.Many2one(
+        "marketplace.installment.rule",
+        string="Simular con Regla de Cuotas",
+        domain="[('account_id', '=', id)]",
+        help="Elegí una de tus reglas de cuotas para previsualizar el precio final que se enviaría a Mercado Libre.",
     )
-    sim_calculated_premium = fields.Float(
-        string="Precio Calculado (Premium / Cuotas)",
+    sim_calculated_price = fields.Float(
+        string="Precio Calculado",
         compute="_compute_simulated_prices",
     )
 
     @api.depends(
         "sim_base_price",
-        "price_security_factor",
         "price_surcharge_fixed",
         "price_surcharge_percent",
-        "surcharge_clasica_percent",
-        "surcharge_premium_percent",
         "free_shipping_threshold",
         "free_shipping_fee",
+        "sim_installment_rule_id",
+        "sim_installment_rule_id.surcharge_percent",
     )
     def _compute_simulated_prices(self):
         for account in self:
-            account.sim_calculated_clasica = account.calculate_marketplace_price(
-                account.sim_base_price, listing_type="gold_special"
-            )
-            account.sim_calculated_premium = account.calculate_marketplace_price(
-                account.sim_base_price, listing_type="gold_pro"
+            base = account.calculate_marketplace_price(account.sim_base_price)
+            account.sim_calculated_price = account.apply_installment_surcharge(
+                base, account.sim_installment_rule_id
             )
 
-    def calculate_marketplace_price(self, base_price, listing_type="gold_special"):
+    def calculate_marketplace_price(self, base_price):
         """Calcula el precio final a publicar en Mercado Libre partiendo del precio base de Odoo
-        y aplicando las reglas generales configuradas en la cuenta.
+        y aplicando el margen/recargo general y el ajuste de envío configurados en la cuenta.
+        El recargo por cuotas se aplica aparte, en el momento de sincronizar, con `apply_installment_surcharge`.
         """
         self.ensure_one()
         base = max(0.0, float(base_price or 0.0))
         if base <= 0:
             return 0.0
 
-        # 1. Aplicar Factor de Seguridad (%)
-        subtotal = base * (1.0 + (self.price_security_factor / 100.0))
+        # 1. Aplicar Recargo Porcentual General + Recargo Fijo
+        final_price = base * (1.0 + (self.price_surcharge_percent / 100.0)) + self.price_surcharge_fixed
 
-        # 2. Aplicar Recargo Porcentual General + Recargo Fijo
-        subtotal = subtotal * (1.0 + (self.price_surcharge_percent / 100.0)) + self.price_surcharge_fixed
-
-        # 3. Aplicar Recargo por Tipo de Publicación (Clásica vs Premium/Cuotas)
-        is_premium = listing_type in ("gold_pro", "premium")
-        surcharge_pct = self.surcharge_premium_percent if is_premium else self.surcharge_clasica_percent
-        final_price = subtotal * (1.0 + (surcharge_pct / 100.0))
-
-        # 4. Ajuste por Umbral de Envío Gratis / Cargo Fijo
+        # 2. Ajuste por Umbral de Envío Gratis / Cargo Fijo
         if self.free_shipping_threshold > 0 and final_price < self.free_shipping_threshold:
             final_price += self.free_shipping_fee
 
         return round(final_price, 2)
+
+    def apply_installment_surcharge(self, price, installment_rule):
+        """Aplica el recargo por cuotas de una regla puntual sobre un precio ya calculado."""
+        price = max(0.0, float(price or 0.0))
+        if not installment_rule or price <= 0:
+            return round(price, 2)
+        return round(price * (1.0 + (installment_rule.surcharge_percent / 100.0)), 2)
+
+    def match_installment_rule(self, installments_qty, no_interest=True):
+        """Busca la regla de recargo por cuotas configurada que corresponde a la respuesta de Mercado Libre."""
+        self.ensure_one()
+        rules = self.installment_rule_ids.filtered(lambda r: r.no_interest == no_interest)
+        exact = rules.filtered(lambda r: not r.applies_to_any_qty and r.installments_qty == installments_qty)
+        if exact:
+            return exact[0]
+        generic = rules.filtered(lambda r: r.applies_to_any_qty)
+        return generic[0] if generic else self.env["marketplace.installment.rule"]
 
     def calculate_marketplace_stock(self, real_stock):
         """Calcula el stock a enviar a Mercado Libre aplicando el stock de seguridad de la cuenta."""
@@ -180,33 +206,40 @@ class MarketplaceAccount(models.Model):
         if not name:
             return self.env["product.pricelist"]
         domain = [("id", "=", int(name))] if name.isdigit() else [("name", "=", name)]
-        return self.env["product.pricelist"].search(domain, limit=1)
+        return self.env["product.pricelist"].sudo().search(domain, limit=1)
 
     def get_product_base_price_with_tax(self, product_tmpl=False, product=False):
         """Precio de venta (según la lista de precios de la cuenta) con impuestos del producto incluidos."""
         self.ensure_one()
-        product_tmpl = product_tmpl or (product.product_tmpl_id if product else False)
-        if not product_tmpl:
+        variant = product or (product_tmpl.product_variant_id if product_tmpl else False)
+        if not variant:
             return 0.0
-        variant = product or product_tmpl.product_variant_id
 
         pricelist = self._resolve_local_pricelist()
         if pricelist:
             try:
-                price = pricelist._get_product_price(variant or product_tmpl, 1.0)
+                price = pricelist.sudo()._get_product_price(variant, 1.0)
             except Exception:
-                price = product_tmpl.list_price
+                price = variant.lst_price
         else:
-            price = product_tmpl.list_price
+            price = variant.lst_price
 
-        taxes = product_tmpl.taxes_id
+        taxes = variant.taxes_id
         if taxes:
             try:
-                res = taxes.compute_all(price, product=variant or product_tmpl, partner=False)
+                res = taxes.compute_all(price, product=variant, partner=False)
                 price = res.get("total_included", price)
             except Exception:
                 pass
         return price
+
+    def check_price_safety(self, new_price, last_price):
+        """Devuelve False si el nuevo precio cae más del Factor de Seguridad respecto al último sincronizado."""
+        self.ensure_one()
+        if self.price_security_factor <= 0 or not last_price or last_price <= 0:
+            return True
+        drop_pct = (last_price - new_price) / last_price * 100.0
+        return drop_pct <= self.price_security_factor
 
     # --- 6. Métodos RPC para mapear opciones desde el Odoo del cliente ---
     def _get_remote_odoo_rpc(self):

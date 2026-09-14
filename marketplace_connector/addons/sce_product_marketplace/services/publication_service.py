@@ -246,8 +246,20 @@ class MarketplacePublicationService(models.AbstractModel):
         publication.ensure_one()
         if not publication.external_id:
             raise UserError("No se puede sincronizar precio sin ID externo.")
-        result = self._get_provider(publication).update_price(self._build_payload(publication)) or {}
-        publication.write({"sync_date": fields.Datetime.now()})
+        account = publication.account_id
+        provider = self._get_provider(publication)
+        price = self._apply_installment_surcharge_for_item(
+            account, provider, publication.price, publication.category_ref, publication.listing_type
+        ) if account else publication.price
+        if account and not account.check_price_safety(price, publication.last_synced_price):
+            raise UserError(
+                "La caída de precio supera el Factor de Seguridad configurado en la cuenta; "
+                "no se sincronizó para evitar un error de carga."
+            )
+        payload = self._build_payload(publication)
+        payload["price"] = price
+        result = provider.update_price(payload) or {}
+        publication.write({"sync_date": fields.Datetime.now(), "last_synced_price": price})
         return result
 
     def sync_from_marketplace(self, publication):
@@ -751,6 +763,38 @@ class MarketplacePublicationService(models.AbstractModel):
 
         return {"updated_count": updated, "skipped": skipped, "errors": errors, "total_mappings": len(mappings)}
 
+    def _parse_ml_installments(self, listing_prices_result):
+        """Extrae cantidad de cuotas y si son sin interés de la respuesta de get_listing_prices."""
+        items = listing_prices_result.get("items") if isinstance(listing_prices_result, dict) else []
+        item = items[0] if items and isinstance(items[0], dict) else {}
+        installments = item.get("installments") if isinstance(item.get("installments"), dict) else {}
+        qty = int(installments.get("quantity") or 0)
+        rate = installments.get("rate")
+        no_interest = not rate or float(rate) == 0.0
+        return qty, no_interest
+
+    def _get_item_category_and_listing_type(self, provider, external_id):
+        try:
+            result = provider.get_item(external_id)
+        except Exception:
+            return False, False
+        item = result.get("item") if isinstance(result, dict) else {}
+        if not isinstance(item, dict):
+            return False, False
+        return item.get("category_id"), item.get("listing_type_id")
+
+    def _apply_installment_surcharge_for_item(self, account, provider, price, category_id, listing_type_id):
+        """Consulta a Mercado Libre las cuotas vigentes para ese precio/categoría y aplica la regla configurada."""
+        if not category_id or not listing_type_id or price <= 0:
+            return price
+        try:
+            result = provider.get_listing_prices(category_id, price, listing_type_id)
+        except Exception:
+            return price
+        qty, no_interest = self._parse_ml_installments(result)
+        rule = account.match_installment_rule(qty, no_interest)
+        return account.apply_installment_surcharge(price, rule)
+
     def sync_account_prices(self, account, payload=None):
         if not account:
             raise UserError("Se requiere una cuenta de marketplace para sincronizar precios.")
@@ -776,12 +820,19 @@ class MarketplacePublicationService(models.AbstractModel):
                 price = account.calculate_marketplace_price(base_price)
             else:
                 price = max(0.0, float(payload.get("price") or 0.0))
-            return provider.update_price({
+            category_id, listing_type_id = self._get_item_category_and_listing_type(provider, item_id_str)
+            price = self._apply_installment_surcharge_for_item(account, provider, price, category_id, listing_type_id)
+            if mapping and not account.check_price_safety(price, mapping.last_synced_price):
+                return {"result": "skipped", "reason": "caída de precio supera el Factor de Seguridad"}
+            result = provider.update_price({
                 "external_id": item_id_str,
                 "id": item_id_str,
                 "item_id": item_id_str,
                 "price": price,
             })
+            if mapping:
+                mapping.write({"last_synced_price": price})
+            return result
 
         mappings = self.env["marketplace.product.mapping"].sudo().search([
             ("account_id", "=", account.id),
@@ -805,6 +856,14 @@ class MarketplacePublicationService(models.AbstractModel):
             price = account.calculate_marketplace_price(base_price)
             if price <= 0:
                 continue
+            category_id, listing_type_id = self._get_item_category_and_listing_type(provider, mapping.external_id)
+            price = self._apply_installment_surcharge_for_item(account, provider, price, category_id, listing_type_id)
+            if not account.check_price_safety(price, mapping.last_synced_price):
+                skipped.append(
+                    f"{mapping.external_id}: caída de precio de {mapping.last_synced_price} a {price} "
+                    f"supera el Factor de Seguridad ({account.price_security_factor}%)"
+                )
+                continue
             try:
                 provider.update_price({
                     "external_id": mapping.external_id,
@@ -812,6 +871,7 @@ class MarketplacePublicationService(models.AbstractModel):
                     "item_id": mapping.external_id,
                     "price": price,
                 })
+                mapping.write({"last_synced_price": price})
                 updated += 1
             except Exception as err:
                 message = self._friendly_ml_error(err)
@@ -828,13 +888,23 @@ class MarketplacePublicationService(models.AbstractModel):
             if not any(m.external_id == pub.external_id for m in mappings):
                 if pub.price <= 0:
                     continue
+                price = self._apply_installment_surcharge_for_item(
+                    account, provider, pub.price, pub.category_ref, pub.listing_type
+                )
+                if not account.check_price_safety(price, pub.last_synced_price):
+                    skipped.append(
+                        f"{pub.external_id}: caída de precio de {pub.last_synced_price} a {price} "
+                        f"supera el Factor de Seguridad ({account.price_security_factor}%)"
+                    )
+                    continue
                 try:
                     provider.update_price({
                         "external_id": pub.external_id,
                         "id": pub.external_id,
                         "item_id": pub.external_id,
-                        "price": pub.price,
+                        "price": price,
                     })
+                    pub.write({"last_synced_price": price})
                     updated += 1
                 except Exception as err:
                     message = self._friendly_ml_error(err)

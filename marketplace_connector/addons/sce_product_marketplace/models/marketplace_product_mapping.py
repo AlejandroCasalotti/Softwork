@@ -24,6 +24,7 @@ class MarketplaceProductMapping(models.Model):
     # True cuando el producto solo existe en el Odoo remoto del cliente (sin módulo instalado)
     # y por lo tanto no hay product_id/product_tmpl_id local; se sincroniza vía XML-RPC directo.
     remote_only = fields.Boolean(string="Vinculado solo por Odoo remoto", default=False)
+    last_synced_price = fields.Float(string="Último precio sincronizado a ML")
     active = fields.Boolean(default=True)
 
     _mapping_external_unique = models.Constraint(

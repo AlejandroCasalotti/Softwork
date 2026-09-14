@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from . import marketplace_installment_rule
 from . import marketplace_account
 from . import marketplace_publication
 from . import marketplace_product_mapping

@@ -56,20 +56,30 @@
                                 <field name="price_surcharge_fixed" invisible="not sync_prices"/>
                                 <field name="price_surcharge_percent" invisible="not sync_prices"/>
                             </group>
-                            <group string="Recargo por Cuotas y Modalidad ML" invisible="not sync_prices">
-                                <field name="surcharge_clasica_percent"/>
-                                <field name="surcharge_premium_percent"/>
+                            <group string="Umbral de Envío" invisible="not sync_prices">
                                 <field name="free_shipping_threshold"/>
                                 <field name="free_shipping_fee"/>
                             </group>
                         </group>
+                        <group string="🏷️ Recargo por Cuotas" invisible="not sync_prices">
+                            <field name="installment_rule_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name" placeholder="Ej: 6 cuotas al mismo precio que publicaste"/>
+                                    <field name="installments_qty" invisible="applies_to_any_qty"/>
+                                    <field name="applies_to_any_qty"/>
+                                    <field name="no_interest"/>
+                                    <field name="surcharge_percent"/>
+                                </list>
+                            </field>
+                        </group>
                         <group string="⚡ Simulador de Precios en Vivo" invisible="not sync_prices">
                             <group>
                                 <field name="sim_base_price"/>
+                                <field name="sim_installment_rule_id"/>
                             </group>
                             <group>
-                                <field name="sim_calculated_clasica" readonly="1" class="oe_bold"/>
-                                <field name="sim_calculated_premium" readonly="1" class="oe_bold"/>
+                                <field name="sim_calculated_price" readonly="1" class="oe_bold"/>
                             </group>
                         </group>
                     </page>
