@@ -554,10 +554,8 @@ class MarketplacePublicationService(models.AbstractModel):
                 if matched_tmpl:
                     matched_var = matched_tmpl.product_variant_id
 
-            if not matched_tmpl and title:
-                matched_tmpl = tmpl_model.search([("name", "=", title)], limit=1)
-                if matched_tmpl:
-                    matched_var = matched_tmpl.product_variant_id
+            # Nota: no se vincula por coincidencia de título/nombre; solo por SKU,
+            # código de barras o ml_item_id, para evitar mapear al producto incorrecto.
 
             # Consulta remota XML-RPC a Odoo si no hubo coincidencia local y hay conexión configurada
             if not matched_tmpl and not matched_var and (account.odoo_base_url or "").strip():
