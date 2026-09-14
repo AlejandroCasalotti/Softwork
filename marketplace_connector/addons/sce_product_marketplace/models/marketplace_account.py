@@ -300,10 +300,38 @@ class MarketplaceAccount(models.Model):
         if not records:
             return False
         record = records[0]
+        pricelist_price = self._get_remote_pricelist_price(
+            record["id"], record.get("list_price") or 0.0
+        )
         record["price_with_tax"] = self._get_remote_price_with_tax(
-            record.get("list_price") or 0.0, record.get("taxes_id") or []
+            pricelist_price, record.get("taxes_id") or []
         )
         return record
+
+    def _get_remote_pricelist_price(self, product_id, fallback_price):
+        """Obtiene el precio del producto según la lista configurada en el Odoo remoto."""
+        self.ensure_one()
+        pricelist_ref = (self.pricelist_name or "").strip()
+        if not pricelist_ref:
+            return fallback_price
+        domain = [("id", "=", int(pricelist_ref))] if pricelist_ref.isdigit() else [("name", "=", pricelist_ref)]
+        try:
+            pricelists = self._fetch_remote_odoo_records(
+                "product.pricelist", domain=domain, fields_to_read=["id"]
+            )
+            if not pricelists:
+                return fallback_price
+            db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+            values = models_rpc.execute_kw(
+                db, uid, password,
+                "product.pricelist", "price_get",
+                [[pricelists[0]["id"]], product_id, 1.0],
+            )
+            if isinstance(values, dict):
+                return values.get(str(pricelists[0]["id"]), fallback_price)
+        except Exception:
+            return fallback_price
+        return fallback_price
 
     def _get_remote_price_with_tax(self, price_unit, tax_ids):
         """Aplica los impuestos del producto llamando a account.tax.compute_all en el Odoo remoto."""
@@ -321,6 +349,42 @@ class MarketplaceAccount(models.Model):
             return result.get("total_included", price_unit) if isinstance(result, dict) else price_unit
         except Exception:
             return price_unit
+
+    @api.model
+    def cron_enqueue_remote_marketplace_sync(self):
+        """Poll remote-only mappings because external Odoo cannot emit write events without an addon."""
+        accounts = self.search([
+            ("provider_type", "=", "mercadolibre"),
+            ("state", "=", "connected"),
+            ("active", "=", True),
+        ])
+        job_model = self.env["sce.job"]
+        mapping_model = self.env["marketplace.product.mapping"]
+        for account in accounts:
+            if not mapping_model.search_count([
+                ("account_id", "=", account.id),
+                ("remote_only", "=", True),
+                ("active", "=", True),
+            ]):
+                continue
+            for job_type, enabled, label in (
+                ("sync_stock", account.sync_stock, "stock"),
+                ("sync_prices", account.sync_prices, "prices"),
+            ):
+                if not enabled:
+                    continue
+                pending = job_model.search([
+                    ("account_id", "=", account.id),
+                    ("job_type", "=", job_type),
+                    ("state", "in", ["queued", "running"]),
+                ], limit=1)
+                if not pending:
+                    job_model.create({
+                        "name": f"Auto sync remote {label} - {account.display_name}",
+                        "account_id": account.id,
+                        "job_type": job_type,
+                        "payload_json": '{"trigger": "remote_poll"}',
+                    })
 
     def _notify_odoo_options(self, title, records, code_field=None, note=None):
         if not records:

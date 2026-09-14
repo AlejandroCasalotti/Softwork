@@ -20,6 +20,7 @@ extienden marketplace.publication con sus propios campos y servicios.
     "depends": ["product", "softwork_ecommerce_conector_base"],
     "data": [
         "security/ir.model.access.csv",
+        "data/ir_cron.xml",
         "views/marketplace_publication_views.xml",
         "views/marketplace_product_mapping_views.xml",
         "views/marketplace_account_views.xml",
