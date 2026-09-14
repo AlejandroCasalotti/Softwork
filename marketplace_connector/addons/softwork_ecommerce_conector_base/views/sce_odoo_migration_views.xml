@@ -30,11 +30,11 @@
             <form string="Migración Odoo a Odoo">
                 <header>
                     <button name="action_detect_versions" type="object" string="Detectar versiones" class="btn-secondary"/>
-                    <button name="action_run_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state == 'running'"/>
+                    <button name="action_enqueue_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state in ('queued', 'running')"/>
                     <button name="action_pause_migration" type="object" string="Pausar" invisible="state != 'running'"/>
                     <button name="action_resume_migration" type="object" string="Reanudar" invisible="state not in ('paused','failed','draft')"/>
                     <button name="action_reset_checkpoint" type="object" string="Reset checkpoint" class="btn-secondary"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,running,paused,done,failed"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,queued,running,paused,done,failed"/>
                 </header>
                 <sheet>
                     <group>

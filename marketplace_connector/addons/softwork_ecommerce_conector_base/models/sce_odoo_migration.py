@@ -24,6 +24,7 @@ class SceOdooMigrationRun(models.Model):
     state = fields.Selection(
         selection=[
             ("draft", "Borrador"),
+            ("queued", "En cola"),
             ("running", "En ejecución"),
             ("paused", "Pausada"),
             ("done", "Finalizada"),
@@ -1145,7 +1146,7 @@ class SceOdooMigrationRun(models.Model):
         self.migrated_locations += migrated
         return errors
 
-    def action_run_migration(self):
+    def _run_migration_now(self):
         for rec in self:
             rec.write({"state": "running", "started_at": fields.Datetime.now(), "last_error": False})
             cp = rec._load_checkpoint()
@@ -1231,7 +1232,20 @@ class SceOdooMigrationRun(models.Model):
                 )
             except Exception as err:
                 rec.write({"state": "failed", "last_error": str(err), "finished_at": fields.Datetime.now()})
-                raise
+                _logger.exception("La migración Odoo a Odoo falló migration_id=%s", rec.id)
+
+    def action_enqueue_migration(self):
+        for rec in self:
+            if rec.state == "running":
+                continue
+            rec.write({"state": "queued", "last_error": False, "finished_at": False})
+        return True
+
+    @models.api
+    def cron_process_migration_queue(self):
+        runs = self.search([("state", "=", "queued")], limit=1, order="create_date asc")
+        for run in runs:
+            run._run_migration_now()
 
     def action_pause_migration(self):
         self.write({"state": "paused"})
@@ -1240,7 +1254,7 @@ class SceOdooMigrationRun(models.Model):
     def action_resume_migration(self):
         for rec in self:
             if rec.state in ("paused", "failed", "draft"):
-                rec.action_run_migration()
+                rec.action_enqueue_migration()
         return True
 
     def action_reset_checkpoint(self):
@@ -1326,7 +1340,7 @@ class SceOdooMigrationWizard(models.TransientModel):
             }
         )
         run._validate_source_target_connections()
-        run.action_run_migration()
+        run.action_enqueue_migration()
         return {
             "type": "ir.actions.act_window",
             "res_model": "sce.odoo.migration.run",

@@ -20,6 +20,16 @@
         <field name="active">True</field>
     </record>
 
+    <record id="ir_cron_sce_process_odoo_migrations" model="ir.cron">
+        <field name="name">SCE - Process Odoo Migrations</field>
+        <field name="model_id" ref="model_sce_odoo_migration_run"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_process_migration_queue()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active">True</field>
+    </record>
+
     <record id="ir_cron_sce_retry_failed_jobs" model="ir.cron">
         <field name="name">SCE - Retry Failed Jobs</field>
         <field name="model_id" ref="model_sce_job"/>
