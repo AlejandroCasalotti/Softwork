@@ -471,6 +471,54 @@ class ProductTemplate(models.Model):
                 )
                 continue
 
+    def _queue_auto_marketplace_sync_jobs(self):
+        """Encola jobs automáticos de stock/precio solo para productos ya vinculados a una cuenta ML activa."""
+        for product in self:
+            mappings = self.env["marketplace.product.mapping"].sudo().search([
+                ("active", "=", True),
+                ("product_tmpl_id", "=", product.id),
+            ])
+            if not mappings:
+                mappings = self.env["marketplace.product.mapping"].sudo().search([
+                    ("active", "=", True),
+                    ("product_id.product_tmpl_id", "=", product.id),
+                ])
+            if not mappings:
+                continue
+            for account in mappings.mapped("account_id").filtered(lambda a: a.active and a.provider_type == "mercadolibre"):
+                if account.sync_stock:
+                    existing = self.env["sce.job"].search([
+                        ("account_id", "=", account.id),
+                        ("job_type", "=", "sync_stock"),
+                        ("state", "in", ["queued", "running"]),
+                    ], limit=1)
+                    if not existing:
+                        self.env["sce.job"].create({
+                            "name": f"Auto sync stock - {product.display_name} - {account.display_name}",
+                            "account_id": account.id,
+                            "job_type": "sync_stock",
+                            "payload_json": json.dumps({
+                                "product_tmpl_id": product.id,
+                                "trigger": "auto_product_sync",
+                            }),
+                        })
+                if account.sync_prices:
+                    existing = self.env["sce.job"].search([
+                        ("account_id", "=", account.id),
+                        ("job_type", "=", "sync_prices"),
+                        ("state", "in", ["queued", "running"]),
+                    ], limit=1)
+                    if not existing:
+                        self.env["sce.job"].create({
+                            "name": f"Auto sync prices - {product.display_name} - {account.display_name}",
+                            "account_id": account.id,
+                            "job_type": "sync_prices",
+                            "payload_json": json.dumps({
+                                "product_tmpl_id": product.id,
+                                "trigger": "auto_product_sync",
+                            }),
+                        })
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
@@ -488,6 +536,7 @@ class ProductTemplate(models.Model):
             for rec, vals in zip(records, vals_list):
                 if any(field in vals for field in sync_trigger_fields):
                     rec._sync_price_stock_to_ml()
+                rec._queue_auto_marketplace_sync_jobs()
         return records
 
     def write(self, vals):
@@ -507,6 +556,7 @@ class ProductTemplate(models.Model):
         }
         if any(field in vals for field in sync_trigger_fields):
             self._sync_price_stock_to_ml()
+        self._queue_auto_marketplace_sync_jobs()
         return res
 
     def action_sync_price_stock_ml(self):

@@ -324,30 +324,27 @@ class MarketplaceAccount(models.Model):
 
     def _notify_odoo_options(self, title, records, code_field=None, note=None):
         if not records:
-            msg = Markup("No se encontraron registros en tu Odoo para {}.").format(title)
+            msg = f"No se encontraron registros en tu Odoo para {title}."
             if note:
-                msg += Markup("<br/><br/>💡 Nota: {}").format(note)
+                msg += f"\n\n💡 Nota: {note}"
         else:
-            header = Markup("📋 Opciones de {} en tu Odoo:").format(title)
-            items = Markup("<br/>").join(
-                Markup("• ID {} : {}{}").format(
-                    rec.get("id"),
-                    rec.get("name") or rec.get("display_name") or "Sin nombre",
-                    f" [{rec.get(code_field)}]" if code_field and rec.get(code_field) else "",
-                )
-                for rec in records
-            )
-            msg = header + Markup("<br/>") + items
+            lines = [f"📋 Opciones de {title} en tu Odoo:"]
+            for rec in records:
+                rec_id = rec.get("id")
+                name = rec.get("name") or rec.get("display_name") or "Sin nombre"
+                code = f" [{rec.get(code_field)}]" if code_field and rec.get(code_field) else ""
+                lines.append(f"• ID {rec_id} : {name}{code}")
+            msg = "\n".join(lines)
             if note:
-                msg += Markup("<br/><br/>💡 Nota: {}").format(note)
-            msg += Markup("<br/><br/>Ingresá el nombre o el número de ID directamente en el campo.")
+                msg += f"\n\n💡 Nota: {note}"
+            msg += "\n\nIngresá el nombre o el número de ID directamente en el campo."
 
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
                 "title": f"Mapeo Odoo: {title}",
-                "message": msg,
+                "message": Markup("<pre style='margin:0; white-space:pre-wrap; font-family:inherit;'>%s</pre>" % msg),
                 "type": "info",
                 "sticky": True,
             },
