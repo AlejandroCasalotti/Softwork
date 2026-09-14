@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from markupsafe import Markup
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -289,20 +291,23 @@ class MarketplaceAccount(models.Model):
 
     def _notify_odoo_options(self, title, records, code_field=None, note=None):
         if not records:
-            msg = f"No se encontraron registros en tu Odoo para {title}."
+            msg = Markup("No se encontraron registros en tu Odoo para {}.").format(title)
             if note:
-                msg += f"\n\n💡 Nota: {note}"
+                msg += Markup("<br/><br/>💡 Nota: {}").format(note)
         else:
-            items = []
-            for rec in records:
-                rec_id = rec.get("id")
-                name = rec.get("name") or rec.get("display_name") or "Sin nombre"
-                code = f" [{rec.get(code_field)}]" if code_field and rec.get(code_field) else ""
-                items.append(f"• ID {rec_id} : {name}{code}")
-            msg = f"📋 Opciones de {title} en tu Odoo:\n\n" + "\n".join(items)
+            header = Markup("📋 Opciones de {} en tu Odoo:").format(title)
+            items = Markup("<br/>").join(
+                Markup("• ID {} : {}{}").format(
+                    rec.get("id"),
+                    rec.get("name") or rec.get("display_name") or "Sin nombre",
+                    f" [{rec.get(code_field)}]" if code_field and rec.get(code_field) else "",
+                )
+                for rec in records
+            )
+            msg = header + Markup("<br/>") + items
             if note:
-                msg += f"\n\n💡 Nota: {note}"
-            msg += "\n\nIngresá el nombre o el número de ID directamente en el campo."
+                msg += Markup("<br/><br/>💡 Nota: {}").format(note)
+            msg += Markup("<br/><br/>Ingresá el nombre o el número de ID directamente en el campo.")
 
         return {
             "type": "ir.actions.client",
