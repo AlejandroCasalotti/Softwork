@@ -177,7 +177,7 @@ class ProductTemplate(models.Model):
     def _effective_qty(self):
         self.ensure_one()
         reserve = max(0.0, self.ml_stock_reserve_qty or 0.0)
-        qty_source = self.qty_available
+        qty_source = self.virtual_available
         qty = max(0.0, qty_source - reserve)
         return int(qty)
 
@@ -298,7 +298,7 @@ class ProductTemplate(models.Model):
                 })
             combinations.append({
                 "sku": variant.default_code or "",
-                "available_quantity": int(max(0, variant.qty_available)),
+                "available_quantity": int(max(0, variant.virtual_available)),
                 "price": variant.lst_price or self._effective_price(),
                 "attributes": values,
             })

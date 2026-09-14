@@ -63,7 +63,7 @@ class MarketplacePublicationService(models.AbstractModel):
             payload["variations"] = [
                 {
                     "seller_custom_field": variant.default_code or False,
-                    "available_quantity": int(max(0.0, variant.qty_available)),
+                    "available_quantity": int(max(0.0, variant.virtual_available)),
                     "price": float((variant.lst_price or publication.price) * uom_factor),
                     "attribute_combinations": [
                         {
@@ -720,7 +720,7 @@ class MarketplacePublicationService(models.AbstractModel):
             qty = 0
             if mapping and (mapping.product_id or mapping.product_tmpl_id):
                 prod = mapping.product_id or mapping.product_tmpl_id.product_variant_id
-                real_stock = prod.qty_available if prod else 0
+                real_stock = prod.virtual_available if prod else 0
                 qty = account.calculate_marketplace_stock(real_stock)
             else:
                 qty = max(0, int(payload.get("available_quantity") or payload.get("stock") or 0))
@@ -737,7 +737,7 @@ class MarketplacePublicationService(models.AbstractModel):
             prod = mapping.product_id or (mapping.product_tmpl_id.product_variant_id if mapping.product_tmpl_id else False)
             if not prod:
                 continue
-            real_stock = prod.qty_available or 0.0
+            real_stock = prod.virtual_available or 0.0
             qty = account.calculate_marketplace_stock(real_stock)
             try:
                 outcome = _apply_stock(mapping.external_id, qty)

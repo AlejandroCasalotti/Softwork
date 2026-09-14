@@ -87,7 +87,7 @@ class MarketplacePublication(models.Model):
     )
 
     @api.depends(
-        "product_tmpl_id.qty_available",
+        "product_tmpl_id.virtual_available",
         "stock_reserve_qty",
         "account_id.safety_stock",
         "account_id.sync_stock",
@@ -95,7 +95,7 @@ class MarketplacePublication(models.Model):
     def _compute_effective_qty(self):
         for publication in self:
             reserve = max(0.0, publication.stock_reserve_qty or 0.0)
-            available = publication.product_tmpl_id.qty_available if publication.product_tmpl_id else 0.0
+            available = publication.product_tmpl_id.virtual_available if publication.product_tmpl_id else 0.0
             real_stock = max(0.0, available - reserve)
             if publication.account_id:
                 publication.effective_qty = publication.account_id.calculate_marketplace_stock(real_stock)
