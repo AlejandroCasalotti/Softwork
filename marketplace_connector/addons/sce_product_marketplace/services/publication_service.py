@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
+import re
 
 from odoo import fields, models
 from odoo.exceptions import UserError
@@ -677,6 +678,21 @@ class MarketplacePublicationService(models.AbstractModel):
         publication.write({"state": "draft", "external_id": False, "external_url": False})
         return result
 
+    def _friendly_ml_error(self, err):
+        """Extract the human-readable 'message' from a MercadoLibre error payload, if present."""
+        match = re.search(r"(\{.*\})\s*$", str(err))
+        if match:
+            try:
+                data = json.loads(match.group(1))
+                cause = data.get("cause") or []
+                if isinstance(cause, list) and cause and isinstance(cause[0], dict) and cause[0].get("message"):
+                    return cause[0]["message"]
+                if data.get("message"):
+                    return data["message"]
+            except (TypeError, ValueError):
+                pass
+        return str(err)
+
     def sync_account_stock(self, account, payload=None):
         if not account:
             raise UserError("Se requiere una cuenta de marketplace para sincronizar stock.")
@@ -688,6 +704,14 @@ class MarketplacePublicationService(models.AbstractModel):
             or payload.get("ml_item_id")
         )
         provider = self._get_provider_for_account(account)
+
+        def _apply_stock(ext_id, qty):
+            if qty <= 0:
+                # MercadoLibre rejects available_quantity=0; pause the item instead.
+                provider.update_product({"external_id": ext_id, "id": ext_id, "item_id": ext_id, "status": "paused"})
+                return "paused"
+            provider.update_stock({"external_id": ext_id, "id": ext_id, "item_id": ext_id, "available_quantity": qty})
+            return "updated"
 
         if item_id:
             item_id_str = str(item_id).strip()
@@ -702,18 +726,14 @@ class MarketplacePublicationService(models.AbstractModel):
                 qty = account.calculate_marketplace_stock(real_stock)
             else:
                 qty = max(0, int(payload.get("available_quantity") or payload.get("stock") or 0))
-            return provider.update_stock({
-                "external_id": item_id_str,
-                "id": item_id_str,
-                "item_id": item_id_str,
-                "available_quantity": qty,
-            })
+            return {"result": _apply_stock(item_id_str, qty)}
 
         mappings = self.env["marketplace.product.mapping"].sudo().search([
             ("account_id", "=", account.id),
             ("external_id", "!=", False),
         ])
         updated = 0
+        skipped = []
         errors = []
         for mapping in mappings:
             prod = mapping.product_id or (mapping.product_tmpl_id.product_variant_id if mapping.product_tmpl_id else False)
@@ -722,15 +742,13 @@ class MarketplacePublicationService(models.AbstractModel):
             real_stock = prod.qty_available or 0.0
             qty = account.calculate_marketplace_stock(real_stock)
             try:
-                provider.update_stock({
-                    "external_id": mapping.external_id,
-                    "id": mapping.external_id,
-                    "item_id": mapping.external_id,
-                    "available_quantity": qty,
-                })
-                updated += 1
+                outcome = _apply_stock(mapping.external_id, qty)
+                if outcome == "paused":
+                    skipped.append(f"{mapping.external_id}: sin stock disponible, publicación pausada")
+                else:
+                    updated += 1
             except Exception as err:
-                errors.append(f"{mapping.external_id}: {err}")
+                errors.append(f"{mapping.external_id}: {self._friendly_ml_error(err)}")
 
         publications = self.env["marketplace.publication"].sudo().search([
             ("account_id", "=", account.id),
@@ -739,17 +757,15 @@ class MarketplacePublicationService(models.AbstractModel):
         for pub in publications:
             if not any(m.external_id == pub.external_id for m in mappings):
                 try:
-                    provider.update_stock({
-                        "external_id": pub.external_id,
-                        "id": pub.external_id,
-                        "item_id": pub.external_id,
-                        "available_quantity": pub.effective_qty,
-                    })
-                    updated += 1
+                    outcome = _apply_stock(pub.external_id, pub.effective_qty)
+                    if outcome == "paused":
+                        skipped.append(f"{pub.external_id}: sin stock disponible, publicación pausada")
+                    else:
+                        updated += 1
                 except Exception as err:
-                    errors.append(f"{pub.external_id}: {err}")
+                    errors.append(f"{pub.external_id}: {self._friendly_ml_error(err)}")
 
-        return {"updated_count": updated, "errors": errors, "total_mappings": len(mappings)}
+        return {"updated_count": updated, "skipped": skipped, "errors": errors, "total_mappings": len(mappings)}
 
     def sync_account_prices(self, account, payload=None):
         if not account:
@@ -788,6 +804,7 @@ class MarketplacePublicationService(models.AbstractModel):
             ("external_id", "!=", False),
         ])
         updated = 0
+        skipped = []
         errors = []
         for mapping in mappings:
             tmpl = mapping.product_tmpl_id or (mapping.product_id.product_tmpl_id if mapping.product_id else False)
@@ -806,7 +823,11 @@ class MarketplacePublicationService(models.AbstractModel):
                 })
                 updated += 1
             except Exception as err:
-                errors.append(f"{mapping.external_id}: {err}")
+                message = self._friendly_ml_error(err)
+                if "requires a minimum of price" in message or "price.invalid" in str(err):
+                    skipped.append(f"{mapping.external_id}: {message}")
+                else:
+                    errors.append(f"{mapping.external_id}: {message}")
 
         publications = self.env["marketplace.publication"].sudo().search([
             ("account_id", "=", account.id),
@@ -825,6 +846,10 @@ class MarketplacePublicationService(models.AbstractModel):
                     })
                     updated += 1
                 except Exception as err:
-                    errors.append(f"{pub.external_id}: {err}")
+                    message = self._friendly_ml_error(err)
+                    if "requires a minimum of price" in message or "price.invalid" in str(err):
+                        skipped.append(f"{pub.external_id}: {message}")
+                    else:
+                        errors.append(f"{pub.external_id}: {message}")
 
-        return {"updated_count": updated, "errors": errors, "total_mappings": len(mappings)}
+        return {"updated_count": updated, "skipped": skipped, "errors": errors, "total_mappings": len(mappings)}
