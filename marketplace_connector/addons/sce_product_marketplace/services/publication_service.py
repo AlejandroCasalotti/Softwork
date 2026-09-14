@@ -557,50 +557,27 @@ class MarketplacePublicationService(models.AbstractModel):
             # Nota: no se vincula por coincidencia de título/nombre; solo por SKU,
             # código de barras o ml_item_id, para evitar mapear al producto incorrecto.
 
-            # Consulta remota XML-RPC a Odoo si no hubo coincidencia local y hay conexión configurada
+            # Si no hay coincidencia local, verificar si el producto existe en el Odoo remoto
+            # del cliente (sin crear ningún registro local: se sincroniza directo por XML-RPC).
+            remote_only = False
             if not matched_tmpl and not matched_var and (account.odoo_base_url or "").strip():
                 try:
                     if matching_field == "barcode" and barcode:
                         remote_prods = account._fetch_remote_odoo_records(
                             "product.product",
                             domain=[("barcode", "=", barcode)],
-                            fields_to_read=["id", "name", "default_code", "barcode"]
+                            fields_to_read=["id", "default_code", "barcode"]
                         )
-                        if remote_prods:
-                            r_prod = remote_prods[0]
-                            matched_var = product_model.search([("barcode", "=", barcode)], limit=1)
-                            if not matched_var and r_prod.get("default_code"):
-                                matched_var = product_model.search([("default_code", "=", r_prod["default_code"])], limit=1)
-                            if not matched_var:
-                                matched_tmpl = tmpl_model.create({
-                                    "name": r_prod.get("name") or title,
-                                    "default_code": r_prod.get("default_code") or sku or False,
-                                    "barcode": r_prod.get("barcode") or barcode or False,
-                                })
-                                matched_var = matched_tmpl.product_variant_id
-                            else:
-                                matched_tmpl = matched_var.product_tmpl_id
-
-                    if not matched_tmpl and not matched_var and sku:
+                        remote_only = bool(remote_prods)
+                    if not remote_only and sku:
                         remote_prods = account._fetch_remote_odoo_records(
                             "product.product",
                             domain=[("default_code", "=", sku)],
-                            fields_to_read=["id", "name", "default_code", "barcode"]
+                            fields_to_read=["id", "default_code", "barcode"]
                         )
-                        if remote_prods:
-                            r_prod = remote_prods[0]
-                            matched_var = product_model.search([("default_code", "=", sku)], limit=1)
-                            if not matched_var:
-                                matched_tmpl = tmpl_model.create({
-                                    "name": r_prod.get("name") or title,
-                                    "default_code": r_prod.get("default_code") or sku,
-                                    "barcode": r_prod.get("barcode") or False,
-                                })
-                                matched_var = matched_tmpl.product_variant_id
-                            else:
-                                matched_tmpl = matched_var.product_tmpl_id
+                        remote_only = bool(remote_prods)
                 except Exception:
-                    pass
+                    remote_only = False
 
             # 1. Crear / actualizar el Mapeo de Producto Liviano (Zero-Storage / Direct Product Link)
             mapping_model = self.env["marketplace.product.mapping"].sudo()
@@ -614,13 +591,15 @@ class MarketplacePublicationService(models.AbstractModel):
                 "product_tmpl_id": matched_tmpl.id if matched_tmpl else False,
                 "product_id": matched_var.id if matched_var else (matched_tmpl.product_variant_id.id if matched_tmpl and len(matched_tmpl.product_variant_ids) == 1 else False),
                 "sku": sku or False,
+                "barcode": barcode or False,
+                "remote_only": remote_only,
             }
             if mapping:
                 mapping.write(map_vals)
             else:
                 mapping = mapping_model.create(map_vals)
 
-            if matched_tmpl or matched_var:
+            if matched_tmpl or matched_var or remote_only:
                 reconciled_count += 1
                 # 2. Si el producto Odoo tiene el módulo cliente 'ml_product' instalado, enriquecer sus campos
                 if matched_tmpl and hasattr(matched_tmpl, "ml_item_id"):
@@ -736,8 +715,15 @@ class MarketplacePublicationService(models.AbstractModel):
         for mapping in mappings:
             prod = mapping.product_id or (mapping.product_tmpl_id.product_variant_id if mapping.product_tmpl_id else False)
             if not prod:
-                continue
-            real_stock = prod.virtual_available or 0.0
+                if mapping.remote_only and (mapping.sku or mapping.barcode):
+                    remote = account.get_remote_product_stock_price(sku=mapping.sku, barcode=mapping.barcode)
+                    if not remote:
+                        continue
+                    real_stock = remote.get("virtual_available") or 0.0
+                else:
+                    continue
+            else:
+                real_stock = prod.virtual_available or 0.0
             qty = account.calculate_marketplace_stock(real_stock)
             try:
                 outcome = _apply_stock(mapping.external_id, qty)
@@ -807,8 +793,15 @@ class MarketplacePublicationService(models.AbstractModel):
         for mapping in mappings:
             tmpl = mapping.product_tmpl_id or (mapping.product_id.product_tmpl_id if mapping.product_id else False)
             if not tmpl:
-                continue
-            base_price = tmpl.list_price or 0.0
+                if mapping.remote_only and (mapping.sku or mapping.barcode):
+                    remote = account.get_remote_product_stock_price(sku=mapping.sku, barcode=mapping.barcode)
+                    if not remote:
+                        continue
+                    base_price = remote.get("list_price") or 0.0
+                else:
+                    continue
+            else:
+                base_price = tmpl.list_price or 0.0
             price = account.calculate_marketplace_price(base_price)
             if price <= 0:
                 continue

@@ -20,6 +20,10 @@ class MarketplaceProductMapping(models.Model):
     external_id = fields.Char(string="ID externo", required=True, index=True)
     external_variant_id = fields.Char(string="ID variante externo", index=True)
     sku = fields.Char(string="SKU", index=True)
+    barcode = fields.Char(string="Código de Barras", index=True)
+    # True cuando el producto solo existe en el Odoo remoto del cliente (sin módulo instalado)
+    # y por lo tanto no hay product_id/product_tmpl_id local; se sincroniza vía XML-RPC directo.
+    remote_only = fields.Boolean(string="Vinculado solo por Odoo remoto", default=False)
     active = fields.Boolean(default=True)
 
     _mapping_external_unique = models.Constraint(

@@ -212,6 +212,23 @@ class MarketplaceAccount(models.Model):
         except Exception as err:
             raise UserError(f"Error al consultar '{model_name}' en Odoo remoto: {err}")
 
+    def get_remote_product_stock_price(self, sku=None, barcode=None):
+        """Lee stock pronosticado y precio de venta directo del Odoo remoto del cliente, sin crear ningún registro local."""
+        self.ensure_one()
+        domain = []
+        if barcode:
+            domain = [("barcode", "=", barcode)]
+        elif sku:
+            domain = [("default_code", "=", sku)]
+        else:
+            return False
+        records = self._fetch_remote_odoo_records(
+            "product.product",
+            domain=domain,
+            fields_to_read=["id", "virtual_available", "list_price"],
+        )
+        return records[0] if records else False
+
     def _notify_odoo_options(self, title, records, code_field=None, note=None):
         if not records:
             msg = f"No se encontraron registros en tu Odoo para {title}."
@@ -306,17 +323,9 @@ class MarketplaceAccount(models.Model):
         mapping_model = self.env["marketplace.product.mapping"]
         total_sce = mapping_model.search_count([("account_id", "=", self.id)])
         reconciled = mapping_model.search_count([
-            ("account_id", "=", self.id),
-            ("external_id", "!=", False),
-            ("product_id", "!=", False),
+            "&", ("account_id", "=", self.id), ("external_id", "!=", False),
+            "|", "|", ("product_id", "!=", False), ("product_tmpl_id", "!=", False), ("remote_only", "=", True),
         ])
-        if reconciled == 0:
-            reconciled = mapping_model.search_count([
-                ("account_id", "=", self.id),
-                ("external_id", "!=", False),
-                ("product_tmpl_id", "!=", False),
-            ])
-            
         unreconciled_ml = max(0, total_ml - reconciled)
 
         if total_ml > 0:
