@@ -4,7 +4,7 @@ import logging
 import xmlrpc.client
 from datetime import datetime
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -1241,7 +1241,7 @@ class SceOdooMigrationRun(models.Model):
             rec.write({"state": "queued", "last_error": False, "finished_at": False})
         return True
 
-    @models.api
+    @api.model
     def cron_process_migration_queue(self):
         runs = self.search([("state", "=", "queued")], limit=1, order="create_date asc")
         for run in runs:
