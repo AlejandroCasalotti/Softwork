@@ -251,6 +251,10 @@ class MercadoLibreProvider(IProvider):
             "condition": payload.get("condition") or "new",
             "listing_type_id": payload.get("listing_type_id") or payload.get("listing_type") or "gold_special",
         }
+        if payload.get("seller_custom_field"):
+            item["seller_custom_field"] = str(payload["seller_custom_field"])
+        if payload.get("shipping_mode"):
+            item["shipping"] = {"mode": payload["shipping_mode"]}
 
         attributes = self._normalize_attributes(payload)
         if attributes:

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_remote_publication_wizard_form" model="ir.ui.view">
+        <field name="name">marketplace.remote.publication.wizard.form</field>
+        <field name="model">marketplace.remote.publication.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Publicación remota">
+                <header>
+                    <button name="action_search_remote_products" type="object" string="Buscar productos" class="btn-primary" icon="fa-search"/>
+                    <button name="action_publish_selected" type="object" string="Publicar seleccionados" class="btn-primary" icon="fa-cloud-upload" invisible="selected_count == 0"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-info" role="status">
+                        Los productos se consultan en vivo desde Odoo. SCE conserva únicamente el mapping mínimo después de publicar.
+                    </div>
+                    <group>
+                        <group string="Origen y destino">
+                            <field name="account_id" options="{'no_create': True}"/>
+                            <field name="provider_type" readonly="1"/>
+                            <field name="search_query" placeholder="Nombre, SKU o código de barras"/>
+                        </group>
+                        <group string="Valores predeterminados">
+                            <field name="default_category_id" placeholder="Ej: MLA1055"/>
+                            <field name="default_listing_type"/>
+                            <field name="default_condition"/>
+                            <field name="default_shipping_mode"/>
+                            <button name="action_apply_defaults" type="object" string="Aplicar a seleccionados" class="btn-secondary" icon="fa-check" invisible="selected_count == 0"/>
+                        </group>
+                    </group>
+                    <div class="d-flex gap-2 mb-2" invisible="not line_ids">
+                        <button name="action_select_all" type="object" string="Seleccionar todos" class="btn-link"/>
+                        <button name="action_clear_selection" type="object" string="Limpiar selección" class="btn-link"/>
+                        <span class="text-muted"><field name="selected_count" readonly="1"/> seleccionados</span>
+                    </div>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom" decoration-success="state == 'done'" decoration-warning="state == 'mapped'" decoration-danger="state == 'error'">
+                            <field name="selected"/>
+                            <field name="name" readonly="1"/>
+                            <field name="sku" readonly="1"/>
+                            <field name="barcode" readonly="1" optional="hide"/>
+                            <field name="forecast_stock" readonly="1"/>
+                            <field name="base_price" readonly="1"/>
+                            <field name="title"/>
+                            <field name="category_id"/>
+                            <field name="listing_type" optional="hide"/>
+                            <field name="condition" optional="hide"/>
+                            <field name="shipping_mode" optional="hide"/>
+                            <field name="picture_url" optional="hide"/>
+                            <field name="attributes_json" optional="hide"/>
+                            <field name="existing_external_id" readonly="1" optional="show"/>
+                            <field name="state" widget="badge"/>
+                            <field name="error_message" readonly="1" optional="show"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_remote_publication_wizard" model="ir.actions.act_window">
+        <field name="name">Publicación remota</field>
+        <field name="res_model">marketplace.remote.publication.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_remote_publication"
+              name="Publicación remota"
+              parent="softwork_ecommerce_conector_base.menu_sce_operations"
+              action="action_remote_publication_wizard"
+              sequence="5"/>
+</odoo>

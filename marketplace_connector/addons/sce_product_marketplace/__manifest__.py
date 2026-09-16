@@ -28,6 +28,7 @@ extienden marketplace.publication con sus propios campos y servicios.
         "views/sce_job_marketplace_views.xml",
         "views/product_template_views.xml",
         "views/marketplace_product_status_wizard_views.xml",
+        "views/remote_publication_wizard_views.xml",
     ],
     "installable": True,
     "application": False,
