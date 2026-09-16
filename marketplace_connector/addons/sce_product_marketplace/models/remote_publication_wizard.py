@@ -56,8 +56,9 @@ class RemotePublicationWizard(models.TransientModel):
             "product.product",
             domain=domain,
             fields_to_read=[
-                "id", "display_name", "name", "default_code", "barcode",
-                "virtual_available", "list_price", "taxes_id",
+                "id", "product_tmpl_id", "categ_id", "display_name", "name",
+                "default_code", "barcode", "virtual_available", "list_price",
+                "standard_price", "taxes_id",
             ],
         )
         self.line_ids.unlink()
@@ -71,7 +72,7 @@ class RemotePublicationWizard(models.TransientModel):
                 mapping_domain += [("sku", "=", sku)] if sku else [("barcode", "=", barcode)]
                 mapping = mapping.sudo().search(mapping_domain, limit=1)
             base_price = self.account_id._get_remote_pricelist_price(
-                product["id"], product.get("list_price") or 0.0
+                product["id"], product.get("list_price") or 0.0, product_data=product
             )
             price_with_tax = self.account_id._get_remote_price_with_tax(
                 base_price, product.get("taxes_id") or []

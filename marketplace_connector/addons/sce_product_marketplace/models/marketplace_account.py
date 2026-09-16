@@ -300,20 +300,23 @@ class MarketplaceAccount(models.Model):
         records = self._fetch_remote_odoo_records(
             "product.product",
             domain=domain,
-            fields_to_read=["id", "virtual_available", "list_price", "taxes_id"],
+            fields_to_read=[
+                "id", "product_tmpl_id", "categ_id", "virtual_available",
+                "list_price", "standard_price", "taxes_id",
+            ],
         )
         if not records:
             return False
         record = records[0]
         pricelist_price = self._get_remote_pricelist_price(
-            record["id"], record.get("list_price") or 0.0
+            record["id"], record.get("list_price") or 0.0, product_data=record
         )
         record["price_with_tax"] = self._get_remote_price_with_tax(
             pricelist_price, record.get("taxes_id") or []
         )
         return record
 
-    def _get_remote_pricelist_price(self, product_id, fallback_price):
+    def _get_remote_pricelist_price(self, product_id, fallback_price, product_data=None):
         """Obtiene el precio del producto según la lista configurada en el Odoo remoto."""
         self.ensure_one()
         pricelist_ref = (self.pricelist_name or "").strip()
@@ -335,7 +338,11 @@ class MarketplaceAccount(models.Model):
                     [[pricelist_id], [product_id], [1.0]],
                 )
                 if isinstance(values, dict):
-                    return float(values.get(str(product_id), values.get(product_id, fallback_price)))
+                    product_values = values.get(str(product_id), values.get(product_id))
+                    if isinstance(product_values, dict):
+                        product_values = product_values.get(str(pricelist_id), product_values.get(pricelist_id))
+                    if product_values is not None:
+                        return float(product_values)
             except Exception:
                 values = models_rpc.execute_kw(
                     db, uid, password,
@@ -343,34 +350,135 @@ class MarketplaceAccount(models.Model):
                     [[pricelist_id], product_id, 1.0],
                 )
                 if isinstance(values, dict):
-                    return float(values.get(str(pricelist_id), fallback_price))
+                    value = values.get(str(pricelist_id), values.get(pricelist_id))
+                    if value is not None:
+                        return float(value)
         except Exception as err:
             _logger.warning(
                 "No se pudo calcular la lista de precios remota account_id=%s product_id=%s: %s",
                 self.id, product_id, err,
             )
+            return self._compute_remote_pricelist_items(
+                pricelist_ref, product_id, fallback_price, product_data or {}
+            )
+        return self._compute_remote_pricelist_items(
+            pricelist_ref, product_id, fallback_price, product_data or {}
+        )
+
+    def _compute_remote_pricelist_items(self, pricelist_ref, product_id, fallback_price, product_data):
+        """Fallback de reglas de lista remota para precio fijo, porcentaje y fórmula."""
+        domain = [("id", "=", int(pricelist_ref))] if pricelist_ref.isdigit() else [("name", "=", pricelist_ref)]
+        pricelists = self._fetch_remote_odoo_records(
+            "product.pricelist", domain=domain, fields_to_read=["id"]
+        )
+        if not pricelists:
             return fallback_price
-        return fallback_price
+        template_value = product_data.get("product_tmpl_id")
+        template_id = template_value[0] if isinstance(template_value, (list, tuple)) else template_value
+        category_value = product_data.get("categ_id")
+        category_id = category_value[0] if isinstance(category_value, (list, tuple)) else category_value
+        items = self._fetch_remote_odoo_records(
+            "product.pricelist.item",
+            domain=[("pricelist_id", "=", pricelists[0]["id"]), ("min_quantity", "<=", 1.0)],
+            fields_to_read=[
+                "applied_on", "product_id", "product_tmpl_id", "categ_id", "compute_price",
+                "fixed_price", "percent_price", "price_discount", "price_surcharge", "price_round",
+                "price_min_margin", "price_max_margin", "base",
+            ],
+        )
+
+        def rel_id(value):
+            return value[0] if isinstance(value, (list, tuple)) else value
+
+        applicable = []
+        for item in items:
+            applied_on = item.get("applied_on")
+            if applied_on == "0_product_variant" and rel_id(item.get("product_id")) != product_id:
+                continue
+            if applied_on == "1_product" and rel_id(item.get("product_tmpl_id")) != template_id:
+                continue
+            if applied_on == "2_product_category" and rel_id(item.get("categ_id")) != category_id:
+                continue
+            applicable.append(item)
+        if not applicable:
+            return fallback_price
+        priority = {"0_product_variant": 0, "1_product": 1, "2_product_category": 2, "3_global": 3}
+        rule = sorted(applicable, key=lambda item: priority.get(item.get("applied_on"), 9))[0]
+        compute_price = rule.get("compute_price")
+        if compute_price == "fixed":
+            return float(rule.get("fixed_price") or fallback_price)
+        if compute_price == "percentage":
+            return fallback_price * (1.0 - float(rule.get("percent_price") or 0.0) / 100.0)
+        price = fallback_price * (1.0 - float(rule.get("price_discount") or 0.0) / 100.0)
+        price += float(rule.get("price_surcharge") or 0.0)
+        rounding = float(rule.get("price_round") or 0.0)
+        if rounding:
+            price = round(price / rounding) * rounding
+        minimum_margin = float(rule.get("price_min_margin") or 0.0)
+        maximum_margin = float(rule.get("price_max_margin") or 0.0)
+        if minimum_margin:
+            price = max(price, fallback_price + minimum_margin)
+        if maximum_margin:
+            price = min(price, fallback_price + maximum_margin)
+        return price
 
     def _get_remote_price_with_tax(self, price_unit, tax_ids):
         """Aplica los impuestos del producto llamando a account.tax.compute_all en el Odoo remoto."""
         self.ensure_one()
         if not tax_ids or price_unit <= 0:
             return price_unit
+        normalized_tax_ids = [
+            int(tax[0] if isinstance(tax, (list, tuple)) else tax)
+            for tax in tax_ids
+            if tax
+        ]
+        if not normalized_tax_ids:
+            return price_unit
         try:
             db, uid, password, models_rpc = self._get_remote_odoo_rpc()
             result = models_rpc.execute_kw(
                 db, uid, password,
                 "account.tax", "compute_all",
-                [tax_ids, price_unit],
+                [normalized_tax_ids, price_unit],
                 {"quantity": 1.0},
             )
-            return result.get("total_included", price_unit) if isinstance(result, dict) else price_unit
+            if isinstance(result, dict) and result.get("total_included") is not None:
+                return float(result["total_included"])
         except Exception as err:
             _logger.warning(
                 "No se pudo calcular impuestos remotos account_id=%s: %s", self.id, err
             )
+        return self._compute_remote_taxes_from_records(price_unit, normalized_tax_ids)
+
+    def _compute_remote_taxes_from_records(self, price_unit, tax_ids):
+        """Fallback para impuestos remotos porcentuales/fijos cuando compute_all no está expuesto por RPC."""
+        try:
+            taxes = self._fetch_remote_odoo_records(
+                "account.tax",
+                domain=[("id", "in", tax_ids), ("active", "=", True)],
+                fields_to_read=["id", "amount", "amount_type", "price_include", "include_base_amount", "sequence"],
+            )
+        except Exception:
             return price_unit
+        total = float(price_unit)
+        base = float(price_unit)
+        for tax in sorted(taxes, key=lambda item: (item.get("sequence") or 0, item.get("id") or 0)):
+            if tax.get("price_include"):
+                continue
+            amount_type = tax.get("amount_type")
+            amount = float(tax.get("amount") or 0.0)
+            if amount_type == "percent":
+                tax_amount = base * amount / 100.0
+            elif amount_type == "fixed":
+                tax_amount = amount
+            elif amount_type == "division" and amount < 100.0:
+                tax_amount = base / (1.0 - amount / 100.0) - base
+            else:
+                continue
+            total += tax_amount
+            if tax.get("include_base_amount"):
+                base += tax_amount
+        return total
 
     @api.model
     def cron_enqueue_remote_marketplace_sync(self):
