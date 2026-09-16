@@ -302,7 +302,7 @@ class MarketplaceAccount(models.Model):
             domain=domain,
             fields_to_read=[
                 "id", "product_tmpl_id", "categ_id", "virtual_available",
-                "list_price", "standard_price", "taxes_id",
+                    "list_price", "standard_price", "taxes_id", "company_id",
             ],
         )
         if not records:
@@ -312,7 +312,9 @@ class MarketplaceAccount(models.Model):
             record["id"], record.get("list_price") or 0.0, product_data=record
         )
         price_with_tax = self._get_remote_price_with_tax(
-            pricelist_price, record.get("taxes_id") or []
+            pricelist_price,
+            record.get("taxes_id") or [],
+            company_id=record.get("company_id"),
         )
         record.update({
             "pricelist_price": pricelist_price,
@@ -427,7 +429,7 @@ class MarketplaceAccount(models.Model):
             price = min(price, fallback_price + maximum_margin)
         return price
 
-    def _get_remote_price_with_tax(self, price_unit, tax_ids):
+    def _get_remote_price_with_tax(self, price_unit, tax_ids, company_id=None):
         """Aplica los impuestos del producto llamando a account.tax.compute_all en el Odoo remoto."""
         self.ensure_one()
         if not tax_ids or price_unit <= 0:
@@ -437,6 +439,31 @@ class MarketplaceAccount(models.Model):
             for tax in tax_ids
             if tax
         ]
+        if not normalized_tax_ids:
+            return price_unit
+        company_value = company_id[0] if isinstance(company_id, (list, tuple)) else company_id
+        if not company_value:
+            company_value = self._get_remote_company_id()
+        try:
+            tax_records = self._fetch_remote_odoo_records(
+                "account.tax",
+                domain=[("id", "in", normalized_tax_ids), ("active", "=", True)],
+                fields_to_read=["id", "company_id"],
+            )
+            if company_value:
+                normalized_tax_ids = [
+                    tax["id"]
+                    for tax in tax_records
+                    if not tax.get("company_id")
+                    or (tax["company_id"][0] if isinstance(tax["company_id"], (list, tuple)) else tax["company_id"])
+                    == company_value
+                ]
+            else:
+                normalized_tax_ids = [tax["id"] for tax in tax_records]
+        except Exception as err:
+            _logger.warning(
+                "No se pudieron filtrar impuestos por compañía account_id=%s: %s", self.id, err
+            )
         if not normalized_tax_ids:
             return price_unit
         try:
@@ -454,6 +481,31 @@ class MarketplaceAccount(models.Model):
                 "No se pudo calcular impuestos remotos account_id=%s: %s", self.id, err
             )
         return self._compute_remote_taxes_from_records(price_unit, normalized_tax_ids)
+
+    def _get_remote_company_id(self):
+        """Resuelve la compañía activa del usuario remoto o la configurada en la cuenta."""
+        self.ensure_one()
+        company_ref = (self.odoo_company_name or "").strip()
+        if company_ref:
+            domain = [("id", "=", int(company_ref))] if company_ref.isdigit() else [("name", "=", company_ref)]
+            companies = self._fetch_remote_odoo_records(
+                "res.company", domain=domain, fields_to_read=["id"]
+            )
+            if companies:
+                return companies[0]["id"]
+        try:
+            db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+            users = models_rpc.execute_kw(
+                db, uid, password,
+                "res.users", "read", [[uid]], {"fields": ["company_id"]},
+            )
+            company = users[0].get("company_id") if users else False
+            return company[0] if isinstance(company, (list, tuple)) else company
+        except Exception as err:
+            _logger.warning(
+                "No se pudo resolver la compañía remota account_id=%s: %s", self.id, err
+            )
+            return False
 
     def _compute_remote_taxes_from_records(self, price_unit, tax_ids):
         """Fallback para impuestos remotos porcentuales/fijos cuando compute_all no está expuesto por RPC."""

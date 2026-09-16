@@ -58,7 +58,7 @@ class RemotePublicationWizard(models.TransientModel):
             fields_to_read=[
                 "id", "product_tmpl_id", "categ_id", "display_name", "name",
                 "default_code", "barcode", "virtual_available", "list_price",
-                "standard_price", "taxes_id",
+                "standard_price", "taxes_id", "company_id",
             ],
         )
         self.line_ids.unlink()
@@ -75,7 +75,9 @@ class RemotePublicationWizard(models.TransientModel):
                 product["id"], product.get("list_price") or 0.0, product_data=product
             )
             price_with_tax = self.account_id._get_remote_price_with_tax(
-                base_price, product.get("taxes_id") or []
+                base_price,
+                product.get("taxes_id") or [],
+                company_id=product.get("company_id"),
             )
             lines.append((0, 0, {
                 "selected": not bool(mapping),
