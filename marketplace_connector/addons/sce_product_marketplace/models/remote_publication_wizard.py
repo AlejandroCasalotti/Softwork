@@ -170,6 +170,9 @@ class RemotePublicationWizardLine(models.TransientModel):
     remote_product_id = fields.Integer(string="ID Odoo", required=True)
     name = fields.Char(readonly=True)
     title = fields.Char(string="Título", required=True)
+    family_name = fields.Char(string="Familia / Línea")
+    brand = fields.Char(string="Marca")
+    model_name = fields.Char(string="Modelo")
     sku = fields.Char(string="SKU", readonly=True)
     barcode = fields.Char(string="Código de Barras", readonly=True)
     forecast_stock = fields.Float(string="Stock pronosticado", readonly=True)
@@ -187,6 +190,9 @@ class RemotePublicationWizardLine(models.TransientModel):
         required=True,
     )
     attributes_json = fields.Text(string="Atributos JSON", default="[]")
+    attribute_line_ids = fields.One2many(
+        "marketplace.remote.publication.attribute.line", "publication_line_id", string="Atributos"
+    )
     picture_url = fields.Char(string="URL imagen")
     existing_external_id = fields.Char(string="ID existente", readonly=True)
     state = fields.Selection(
@@ -196,16 +202,96 @@ class RemotePublicationWizardLine(models.TransientModel):
     )
     error_message = fields.Text(readonly=True)
 
+    def action_open_configuration(self):
+        self.ensure_one()
+        view = self.env.ref(
+            "sce_product_marketplace.view_remote_publication_wizard_line_form"
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Completar publicación remota",
+            "res_model": self._name,
+            "view_mode": "form",
+            "views": [(view.id, "form")],
+            "res_id": self.id,
+            "target": "new",
+        }
+
+    def action_suggest_category(self):
+        self.ensure_one()
+        provider = self.env["sce.provider.factory"].get_provider(self.wizard_id.account_id)
+        result = provider.search_categories(query=self.title or self.name, limit=8)
+        categories = result.get("items") if isinstance(result, dict) else []
+        if not categories:
+            raise UserError("Mercado Libre no encontró una categoría sugerida para este producto.")
+        category = categories[0]
+        self.write({"category_id": category.get("category_id")})
+        return self.action_load_required_attributes()
+
+    def action_load_required_attributes(self):
+        self.ensure_one()
+        if not self.category_id:
+            raise UserError("Ingresá o sugerí una categoría antes de cargar atributos.")
+        provider = self.env["sce.provider.factory"].get_provider(self.wizard_id.account_id)
+        result = provider.get_category_required_fields(self.category_id)
+        required = result.get("items") if isinstance(result, dict) else []
+        self.attribute_line_ids.unlink()
+        values = []
+        for attribute in required or []:
+            if not isinstance(attribute, dict) or not attribute.get("id"):
+                continue
+            values.append((0, 0, {
+                "attribute_id": attribute["id"],
+                "attribute_name": attribute.get("name") or attribute["id"],
+                "required": True,
+                "value_type": attribute.get("value_type") or "string",
+                "allowed_values_json": json.dumps(attribute.get("values") or [], ensure_ascii=False),
+            }))
+        write_values = {"attribute_line_ids": values}
+        if not self.family_name:
+            write_values["family_name"] = self.title or self.name
+        self.write(write_values)
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Completar publicación remota",
+            "res_model": self._name,
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "res_id": self.id,
+            "target": "new",
+        }
+
     def _publish_remote(self, provider):
         self.ensure_one()
         if not self.category_id:
             raise UserError("Seleccioná una categoría antes de publicar.")
-        try:
-            attributes = json.loads(self.attributes_json or "[]")
-        except (TypeError, ValueError) as err:
-            raise UserError(f"Atributos JSON inválidos: {err}") from err
-        if not isinstance(attributes, list):
-            raise UserError("Atributos JSON debe contener una lista.")
+        missing = self.attribute_line_ids.filtered(
+            lambda attribute: attribute.required and not (attribute.value_id or attribute.value_name)
+        )
+        if missing:
+            raise UserError(
+                "Completá los atributos requeridos: %s"
+                % ", ".join(missing.mapped("attribute_name"))
+            )
+        attributes = self.attribute_line_ids.to_payload()
+        if self.brand:
+            attributes.append({"id": "BRAND", "value_name": self.brand})
+        if self.model_name:
+            attributes.append({"id": "MODEL", "value_name": self.model_name})
+        required_result = provider.get_category_required_fields(self.category_id)
+        required = required_result.get("items") if isinstance(required_result, dict) else []
+        provided_ids = {attribute.get("id") for attribute in attributes}
+        missing_ids = [
+            attribute.get("name") or attribute.get("id")
+            for attribute in required or []
+            if isinstance(attribute, dict)
+            and attribute.get("id")
+            and attribute.get("id") not in provided_ids
+        ]
+        if missing_ids:
+            raise UserError(
+                "Cargá y completá los atributos requeridos: %s" % ", ".join(missing_ids)
+            )
 
         account = self.wizard_id.account_id
         price = account.calculate_marketplace_price(self.base_price)
@@ -224,7 +310,11 @@ class RemotePublicationWizardLine(models.TransientModel):
             "attributes": attributes,
             "pictures": pictures,
             "seller_custom_field": self.sku or self.barcode,
-            "provider_data": {"remote_product_id": self.remote_product_id},
+            "family_name": self.family_name or self.title,
+            "provider_data": {
+                "remote_product_id": self.remote_product_id,
+                "family_name": self.family_name or self.title,
+            },
         }
         if self.existing_external_id:
             payload.update({
@@ -263,3 +353,33 @@ class RemotePublicationWizardLine(models.TransientModel):
             "error_message": False,
         })
         return result
+
+
+class RemotePublicationAttributeLine(models.TransientModel):
+    _name = "marketplace.remote.publication.attribute.line"
+    _description = "Atributo temporal de publicación remota"
+    _order = "required desc, attribute_name"
+
+    publication_line_id = fields.Many2one(
+        "marketplace.remote.publication.wizard.line", required=True, ondelete="cascade"
+    )
+    attribute_id = fields.Char(string="ID", required=True, readonly=True)
+    attribute_name = fields.Char(string="Atributo", required=True, readonly=True)
+    required = fields.Boolean(string="Requerido", readonly=True)
+    value_type = fields.Char(string="Tipo", readonly=True)
+    value_name = fields.Char(string="Valor")
+    value_id = fields.Char(string="ID valor")
+    allowed_values_json = fields.Text(string="Opciones permitidas", readonly=True)
+
+    def to_payload(self):
+        payload = []
+        for line in self:
+            if not line.value_id and not line.value_name:
+                continue
+            value = {"id": line.attribute_id}
+            if line.value_id:
+                value["value_id"] = line.value_id
+            if line.value_name:
+                value["value_name"] = line.value_name
+            payload.append(value)
+        return payload

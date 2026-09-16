@@ -50,8 +50,68 @@
                             <field name="existing_external_id" readonly="1" optional="show"/>
                             <field name="state" widget="badge"/>
                             <field name="error_message" readonly="1" optional="show"/>
+                            <button name="action_open_configuration" type="object" string="Completar" icon="fa-pencil"/>
                         </list>
                     </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_remote_publication_wizard_line_form" model="ir.ui.view">
+        <field name="name">marketplace.remote.publication.wizard.line.form</field>
+        <field name="model">marketplace.remote.publication.wizard.line</field>
+        <field name="arch" type="xml">
+            <form string="Completar publicación remota">
+                <header>
+                    <button name="action_suggest_category" type="object" string="Sugerir categoría" class="btn-primary" icon="fa-magic"/>
+                    <button name="action_load_required_attributes" type="object" string="Cargar atributos requeridos" class="btn-secondary" icon="fa-refresh" invisible="not category_id"/>
+                    <field name="state" widget="statusbar" statusbar_visible="ready,mapped,done,error"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-info" role="status">
+                        Esta información es temporal: se usa para validar y publicar, pero no se copia al catálogo de SCE.
+                    </div>
+                    <group>
+                        <group string="Producto remoto">
+                            <field name="name" readonly="1"/>
+                            <field name="remote_product_id" readonly="1"/>
+                            <field name="sku" readonly="1"/>
+                            <field name="barcode" readonly="1"/>
+                            <field name="forecast_stock" readonly="1"/>
+                            <field name="base_price" readonly="1"/>
+                        </group>
+                        <group string="Publicación">
+                            <field name="title"/>
+                            <field name="category_id" placeholder="Ej: MLA1055"/>
+                            <field name="family_name" placeholder="Ej: Línea Premium"/>
+                            <field name="brand"/>
+                            <field name="model_name"/>
+                            <field name="listing_type"/>
+                            <field name="condition"/>
+                            <field name="shipping_mode"/>
+                            <field name="picture_url" placeholder="https://..."/>
+                        </group>
+                    </group>
+                    <group string="Atributos requeridos por Mercado Libre">
+                        <field name="attribute_line_ids" nolabel="1">
+                            <list editable="bottom" decoration-danger="required and not value_name and not value_id">
+                                <field name="required"/>
+                                <field name="attribute_name" readonly="1"/>
+                                <field name="value_name"/>
+                                <field name="value_id" optional="hide"/>
+                                <field name="value_type" readonly="1" optional="hide"/>
+                                <field name="allowed_values_json" readonly="1" optional="hide"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group invisible="not error_message">
+                        <field name="error_message" readonly="1" nolabel="1"/>
+                    </group>
+                    <footer>
+                        <button string="Guardar" special="save" class="btn-primary"/>
+                        <button string="Cancelar" special="cancel" class="btn-secondary"/>
+                    </footer>
                 </sheet>
             </form>
         </field>
