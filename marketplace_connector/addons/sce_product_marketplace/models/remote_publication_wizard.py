@@ -16,7 +16,7 @@ class RemotePublicationWizard(models.TransientModel):
         domain="[('provider_type', '!=', 'odoo'), ('state', '=', 'connected'), ('active', '=', True)]",
     )
     provider_type = fields.Selection(related="account_id.provider_type", readonly=True)
-    search_query = fields.Char(string="Buscar en Odoo", placeholder="Nombre, SKU o código de barras")
+    search_query = fields.Char(string="Buscar en Odoo")
     default_category_id = fields.Char(string="Categoría predeterminada")
     default_listing_type = fields.Char(string="Tipo de publicación", default="gold_special")
     default_condition = fields.Selection(
