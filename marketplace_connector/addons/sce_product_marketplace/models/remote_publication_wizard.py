@@ -363,7 +363,7 @@ class RemotePublicationAttributeLine(models.TransientModel):
     publication_line_id = fields.Many2one(
         "marketplace.remote.publication.wizard.line", required=True, ondelete="cascade"
     )
-    attribute_id = fields.Char(string="ID", required=True, readonly=True)
+    attribute_id = fields.Char(string="ID atributo ML", required=True, readonly=True)
     attribute_name = fields.Char(string="Atributo", required=True, readonly=True)
     required = fields.Boolean(string="Requerido", readonly=True)
     value_type = fields.Char(string="Tipo", readonly=True)
