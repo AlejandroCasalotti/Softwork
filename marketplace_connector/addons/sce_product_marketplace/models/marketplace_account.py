@@ -311,9 +311,14 @@ class MarketplaceAccount(models.Model):
         pricelist_price = self._get_remote_pricelist_price(
             record["id"], record.get("list_price") or 0.0, product_data=record
         )
-        record["price_with_tax"] = self._get_remote_price_with_tax(
+        price_with_tax = self._get_remote_price_with_tax(
             pricelist_price, record.get("taxes_id") or []
         )
+        record.update({
+            "pricelist_price": pricelist_price,
+            "tax_amount": max(0.0, price_with_tax - pricelist_price),
+            "price_with_tax": price_with_tax,
+        })
         return record
 
     def _get_remote_pricelist_price(self, product_id, fallback_price, product_data=None):

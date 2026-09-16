@@ -39,7 +39,11 @@
                             <field name="sku" readonly="1"/>
                             <field name="barcode" readonly="1" optional="hide"/>
                             <field name="forecast_stock" readonly="1"/>
+                            <field name="pricelist_price" readonly="1" optional="hide"/>
+                            <field name="tax_amount" readonly="1" optional="hide"/>
                             <field name="base_price" readonly="1"/>
+                            <field name="account_rule_amount" readonly="1" optional="hide"/>
+                            <field name="final_price" readonly="1"/>
                             <field name="title"/>
                             <field name="category_id"/>
                             <field name="listing_type" optional="hide"/>
@@ -79,7 +83,11 @@
                             <field name="sku" readonly="1"/>
                             <field name="barcode" readonly="1"/>
                             <field name="forecast_stock" readonly="1"/>
+                            <field name="pricelist_price" readonly="1"/>
+                            <field name="tax_amount" readonly="1"/>
                             <field name="base_price" readonly="1"/>
+                            <field name="account_rule_amount" readonly="1"/>
+                            <field name="final_price" readonly="1"/>
                         </group>
                         <group string="Publicación">
                             <field name="title"/>

@@ -85,6 +85,8 @@ class RemotePublicationWizard(models.TransientModel):
                 "sku": sku,
                 "barcode": barcode,
                 "forecast_stock": product.get("virtual_available") or 0.0,
+                "pricelist_price": base_price,
+                "tax_amount": max(0.0, price_with_tax - base_price),
                 "base_price": price_with_tax,
                 "category_id": self.default_category_id,
                 "listing_type": self.default_listing_type or "gold_special",
@@ -176,7 +178,11 @@ class RemotePublicationWizardLine(models.TransientModel):
     sku = fields.Char(string="SKU", readonly=True)
     barcode = fields.Char(string="Código de Barras", readonly=True)
     forecast_stock = fields.Float(string="Stock pronosticado", readonly=True)
+    pricelist_price = fields.Float(string="Precio de lista", readonly=True)
+    tax_amount = fields.Float(string="Impuestos", readonly=True)
     base_price = fields.Float(string="Precio con impuestos", readonly=True)
+    account_rule_amount = fields.Float(string="Recargos de cuenta", compute="_compute_final_price")
+    final_price = fields.Float(string="Precio antes de cuotas", compute="_compute_final_price")
     category_id = fields.Char(string="Categoría")
     listing_type = fields.Char(string="Tipo publicación", default="gold_special", required=True)
     condition = fields.Selection(
@@ -201,6 +207,14 @@ class RemotePublicationWizardLine(models.TransientModel):
         readonly=True,
     )
     error_message = fields.Text(readonly=True)
+
+    def _compute_final_price(self):
+        for line in self:
+            final_price = line.wizard_id.account_id.calculate_marketplace_price(
+                line.base_price
+            ) if line.wizard_id.account_id else line.base_price
+            line.final_price = final_price
+            line.account_rule_amount = final_price - line.base_price
 
     def action_open_configuration(self):
         self.ensure_one()
@@ -233,18 +247,24 @@ class RemotePublicationWizardLine(models.TransientModel):
         if not self.category_id:
             raise UserError("Ingresá o sugerí una categoría antes de cargar atributos.")
         provider = self.env["sce.provider.factory"].get_provider(self.wizard_id.account_id)
-        result = provider.get_category_required_fields(self.category_id)
-        required = result.get("items") if isinstance(result, dict) else []
+        result = provider.get_category_attributes(self.category_id)
+        attributes = result.get("items") if isinstance(result, dict) else []
         self.attribute_line_ids.unlink()
         values = []
-        for attribute in required or []:
+        for attribute in attributes or []:
             if not isinstance(attribute, dict) or not attribute.get("id"):
+                continue
+            is_required = bool(attribute.get("required"))
+            is_conditional_required = bool(attribute.get("conditional_required"))
+            is_gtin = attribute["id"] in ("GTIN", "EAN", "BARCODE")
+            if not is_required and not is_conditional_required and not is_gtin:
                 continue
             values.append((0, 0, {
                 "attribute_id": attribute["id"],
                 "attribute_name": attribute.get("name") or attribute["id"],
-                "required": True,
+                "required": is_required or is_conditional_required,
                 "value_type": attribute.get("value_type") or "string",
+                "value_name": self.barcode if is_gtin and self.barcode else False,
                 "allowed_values_json": json.dumps(attribute.get("values") or [], ensure_ascii=False),
             }))
         write_values = {"attribute_line_ids": values}
@@ -274,6 +294,8 @@ class RemotePublicationWizardLine(models.TransientModel):
                 % ", ".join(missing.mapped("attribute_name"))
             )
         attributes = self.attribute_line_ids.to_payload()
+        if self.barcode and "GTIN" not in {attribute.get("id") for attribute in attributes}:
+            attributes.append({"id": "GTIN", "value_name": self.barcode})
         if self.brand:
             attributes.append({"id": "BRAND", "value_name": self.brand})
         if self.model_name:

@@ -92,6 +92,7 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
                     "name": item.get("name") or item["id"],
                     "value_type": item.get("value_type") or "string",
                     "required": bool(tags.get("required")),
+                    "conditional_required": bool(tags.get("conditional_required")),
                     "allow_variations": bool(tags.get("allow_variations")),
                     "values": [
                         {"id": value.get("id"), "name": value.get("name")}
