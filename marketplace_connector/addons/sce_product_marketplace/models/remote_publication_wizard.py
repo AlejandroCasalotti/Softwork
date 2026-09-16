@@ -151,6 +151,7 @@ class RemotePublicationWizard(models.TransientModel):
             "name": "Publicación remota",
             "res_model": self._name,
             "view_mode": "form",
+            "views": [(False, "form")],
             "res_id": self.id,
             "target": "current",
         }
