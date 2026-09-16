@@ -43,7 +43,9 @@ Incluye:
     ],
     "demo": [],
     "assets": {
-        "web.assets_backend": [],
+        "web.assets_backend": [
+            "softwork_ecommerce_conector_base/static/src/js/oauth_result_listener.js",
+        ],
     },
     "installable": True,
     "application": True,

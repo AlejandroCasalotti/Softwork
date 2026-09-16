@@ -1239,7 +1239,29 @@ class SceOdooMigrationRun(models.Model):
             if rec.state == "running":
                 continue
             rec.write({"state": "queued", "last_error": False, "finished_at": False})
+        self._trigger_migration_cron()
         return True
+
+    def _trigger_migration_cron(self):
+        cron = self.env.ref(
+            "softwork_ecommerce_conector_base.ir_cron_sce_process_odoo_migrations",
+            raise_if_not_found=False,
+        )
+        if not cron:
+            raise UserError(
+                "No se encontró la acción programada de migraciones. Actualizá el módulo "
+                "Softwork Ecommerce Connector Base."
+            )
+        if not cron.active:
+            cron.sudo().write({"active": True})
+        cron.sudo()._trigger()
+        return True
+
+    def action_process_queued_migration(self):
+        self.ensure_one()
+        if self.state != "queued":
+            raise UserError("Solo se puede procesar manualmente una migración que está en cola.")
+        return self._trigger_migration_cron()
 
     @api.model
     def cron_process_migration_queue(self):

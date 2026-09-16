@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import logging
 
 from odoo import http
@@ -8,6 +9,28 @@ _logger = logging.getLogger(__name__)
 
 
 class SceOAuthController(http.Controller):
+
+    def _oauth_popup_response(self, status, message, account_id=None):
+        fallback_url = (
+            f"/web#id={account_id}&model=sce.account&view_type=form"
+            if account_id else "/web"
+        )
+        html = f"""
+        <!doctype html>
+        <html><head><meta charset="utf-8"><title>Mercado Libre</title></head>
+        <body>
+        <script>
+            const payload = {json.dumps({"type": "sce_oauth_result", "status": status, "message": message})};
+            if (window.opener && !window.opener.closed) {{
+                window.opener.postMessage(payload, window.location.origin);
+                window.close();
+            }} else {{
+                window.location.replace({json.dumps(fallback_url)});
+            }}
+        </script>
+        </body></html>
+        """
+        return request.make_response(html, headers=[("Content-Type", "text/html; charset=utf-8")])
 
     @http.route(
         ["/sce/oauth/mercadolibre/start"],
@@ -26,7 +49,7 @@ class SceOAuthController(http.Controller):
             msg = str(err) or "No se pudo iniciar la conexión OAuth."
             if "sce.mercadolibre.client_id" in msg or "Redirect URI" in msg:
                 return request.redirect("/sce/oauth/mercadolibre/result?status=missing_config")
-            return request.redirect("/sce/oauth/mercadolibre/result?status=error")
+            return self._oauth_popup_response("error", f"Mercado Libre rechazó la autorización: {error}", account.id)
 
     @http.route(
         ["/sce/oauth/mercadolibre/callback"],
@@ -78,7 +101,7 @@ class SceOAuthController(http.Controller):
                             "last_error": "Falta PKCE code_verifier vigente. Reautorizá la conexión.",
                         }
                     )
-                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
+                    return self._oauth_popup_response("error", "Falta una autorización vigente. Volvé a intentar la conexión.", account.id)
                 account.write({"auth_code": clean_code})
                 account.action_exchange_code()
             except Exception as err:
@@ -96,16 +119,18 @@ class SceOAuthController(http.Controller):
                             "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
                         }
                     )
-                    return request.redirect("/sce/oauth/mercadolibre/result?status=reauthorize")
+                    return self._oauth_popup_response("error", "La autorización venció o fue revocada. Volvé a conectar la cuenta.", account.id)
                 account.write(
                     {
                         "state": "error",
                         "last_error": err_msg,
                     }
                 )
-                return request.redirect("/sce/oauth/mercadolibre/result?status=error")
+                return self._oauth_popup_response("error", err_msg, account.id)
 
-        return request.redirect("/sce/oauth/mercadolibre/result?status=ok")
+            return self._oauth_popup_response(
+                "ok", "La cuenta de Mercado Libre quedó conectada correctamente.", account.id
+            )
 
     @http.route(
         ["/sce/oauth/mercadolibre/result"],
