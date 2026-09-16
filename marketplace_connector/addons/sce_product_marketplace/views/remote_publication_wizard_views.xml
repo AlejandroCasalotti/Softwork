@@ -36,7 +36,7 @@
                         <list editable="bottom" decoration-success="state == 'done'" decoration-warning="state == 'mapped'" decoration-danger="state == 'error'">
                             <field name="selected"/>
                             <field name="name" readonly="1"/>
-                            <field name="sku" readonly="1"/>
+                            <field name="sku"/>
                             <field name="barcode" readonly="1" optional="hide"/>
                             <field name="forecast_stock" readonly="1"/>
                             <field name="pricelist_price" readonly="1" optional="hide"/>
@@ -80,7 +80,7 @@
                         <group string="Producto remoto">
                             <field name="name" readonly="1"/>
                             <field name="remote_product_id" readonly="1"/>
-                            <field name="sku" readonly="1"/>
+                            <field name="sku"/>
                             <field name="barcode" readonly="1"/>
                             <field name="forecast_stock" readonly="1"/>
                             <field name="pricelist_price" readonly="1"/>

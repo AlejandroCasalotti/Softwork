@@ -318,6 +318,8 @@ class MercadoLibreProvider(IProvider):
                 item["price"] = price
         if "available_quantity" in payload:
             item["available_quantity"] = max(0, self._to_int(payload.get("available_quantity"), 0))
+        if payload.get("seller_custom_field"):
+            item["seller_custom_field"] = str(payload["seller_custom_field"])
 
         attributes = self._normalize_attributes(payload)
         if attributes:

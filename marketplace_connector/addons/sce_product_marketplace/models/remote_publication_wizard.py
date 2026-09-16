@@ -299,6 +299,10 @@ class RemotePublicationWizardLine(models.TransientModel):
         self.ensure_one()
         if not self.category_id:
             raise UserError("Seleccioná una categoría antes de publicar.")
+        if not (self.sku or "").strip():
+            raise UserError(
+                "El producto necesita una Referencia Interna/SKU para publicarse y mantener la sincronización."
+            )
         missing = self.attribute_line_ids.filtered(
             lambda attribute: attribute.required and not (attribute.value_id or attribute.value_name)
         )
@@ -308,6 +312,8 @@ class RemotePublicationWizardLine(models.TransientModel):
                 % ", ".join(missing.mapped("attribute_name"))
             )
         attributes = self.attribute_line_ids.to_payload()
+        if "SELLER_SKU" not in {attribute.get("id") for attribute in attributes}:
+            attributes.append({"id": "SELLER_SKU", "value_name": self.sku.strip()})
         if self.barcode and "GTIN" not in {attribute.get("id") for attribute in attributes}:
             attributes.append({"id": "GTIN", "value_name": self.barcode})
         if self.brand:
@@ -345,7 +351,8 @@ class RemotePublicationWizardLine(models.TransientModel):
             "stock": quantity,
             "attributes": attributes,
             "pictures": pictures,
-            "seller_custom_field": self.sku or self.barcode,
+            "seller_custom_field": self.sku.strip(),
+            "seller_sku": self.sku.strip(),
             "family_name": self.family_name or self.title,
             "provider_data": {
                 "remote_product_id": self.remote_product_id,
