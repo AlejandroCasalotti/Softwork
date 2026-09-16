@@ -110,6 +110,7 @@
                                 <field name="value_id" optional="hide"/>
                                 <field name="value_type" readonly="1" optional="hide"/>
                                 <field name="allowed_values_json" readonly="1" optional="hide"/>
+                                <button name="action_show_options" type="object" icon="fa-search" title="Ver opciones permitidas por Mercado Libre"/>
                             </list>
                         </field>
                     </group>
@@ -117,7 +118,7 @@
                         <field name="error_message" readonly="1" nolabel="1"/>
                     </group>
                     <footer>
-                        <button string="Guardar" special="save" class="btn-primary"/>
+                        <button name="action_save_and_apply_defaults" type="object" string="Guardar y usar como predeterminado" class="btn-primary"/>
                         <button string="Cancelar" special="cancel" class="btn-secondary"/>
                     </footer>
                 </sheet>

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import json
 
+from markupsafe import Markup
+
 from odoo import fields, models
 from odoo.exceptions import UserError
 
@@ -283,6 +285,16 @@ class RemotePublicationWizardLine(models.TransientModel):
             "target": "new",
         }
 
+    def action_save_and_apply_defaults(self):
+        self.ensure_one()
+        self.wizard_id.write({
+            "default_category_id": self.category_id,
+            "default_listing_type": self.listing_type,
+            "default_condition": self.condition,
+            "default_shipping_mode": self.shipping_mode,
+        })
+        return {"type": "ir.actions.act_window_close"}
+
     def _publish_remote(self, provider):
         self.ensure_one()
         if not self.category_id:
@@ -394,6 +406,40 @@ class RemotePublicationAttributeLine(models.TransientModel):
     value_name = fields.Char(string="Valor")
     value_id = fields.Char(string="ID valor")
     allowed_values_json = fields.Text(string="Opciones permitidas", readonly=True)
+
+    def action_show_options(self):
+        self.ensure_one()
+        try:
+            options = json.loads(self.allowed_values_json or "[]")
+        except (TypeError, ValueError):
+            options = []
+        if not options:
+            message = "Mercado Libre permite ingresar un valor libre para este atributo."
+        else:
+            lines = [f"Opciones para {self.attribute_name}:"]
+            for option in options[:20]:
+                if not isinstance(option, dict):
+                    continue
+                name = option.get("name") or "Sin nombre"
+                option_id = option.get("id") or "Sin ID"
+                lines.append(f"• {name} — ID: {option_id}")
+            if len(options) > 20:
+                lines.append(f"… y {len(options) - 20} opciones más.")
+            lines.append("Ingresá el nombre o ID en el atributo.")
+            message = "\n".join(lines)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Opciones de Mercado Libre",
+                "message": Markup(
+                    "<pre style='margin:0; white-space:pre-wrap; font-family:inherit;'>%s</pre>"
+                    % message
+                ),
+                "type": "info",
+                "sticky": True,
+            },
+        }
 
     def to_payload(self):
         payload = []
