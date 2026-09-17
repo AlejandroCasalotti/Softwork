@@ -60,6 +60,12 @@ class MercadoLibreExternalProvider(IProvider):
     def answer_message(self, payload):
         return self._delegate.answer_message(payload)
 
+    def get_questions(self, status="UNANSWERED", limit=50):
+        return self._delegate.get_questions(status=status, limit=limit)
+
+    def answer_question(self, question_id, text):
+        return self._delegate.answer_question(question_id, text)
+
     def download_invoice(self, external_id):
         return self._delegate.download_invoice(external_id)
 

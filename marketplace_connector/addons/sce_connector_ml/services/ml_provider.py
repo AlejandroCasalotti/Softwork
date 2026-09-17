@@ -293,6 +293,42 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
         )
         return self._ok(action="answer_message", message_id=message_id, raw=data)
 
+    def get_questions(self, status="UNANSWERED", limit=50):
+        """Preguntas de productos (pre-venta), distintas de los mensajes post-venta."""
+        seller_id = self.account.external_user_id
+        if not seller_id:
+            seller_id = self._request("GET", "/users/me").get("id")
+        data = self._request(
+            "GET",
+            "/questions/search",
+            params={
+                "seller_id": seller_id,
+                "status": status,
+                "api_version": 4,
+                "limit": min(max(self._to_int(limit, 50), 1), 50),
+            },
+        )
+        items = data.get("questions") if isinstance(data, dict) else []
+        return self._ok(
+            action="get_questions",
+            items=items if isinstance(items, list) else [],
+            raw=data,
+        )
+
+    def answer_question(self, question_id, text):
+        question_id = str(question_id or "").strip()
+        text = (text or "").strip()
+        if not question_id:
+            raise UserError("Falta question_id para responder la pregunta.")
+        if not text:
+            raise UserError("Falta el texto de la respuesta.")
+        data = self._request(
+            "POST",
+            "/answers",
+            payload={"question_id": question_id, "text": text},
+        )
+        return self._ok(action="answer_question", question_id=question_id, raw=data)
+
     def download_invoice(self, external_id):
         external_id = str(external_id or "").strip()
         if not external_id:

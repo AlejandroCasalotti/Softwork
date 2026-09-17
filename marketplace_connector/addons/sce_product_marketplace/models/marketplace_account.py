@@ -145,6 +145,20 @@ class MarketplaceAccount(models.Model):
         help="Nombre o ID del almacén para ventas FULL de Mercado Libre.",
     )
 
+    # --- 4b. Preguntas de Mercado Libre → Discuss del cliente ---
+    sync_ml_questions = fields.Boolean(
+        string="Reenviar preguntas de ML al Discuss del cliente",
+        default=False,
+        help="Crea un canal de Discuss por cada pregunta nueva de Mercado Libre en el Odoo del cliente, "
+        "sin instalar ningún módulo adicional, y reenvía la respuesta del vendedor a Mercado Libre.",
+    )
+    ml_question_retention_days = fields.Integer(
+        string="Días de retención de canales respondidos",
+        default=30,
+        help="Cantidad de días que se conserva el canal de Discuss respondido antes de eliminarlo "
+        "(en SCE y en el Odoo del cliente).",
+    )
+
     # --- 5. Simulador de Precios en Vivo (Live Price Simulator) ---
     sim_base_price = fields.Float(
         string="Precio Base de Prueba ($)",
@@ -261,6 +275,80 @@ class MarketplaceAccount(models.Model):
             return True
         drop_pct = (last_price - new_price) / last_price * 100.0
         return drop_pct <= self.price_security_factor
+
+    # --- 6b. Puente de mensajería remota (Discuss) sin instalar módulos en el cliente ---
+    def create_remote_discuss_channel(self, name):
+        """Crea un canal de Discuss en el Odoo del cliente usando únicamente la API estándar de 'mail'."""
+        self.ensure_one()
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        try:
+            channel_id = models_rpc.execute_kw(
+                db, uid, password,
+                "discuss.channel", "create",
+                [{"name": name, "channel_type": "channel"}],
+            )
+            return channel_id
+        except Exception as err:
+            raise UserError(f"No se pudo crear el canal de Discuss en el Odoo remoto: {err}") from err
+
+    def post_remote_discuss_message(self, channel_id, body):
+        self.ensure_one()
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        try:
+            return models_rpc.execute_kw(
+                db, uid, password,
+                "discuss.channel", "message_post",
+                [[channel_id]],
+                {"body": body, "message_type": "comment", "subtype_xmlid": "mail.mt_comment"},
+            )
+        except Exception as err:
+            raise UserError(f"No se pudo publicar el mensaje en Discuss: {err}") from err
+
+    def fetch_remote_discuss_messages(self, channel_id, after_id=0):
+        self.ensure_one()
+        domain = [
+            ("model", "=", "discuss.channel"),
+            ("res_id", "=", channel_id),
+            ("id", ">", after_id or 0),
+            ("message_type", "=", "comment"),
+        ]
+        return self._fetch_remote_odoo_records(
+            "mail.message",
+            domain=domain,
+            fields_to_read=["id", "body", "author_id", "create_date"],
+        )
+
+    def archive_remote_discuss_channel(self, channel_id):
+        self.ensure_one()
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        try:
+            models_rpc.execute_kw(
+                db, uid, password,
+                "discuss.channel", "write",
+                [[channel_id], {"active": False}],
+            )
+        except Exception as err:
+            raise UserError(f"No se pudo archivar el canal de Discuss remoto: {err}") from err
+
+    def unlink_remote_discuss_channel(self, channel_id):
+        self.ensure_one()
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        try:
+            models_rpc.execute_kw(
+                db, uid, password,
+                "mail.message", "unlink",
+                [[m["id"] for m in self.fetch_remote_discuss_messages(channel_id)]],
+            )
+        except Exception:
+            pass
+        try:
+            models_rpc.execute_kw(
+                db, uid, password,
+                "discuss.channel", "unlink",
+                [[channel_id]],
+            )
+        except Exception as err:
+            raise UserError(f"No se pudo eliminar el canal de Discuss remoto: {err}") from err
 
     # --- 6. Métodos RPC para mapear opciones desde el Odoo del cliente ---
     def _get_remote_odoo_rpc(self):

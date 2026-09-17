@@ -112,6 +112,18 @@
                             </group>
                         </group>
                     </page>
+
+                    <page string="💬 Preguntas de Mercado Libre" name="page_ml_questions">
+                        <group>
+                            <field name="sync_ml_questions"/>
+                            <field name="ml_question_retention_days" invisible="not sync_ml_questions"/>
+                        </group>
+                        <p class="text-muted" invisible="not sync_ml_questions">
+                            Cada pregunta nueva de Mercado Libre crea un canal de Discuss en el Odoo del cliente
+                            (sin instalar ningún módulo). La respuesta que el cliente escriba en ese canal se
+                            reenvía automáticamente a Mercado Libre y el canal se archiva.
+                        </p>
+                    </page>
                 </notebook>
             </xpath>
         </field>
