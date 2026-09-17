@@ -19,6 +19,21 @@ from .oauth import MercadoLibreOAuth
 class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMercadoLibreProvider):
     """Connector-owned entry point for MercadoLibre provider behavior."""
 
+    def create_test_user(self, site_id="MLA", description="SCE Test"):
+        if getattr(self.account, "mode", "production") != "sandbox":
+            raise UserError("Los usuarios de prueba solo pueden crearse con una cuenta Sandbox.")
+        site_id = (site_id or "MLA").strip().upper()
+        if not site_id:
+            raise UserError("Falta el Site ID de Mercado Libre.")
+        result = self._request(
+            "POST",
+            "/users/test_user",
+            payload={"site_id": site_id, "description": description or "SCE Test"},
+        )
+        if not isinstance(result, dict) or not result.get("id"):
+            raise UserError("Mercado Libre no devolvió un usuario de prueba válido.")
+        return result
+
     def _build_item_payload(self, payload):
         payload = dict(payload or {})
         provider_data = payload.get("provider_data")

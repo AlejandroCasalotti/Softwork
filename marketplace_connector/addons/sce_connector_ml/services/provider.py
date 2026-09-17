@@ -88,6 +88,9 @@ class MercadoLibreExternalProvider(IProvider):
     def webhook(self, payload):
         return self._delegate.webhook(payload)
 
+    def create_test_user(self, site_id="MLA", description="SCE Test"):
+        return self._delegate.create_test_user(site_id=site_id, description=description)
+
     def _request(self, *args, **kwargs):
         return self._delegate._request(*args, **kwargs)
 

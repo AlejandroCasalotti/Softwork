@@ -19,6 +19,7 @@ extienden marketplace.publication con sus propios campos y servicios.
     "license": "LGPL-3",
     "depends": ["product", "softwork_ecommerce_conector_base"],
     "data": [
+        "security/sce_technical_security.xml",
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
         "views/marketplace_publication_views.xml",
@@ -29,6 +30,7 @@ extienden marketplace.publication con sus propios campos y servicios.
         "views/product_template_views.xml",
         "views/marketplace_product_status_wizard_views.xml",
         "views/remote_publication_wizard_views.xml",
+        "views/ml_test_user_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

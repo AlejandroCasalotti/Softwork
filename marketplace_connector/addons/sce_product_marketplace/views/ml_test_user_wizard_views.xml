@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_ml_test_user_wizard_form" model="ir.ui.view">
+        <field name="name">sce.ml.test.user.wizard.form</field>
+        <field name="model">sce.ml.test.user.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Usuarios de prueba Mercado Libre">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Herramienta técnica exclusiva para cuentas Sandbox. Las credenciales se muestran solo en esta sesión.
+                    </div>
+                    <group string="Configuración">
+                        <group>
+                            <field name="account_id" options="{'no_create': True}"/>
+                            <field name="site_id"/>
+                        </group>
+                        <group>
+                            <field name="quantity"/>
+                            <field name="description_prefix"/>
+                        </group>
+                    </group>
+                    <group string="Usuarios creados" invisible="not result_line_ids">
+                        <field name="result_line_ids" nolabel="1">
+                            <list create="0" delete="0">
+                                <field name="external_id"/>
+                                <field name="nickname"/>
+                                <field name="email"/>
+                                <field name="password" password="True"/>
+                                <field name="status" widget="badge" decoration-success="status == 'Creado'"/>
+                            </list>
+                        </field>
+                    </group>
+                    <footer>
+                        <button name="action_create_users" type="object" string="Crear usuarios Sandbox" class="btn-primary" icon="fa-users"/>
+                        <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sce_ml_test_user_wizard" model="ir.actions.act_window">
+        <field name="name">Usuarios de prueba ML</field>
+        <field name="res_model">sce.ml.test.user.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+    </record>
+
+    <menuitem id="menu_sce_ml_test_user_wizard"
+              name="Usuarios de prueba ML"
+              parent="softwork_ecommerce_conector_base.menu_sce_operations"
+              action="action_sce_ml_test_user_wizard"
+              groups="sce_product_marketplace.group_sce_technical"
+              sequence="90"/>
+</odoo>
