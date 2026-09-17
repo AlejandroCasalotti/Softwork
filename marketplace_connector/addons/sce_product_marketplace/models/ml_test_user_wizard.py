@@ -18,6 +18,12 @@ class SceMlTestUserWizard(models.TransientModel):
     description_prefix = fields.Char(string="Prefijo descriptivo", default="SCE Test")
     result_line_ids = fields.One2many("sce.ml.test.user.result", "wizard_id", string="Usuarios creados")
 
+    def default_get(self, fields_list):
+        values = super().default_get(fields_list)
+        if self.env.context.get("default_account_id"):
+            values["account_id"] = self.env.context["default_account_id"]
+        return values
+
     def action_create_users(self):
         self.ensure_one()
         if self.account_id.mode != "sandbox":
@@ -37,6 +43,7 @@ class SceMlTestUserWizard(models.TransientModel):
                 "nickname": result.get("nickname") or "",
                 "email": result.get("email") or "",
                 "password": result.get("password") or "",
+                "site_status": result.get("site_status") or "",
                 "status": "Creado",
             }))
         self.write({"result_line_ids": values})
@@ -61,4 +68,5 @@ class SceMlTestUserResult(models.TransientModel):
     nickname = fields.Char(string="Nickname", readonly=True)
     email = fields.Char(string="Email", readonly=True)
     password = fields.Char(string="Password", readonly=True)
+    site_status = fields.Char(string="Site status", readonly=True)
     status = fields.Char(string="Estado", readonly=True)

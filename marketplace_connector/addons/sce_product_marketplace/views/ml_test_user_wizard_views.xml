@@ -25,7 +25,8 @@
                                 <field name="external_id"/>
                                 <field name="nickname"/>
                                 <field name="email"/>
-                                <field name="password" password="True"/>
+                                <field name="password"/>
+                                <field name="site_status"/>
                                 <field name="status" widget="badge" decoration-success="status == 'Creado'"/>
                             </list>
                         </field>

@@ -13,6 +13,22 @@ _logger = logging.getLogger(__name__)
 class MarketplaceAccount(models.Model):
     _inherit = "sce.account"
 
+    def action_open_ml_test_user_wizard(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre" or self.mode != "sandbox":
+            raise UserError("Seleccioná una cuenta Mercado Libre en modo Sandbox.")
+        if self.state != "connected":
+            raise UserError("La cuenta Sandbox debe estar conectada antes de crear usuarios de prueba.")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Usuarios de prueba Mercado Libre",
+            "res_model": "sce.ml.test.user.wizard",
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+            "context": {"default_account_id": self.id},
+        }
+
     # --- 1. Vinculación Producto - Publicación & Multicompañía ---
     matching_field = fields.Selection(
         selection=[
