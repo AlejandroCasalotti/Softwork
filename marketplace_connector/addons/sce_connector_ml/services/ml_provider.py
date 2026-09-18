@@ -372,7 +372,7 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
             "import_orders": lambda: self.get_orders(params),
             "import_order": lambda: self.get_order(params.get("external_id")),
             "health_check": self.health,
-            "sync_messages": lambda: self.get_messages(params),
+            "sync_messages": lambda: self.get_questions(params.get("status") or "UNANSWERED"),
             "close_product": lambda: self.delete_product(payload),
             "import_item": lambda: self.get_item(
                 params.get("external_id")
