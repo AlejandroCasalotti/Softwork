@@ -310,35 +310,64 @@ class MarketplaceAccount(models.Model):
         except Exception as err:
             raise UserError(f"No se pudo crear el canal de Discuss en el Odoo remoto: {err}") from err
 
-    def post_remote_discuss_message(self, channel_id, body):
+    def post_remote_discuss_message(self, channel_id, body, mark_unread=True):
         self.ensure_one()
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
         try:
             self._ensure_remote_discuss_membership(channel_id, db, uid, password, models_rpc)
+            partner_id = self._get_remote_partner_id(db, uid, password, models_rpc)
+            message_values = {
+                "body": str(body),
+                "message_type": "comment",
+                "subtype_xmlid": "mail.mt_comment",
+                "context": {"mail_create_nosubscribe": True},
+            }
+            if partner_id:
+                message_values["partner_ids"] = [partner_id]
             models_rpc.execute_kw(
                 db, uid, password,
                 "discuss.channel", "message_post",
                 [[channel_id]],
-                {
-                    "body": str(body),
-                    "message_type": "comment",
-                    "subtype_xmlid": "mail.mt_comment",
-                    "context": {"mail_create_nosubscribe": True},
-                },
+                message_values,
             )
         except Exception as err:
             raise UserError(f"No se pudo publicar el mensaje en Discuss: {err}") from err
         messages = self.fetch_remote_discuss_messages(channel_id)
-        return max((message["id"] for message in messages), default=0)
+        message_id = max((message["id"] for message in messages), default=0)
+        if mark_unread and message_id:
+            self._mark_remote_discuss_message_unread(
+                channel_id, message_id, db, uid, password, models_rpc
+            )
+        return message_id
 
-    def _ensure_remote_discuss_membership(self, channel_id, db, uid, password, models_rpc):
+    def _get_remote_partner_id(self, db, uid, password, models_rpc):
         user = models_rpc.execute_kw(
             db, uid, password,
             "res.users", "read",
             [[uid]],
             {"fields": ["partner_id"]},
         )
-        partner_id = user[0]["partner_id"][0] if user and user[0].get("partner_id") else False
+        return user[0]["partner_id"][0] if user and user[0].get("partner_id") else False
+
+    def _mark_remote_discuss_message_unread(self, channel_id, message_id, db, uid, password, models_rpc):
+        partner_id = self._get_remote_partner_id(db, uid, password, models_rpc)
+        if not partner_id:
+            return
+        member_ids = models_rpc.execute_kw(
+            db, uid, password,
+            "discuss.channel.member", "search",
+            [[("channel_id", "=", channel_id), ("partner_id", "=", partner_id)]],
+            {"limit": 1},
+        )
+        if member_ids:
+            models_rpc.execute_kw(
+                db, uid, password,
+                "discuss.channel.member", "write",
+                [[member_ids[0]], {"new_message_separator": message_id}],
+            )
+
+    def _ensure_remote_discuss_membership(self, channel_id, db, uid, password, models_rpc):
+        partner_id = self._get_remote_partner_id(db, uid, password, models_rpc)
         if not partner_id:
             return
         models_rpc.execute_kw(

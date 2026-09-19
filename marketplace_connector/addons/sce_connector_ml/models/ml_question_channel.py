@@ -235,7 +235,9 @@ class MlQuestionChannel(models.Model):
                 "<p>✅ Respuesta enviada a Mercado Libre correctamente.<br/>"
                 "Este canal se archivará automáticamente.</p>"
             )
-            account.post_remote_discuss_message(self.remote_channel_id, confirmation)
+            account.post_remote_discuss_message(
+                self.remote_channel_id, confirmation, mark_unread=False
+            )
             account.archive_remote_discuss_channel(self.remote_channel_id)
         except Exception:
             _logger.exception(
