@@ -11,6 +11,7 @@
         "softwork_ecommerce_conector_base",
         "sce_product_marketplace",
     ],
+    "pre_init_hook": "pre_init_deduplicate_ml_question_channels",
     "data": [
         "security/ir.model.access.csv",
         "data/ir_cron.xml",

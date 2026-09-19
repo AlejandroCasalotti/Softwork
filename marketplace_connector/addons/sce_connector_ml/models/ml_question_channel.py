@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from markupsafe import Markup, escape
 
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -54,22 +53,10 @@ class MlQuestionChannel(models.Model):
     )
     answered_date = fields.Datetime(string="Fecha de respuesta")
 
-    @api.constrains("account_id", "ml_question_id")
-    def _check_unique_account_question(self):
-        for record in self:
-            if not record.account_id or not record.ml_question_id:
-                continue
-            duplicates = self.search_count(
-                [
-                    ("account_id", "=", record.account_id.id),
-                    ("ml_question_id", "=", record.ml_question_id),
-                    ("id", "!=", record.id),
-                ]
-            )
-            if duplicates:
-                raise ValidationError(
-                    "Ya existe un seguimiento para esta pregunta de Mercado Libre."
-                )
+    _ml_question_channel_unique = models.Constraint(
+        "UNIQUE(account_id, ml_question_id)",
+        "Ya existe un seguimiento para esta pregunta de Mercado Libre.",
+    )
 
     @api.model
     def _get_provider(self, account):
