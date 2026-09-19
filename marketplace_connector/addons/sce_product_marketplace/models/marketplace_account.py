@@ -282,11 +282,30 @@ class MarketplaceAccount(models.Model):
         self.ensure_one()
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
         try:
+            user = models_rpc.execute_kw(
+                db, uid, password,
+                "res.users", "read",
+                [[uid]],
+                {"fields": ["partner_id"]},
+            )
+            partner_id = user[0]["partner_id"][0] if user and user[0].get("partner_id") else False
+            values = {"name": name, "channel_type": "channel"}
+            if partner_id:
+                values["channel_partner_ids"] = [[4, partner_id]]
             channel_id = models_rpc.execute_kw(
                 db, uid, password,
                 "discuss.channel", "create",
-                [{"name": name, "channel_type": "channel"}],
+                [values],
             )
+            if partner_id:
+                try:
+                    models_rpc.execute_kw(
+                        db, uid, password,
+                        "discuss.channel", "add_members",
+                        [[channel_id], [partner_id]],
+                    )
+                except Exception:
+                    _logger.debug("El canal %s ya tiene al usuario remoto como miembro.", channel_id)
             return channel_id
         except Exception as err:
             raise UserError(f"No se pudo crear el canal de Discuss en el Odoo remoto: {err}") from err
@@ -295,6 +314,7 @@ class MarketplaceAccount(models.Model):
         self.ensure_one()
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
         try:
+            self._ensure_remote_discuss_membership(channel_id, db, uid, password, models_rpc)
             models_rpc.execute_kw(
                 db, uid, password,
                 "discuss.channel", "message_post",
@@ -311,19 +331,40 @@ class MarketplaceAccount(models.Model):
         messages = self.fetch_remote_discuss_messages(channel_id)
         return max((message["id"] for message in messages), default=0)
 
+    def _ensure_remote_discuss_membership(self, channel_id, db, uid, password, models_rpc):
+        user = models_rpc.execute_kw(
+            db, uid, password,
+            "res.users", "read",
+            [[uid]],
+            {"fields": ["partner_id"]},
+        )
+        partner_id = user[0]["partner_id"][0] if user and user[0].get("partner_id") else False
+        if not partner_id:
+            return
+        models_rpc.execute_kw(
+            db, uid, password,
+            "discuss.channel", "write",
+            [[channel_id], {"channel_partner_ids": [[4, partner_id]]}],
+        )
+
     def fetch_remote_discuss_messages(self, channel_id, after_id=0):
         self.ensure_one()
-        domain = [
-            ("model", "=", "discuss.channel"),
-            ("res_id", "=", channel_id),
-            ("id", ">", after_id or 0),
-            ("message_type", "=", "comment"),
-        ]
-        return self._fetch_remote_odoo_records(
-            "mail.message",
-            domain=domain,
-            fields_to_read=["id", "body", "author_id", "create_date"],
-        )
+        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
+        self._ensure_remote_discuss_membership(channel_id, db, uid, password, models_rpc)
+        try:
+            return models_rpc.execute_kw(
+                db, uid, password,
+                "mail.message", "search_read",
+                [[
+                    ("model", "=", "discuss.channel"),
+                    ("res_id", "=", channel_id),
+                    ("id", ">", after_id or 0),
+                    ("message_type", "=", "comment"),
+                ]],
+                {"fields": ["id", "body", "author_id", "create_date"], "order": "id asc"},
+            )
+        except Exception as err:
+            raise UserError(f"No se pudieron leer los mensajes de Discuss remoto: {err}") from err
 
     def archive_remote_discuss_channel(self, channel_id):
         self.ensure_one()
