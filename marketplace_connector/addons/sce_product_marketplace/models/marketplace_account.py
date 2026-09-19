@@ -314,7 +314,8 @@ class MarketplaceAccount(models.Model):
     def fetch_remote_discuss_messages(self, channel_id, after_id=0):
         self.ensure_one()
         domain = [
-            ("channel_ids", "in", [channel_id]),
+            ("model", "=", "discuss.channel"),
+            ("res_id", "=", channel_id),
             ("id", ">", after_id or 0),
             ("message_type", "=", "comment"),
         ]
