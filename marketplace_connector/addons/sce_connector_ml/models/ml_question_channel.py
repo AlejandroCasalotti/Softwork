@@ -98,10 +98,20 @@ class MlQuestionChannel(models.Model):
             question_id = str(question.get("id") or "").strip()
             if not question_id:
                 continue
-            exists = self.sudo().search_count(
-                [("account_id", "=", account.id), ("ml_question_id", "=", question_id)]
+            existing = self.sudo().search(
+                [("account_id", "=", account.id), ("ml_question_id", "=", question_id)],
+                limit=1,
             )
-            if exists:
+            if existing:
+                if not existing.last_message_id:
+                    try:
+                        existing._post_question_body(question)
+                    except Exception:
+                        _logger.exception(
+                            "Error recuperando el mensaje de la pregunta ML %s (cuenta %s)",
+                            question_id,
+                            account.display_name,
+                        )
                 continue
             try:
                 self._create_channel_for_question(account, question)
@@ -113,22 +123,7 @@ class MlQuestionChannel(models.Model):
                 )
 
     def _create_channel_for_question(self, account, question):
-        item_id = str((question.get("item_id") or "")).strip()
-        item_title = ""
-        item = question.get("item") if isinstance(question.get("item"), dict) else {}
-        if item:
-            item_title = item.get("title") or ""
-        if not item_title and item_id:
-            try:
-                item_data = self.env["sce.provider.factory"].get_provider(account).get_item(item_id) or {}
-                item_title = (item_data.get("item") or {}).get("title") or item_id
-            except Exception:
-                item_title = item_id
-        buyer_nickname = ""
-        from_data = question.get("from") if isinstance(question.get("from"), dict) else {}
-        buyer_nickname = from_data.get("nickname") or str(from_data.get("id") or "comprador")
-        question_text = question.get("text") or ""
-        question_date = _format_ml_date(question.get("date_created"))
+        item_id, item_title, buyer_nickname = self._get_question_details(account, question)
         question_id = str(question.get("id"))
 
         channel_name = f"ML: {item_title or item_id} - {buyer_nickname}"[:120]
@@ -148,9 +143,27 @@ class MlQuestionChannel(models.Model):
             }
         )
         self.env.cr.commit()
+        record._post_question_body(question)
 
-        # Todo el contenido proviene de Mercado Libre (no confiable): se escapa
-        # antes de insertarlo en el HTML del mensaje.
+    def _get_question_details(self, account, question):
+        item_id = str(question.get("item_id") or "").strip()
+        item = question.get("item") if isinstance(question.get("item"), dict) else {}
+        item_title = item.get("title") or ""
+        if not item_title and item_id:
+            try:
+                item_data = self._get_provider(account).get_item(item_id) or {}
+                item_title = (item_data.get("item") or {}).get("title") or item_id
+            except Exception:
+                item_title = item_id
+        from_data = question.get("from") if isinstance(question.get("from"), dict) else {}
+        buyer_nickname = from_data.get("nickname") or str(from_data.get("id") or "comprador")
+        return item_id, item_title, buyer_nickname
+
+    def _post_question_body(self, question):
+        self.ensure_one()
+        item_id, item_title, buyer_nickname = self._get_question_details(self.account_id, question)
+        question_text = question.get("text") or ""
+        question_date = _format_ml_date(question.get("date_created"))
         body = Markup(
             "<p>🛒 <b>Pregunta de Mercado Libre</b></p>"
             "<p>Publicación: {item_title} ({item_id})<br/>"
@@ -166,8 +179,8 @@ class MlQuestionChannel(models.Model):
             question_date=escape(question_date),
             question_text=escape(question_text),
         )
-        last_message_id = account.post_remote_discuss_message(remote_channel_id, body) or 0
-        record.last_message_id = last_message_id
+        last_message_id = self.account_id.post_remote_discuss_message(self.remote_channel_id, body) or 0
+        self.last_message_id = last_message_id
         self.env.cr.commit()
 
     @api.model

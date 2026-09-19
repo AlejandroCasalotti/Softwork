@@ -292,47 +292,25 @@ class MarketplaceAccount(models.Model):
             raise UserError(f"No se pudo crear el canal de Discuss en el Odoo remoto: {err}") from err
 
     def post_remote_discuss_message(self, channel_id, body):
-        """Publica el mensaje y devuelve su ID buscándolo aparte.
-
-        message_post() devuelve un recordset no serializable por XML-RPC: si
-        se usara directamente su valor de retorno, la llamada explota luego de
-        haber creado el mensaje remoto (efecto secundario ya consumado), lo que
-        deja el registro de seguimiento local sin crear y provoca reenvíos
-        infinitos en el cron de sincronización.
-        """
         self.ensure_one()
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
         try:
-            models_rpc.execute_kw(
+            return models_rpc.execute_kw(
                 db, uid, password,
-                "discuss.channel", "message_post",
-                [[channel_id]],
-                {"body": body, "message_type": "comment", "subtype_xmlid": "mail.mt_comment"},
+                "mail.message", "create",
+                [{
+                    "body": str(body),
+                    "message_type": "comment",
+                    "channel_ids": [[4, channel_id]],
+                }],
             )
         except Exception as err:
             raise UserError(f"No se pudo publicar el mensaje en Discuss: {err}") from err
-        return self._get_last_remote_message_id(channel_id)
-
-    def _get_last_remote_message_id(self, channel_id):
-        self.ensure_one()
-        db, uid, password, models_rpc = self._get_remote_odoo_rpc()
-        try:
-            ids = models_rpc.execute_kw(
-                db, uid, password,
-                "mail.message", "search",
-                [[("model", "=", "discuss.channel"), ("res_id", "=", channel_id)]],
-                {"order": "id desc", "limit": 1},
-            )
-            return ids[0] if ids else 0
-        except Exception as err:
-            raise UserError(f"No se pudo leer el último mensaje del canal Discuss remoto: {err}") from err
-
 
     def fetch_remote_discuss_messages(self, channel_id, after_id=0):
         self.ensure_one()
         domain = [
-            ("model", "=", "discuss.channel"),
-            ("res_id", "=", channel_id),
+            ("channel_ids", "in", [channel_id]),
             ("id", ">", after_id or 0),
             ("message_type", "=", "comment"),
         ]
