@@ -318,7 +318,6 @@ class MarketplaceAccount(models.Model):
             partner_id = self._get_remote_partner_id(db, uid, password, models_rpc)
             message_values = {
                 "body": str(body),
-                "body_is_html": True,
                 "message_type": "comment",
                 "subtype_xmlid": "mail.mt_comment",
                 "context": {"mail_create_nosubscribe": True},
