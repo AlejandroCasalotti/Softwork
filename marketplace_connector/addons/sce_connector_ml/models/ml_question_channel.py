@@ -1,11 +1,32 @@
 # -*- coding: utf-8 -*-
 import logging
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta
+
+from markupsafe import Markup, escape
 
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
+
+
+def _format_ml_date(raw):
+    """Convierte la fecha ISO8601 de ML (con nanosegundos) a dd/mm/YYYY HH:MM."""
+    text = str(raw or "").strip()
+    match = re.match(
+        r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?([+-]\d{2}:\d{2}|Z)?$", text
+    )
+    if not match:
+        return text
+    base, frac, tz = match.groups()
+    frac = frac[:7] if frac else ""  # punto + hasta 6 dígitos (microsegundos)
+    tz = "+00:00" if tz == "Z" else (tz or "")
+    try:
+        dt = datetime.fromisoformat(base + frac + tz)
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return text
 
 
 class MlQuestionChannel(models.Model):
@@ -82,7 +103,14 @@ class MlQuestionChannel(models.Model):
             )
             if exists:
                 continue
-            self._create_channel_for_question(account, question)
+            try:
+                self._create_channel_for_question(account, question)
+            except Exception:
+                _logger.exception(
+                    "Error creando canal Discuss para la pregunta ML %s (cuenta %s)",
+                    question_id,
+                    account.display_name,
+                )
 
     def _create_channel_for_question(self, account, question):
         item_id = str((question.get("item_id") or "")).strip()
@@ -100,32 +128,47 @@ class MlQuestionChannel(models.Model):
         from_data = question.get("from") if isinstance(question.get("from"), dict) else {}
         buyer_nickname = from_data.get("nickname") or str(from_data.get("id") or "comprador")
         question_text = question.get("text") or ""
-        question_date = question.get("date_created") or ""
+        question_date = _format_ml_date(question.get("date_created"))
+        question_id = str(question.get("id"))
 
         channel_name = f"ML: {item_title or item_id} - {buyer_nickname}"[:120]
         remote_channel_id = account.create_remote_discuss_channel(channel_name)
 
-        body = (
-            "<p>🛒 <b>Pregunta de Mercado Libre</b></p>"
-            f"<p>Publicación: {item_title or '-'} ({item_id})<br/>"
-            f"Comprador: {buyer_nickname}<br/>"
-            f"Fecha: {question_date}</p>"
-            f"<p>\"{question_text}\"</p>"
-            "<p>💬 Respondé este mensaje en este mismo canal.<br/>"
-            "Tu respuesta se enviará automáticamente a Mercado Libre.</p>"
-        )
-        last_message_id = account.post_remote_discuss_message(remote_channel_id, body) or 0
-
-        self.sudo().create(
+        # Se guarda apenas se crea el canal remoto (efecto ya irreversible) para
+        # que una falla posterior no dispare la creación de un canal duplicado
+        # en el próximo ciclo del cron.
+        record = self.sudo().create(
             {
                 "account_id": account.id,
-                "ml_question_id": str(question.get("id")),
+                "ml_question_id": question_id,
                 "item_id": item_id,
                 "remote_channel_id": remote_channel_id,
-                "last_message_id": last_message_id,
+                "last_message_id": 0,
                 "state": "pending",
             }
         )
+        self.env.cr.commit()
+
+        # Todo el contenido proviene de Mercado Libre (no confiable): se escapa
+        # antes de insertarlo en el HTML del mensaje.
+        body = Markup(
+            "<p>🛒 <b>Pregunta de Mercado Libre</b></p>"
+            "<p>Publicación: {item_title} ({item_id})<br/>"
+            "Comprador: {buyer_nickname}<br/>"
+            "Fecha: {question_date}</p>"
+            "<p>\"{question_text}\"</p>"
+            "<p>💬 Respondé este mensaje en este mismo canal.<br/>"
+            "Tu respuesta se enviará automáticamente a Mercado Libre.</p>"
+        ).format(
+            item_title=escape(item_title or "-"),
+            item_id=escape(item_id),
+            buyer_nickname=escape(buyer_nickname),
+            question_date=escape(question_date),
+            question_text=escape(question_text),
+        )
+        last_message_id = account.post_remote_discuss_message(remote_channel_id, body) or 0
+        record.last_message_id = last_message_id
+        self.env.cr.commit()
 
     @api.model
     def cron_check_ml_question_replies(self):
@@ -152,18 +195,15 @@ class MlQuestionChannel(models.Model):
         reply_text = self._plain_text(reply.get("body") or "")
         if not reply_text:
             self.last_message_id = reply.get("id") or self.last_message_id
+            self.env.cr.commit()
             return
 
         provider = self._get_provider(account)
         provider.answer_question(self.ml_question_id, reply_text)
 
-        confirmation = (
-            "<p>✅ Respuesta enviada a Mercado Libre correctamente.<br/>"
-            "Este canal se archivará automáticamente.</p>"
-        )
-        account.post_remote_discuss_message(self.remote_channel_id, confirmation)
-        account.archive_remote_discuss_channel(self.remote_channel_id)
-
+        # La respuesta ya se envió a ML (efecto irreversible): se persiste
+        # antes de los pasos best-effort de confirmación/archivado, para no
+        # reenviarla si algo falla más adelante.
         self.write(
             {
                 "state": "answered",
@@ -171,11 +211,23 @@ class MlQuestionChannel(models.Model):
                 "last_message_id": reply.get("id") or self.last_message_id,
             }
         )
+        self.env.cr.commit()
+
+        try:
+            confirmation = Markup(
+                "<p>✅ Respuesta enviada a Mercado Libre correctamente.<br/>"
+                "Este canal se archivará automáticamente.</p>"
+            )
+            account.post_remote_discuss_message(self.remote_channel_id, confirmation)
+            account.archive_remote_discuss_channel(self.remote_channel_id)
+        except Exception:
+            _logger.exception(
+                "Error confirmando/archivando el canal Discuss %s tras responder a ML",
+                self.remote_channel_id,
+            )
 
     @staticmethod
     def _plain_text(html_body):
-        import re
-
         text = re.sub(r"<[^>]+>", " ", html_body or "")
         return " ".join(text.split()).strip()
 
