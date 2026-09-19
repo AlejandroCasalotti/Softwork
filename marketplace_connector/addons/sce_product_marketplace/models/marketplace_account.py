@@ -295,17 +295,21 @@ class MarketplaceAccount(models.Model):
         self.ensure_one()
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
         try:
-            return models_rpc.execute_kw(
+            models_rpc.execute_kw(
                 db, uid, password,
-                "mail.message", "create",
-                [{
+                "discuss.channel", "message_post",
+                [[channel_id]],
+                {
                     "body": str(body),
                     "message_type": "comment",
-                    "channel_ids": [[4, channel_id]],
-                }],
+                    "subtype_xmlid": "mail.mt_comment",
+                    "context": {"mail_create_nosubscribe": True},
+                },
             )
         except Exception as err:
             raise UserError(f"No se pudo publicar el mensaje en Discuss: {err}") from err
+        messages = self.fetch_remote_discuss_messages(channel_id)
+        return max((message["id"] for message in messages), default=0)
 
     def fetch_remote_discuss_messages(self, channel_id, after_id=0):
         self.ensure_one()
