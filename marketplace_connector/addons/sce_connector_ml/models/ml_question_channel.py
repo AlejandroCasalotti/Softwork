@@ -3,6 +3,8 @@ import logging
 import re
 from datetime import datetime, timedelta
 
+from markupsafe import Markup, escape
+
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
@@ -166,14 +168,20 @@ class MlQuestionChannel(models.Model):
         item_id, item_title, buyer_nickname = self._get_question_details(self.account_id, question)
         question_text = question.get("text") or ""
         question_date = _format_ml_date(question.get("date_created"))
-        body = (
-            "🛒 Pregunta de Mercado Libre\n\n"
-            f"Publicación: {item_title or '-'} ({item_id})\n"
-            f"Comprador: {buyer_nickname}\n"
-            f"Fecha: {question_date}\n\n"
-            f"\"{question_text}\"\n\n"
-            "💬 Respondé este mensaje en este mismo canal.\n"
-            "Tu respuesta se enviará automáticamente a Mercado Libre."
+        body = Markup(
+            "<p>🛒 <strong>Pregunta de Mercado Libre</strong></p>"
+            "<p>Publicación: {item_title} ({item_id})<br/>"
+            "Comprador: {buyer_nickname}<br/>"
+            "Fecha: {question_date}</p>"
+            "<p>\"{question_text}\"</p>"
+            "<p>💬 Respondé este mensaje en este mismo canal.<br/>"
+            "Tu respuesta se enviará automáticamente a Mercado Libre.</p>"
+        ).format(
+            item_title=escape(item_title or "-"),
+            item_id=escape(item_id),
+            buyer_nickname=escape(buyer_nickname),
+            question_date=escape(question_date),
+            question_text=escape(question_text).replace("\n", Markup("<br/>")),
         )
         self.question_posted = True
         last_message_id = self.account_id.post_remote_discuss_message(self.remote_channel_id, body) or 0
