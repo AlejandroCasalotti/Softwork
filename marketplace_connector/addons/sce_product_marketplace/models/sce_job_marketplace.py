@@ -53,10 +53,8 @@ class SceMarketplaceJob(models.Model):
         if self.job_type in ("sync_prices", "sync_publication_price") and not self.publication_id:
             return service.sync_account_prices(self.account_id, payload)
         if self.job_type == "sync_messages" and "ml.question.channel" in self.env:
-            # ML no expone un endpoint genérico de "mensajes"; las preguntas de
-            # producto se sincronizan al Discuss remoto vía ml.question.channel.
-            self.env["ml.question.channel"].sudo()._sync_account_questions(self.account_id)
-            return {"ok": True, "action": "sync_messages"}
+            result = self.env["ml.question.channel"].sudo()._sync_account_questions(self.account_id)
+            return {"ok": not result["errors"], "action": "sync_messages", **result}
 
         if self.job_type not in {
             "publish_product",

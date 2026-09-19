@@ -94,6 +94,13 @@ class MlQuestionChannel(models.Model):
         provider = self._get_provider(account)
         response = provider.get_questions(status="UNANSWERED") or {}
         questions = response.get("items") or []
+        result = {
+            "questions_received": len(questions),
+            "created": 0,
+            "already_tracked": 0,
+            "recovered": 0,
+            "errors": [],
+        }
         for question in questions:
             question_id = str(question.get("id") or "").strip()
             if not question_id:
@@ -103,24 +110,34 @@ class MlQuestionChannel(models.Model):
                 limit=1,
             )
             if existing:
+                result["already_tracked"] += 1
                 if not existing.last_message_id:
                     try:
                         existing._post_question_body(question)
-                    except Exception:
+                        result["recovered"] += 1
+                    except Exception as error:
                         _logger.exception(
                             "Error recuperando el mensaje de la pregunta ML %s (cuenta %s)",
                             question_id,
                             account.display_name,
                         )
+                        result["errors"].append(
+                            {"question_id": question_id, "stage": "recover", "error": str(error)}
+                        )
                 continue
             try:
                 self._create_channel_for_question(account, question)
-            except Exception:
+                result["created"] += 1
+            except Exception as error:
                 _logger.exception(
                     "Error creando canal Discuss para la pregunta ML %s (cuenta %s)",
                     question_id,
                     account.display_name,
                 )
+                result["errors"].append(
+                    {"question_id": question_id, "stage": "create", "error": str(error)}
+                )
+        return result
 
     def _create_channel_for_question(self, account, question):
         item_id, item_title, buyer_nickname = self._get_question_details(account, question)
