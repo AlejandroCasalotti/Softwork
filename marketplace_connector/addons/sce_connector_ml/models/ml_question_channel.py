@@ -43,8 +43,9 @@ class MlQuestionChannel(models.Model):
     account_id = fields.Many2one("sce.account", required=True, ondelete="cascade", index=True)
     ml_question_id = fields.Char(string="ID Pregunta ML", required=True, index=True)
     item_id = fields.Char(string="ID Publicación ML")
-    remote_channel_id = fields.Integer(string="ID Canal Discuss remoto", required=True)
+    remote_channel_id = fields.Integer(string="ID Canal Discuss remoto")
     last_message_id = fields.Integer(string="Último mensaje remoto visto", default=0)
+    question_posted = fields.Boolean(string="Pregunta publicada", default=False, readonly=True)
     state = fields.Selection(
         [("pending", "Pendiente"), ("answered", "Respondida")],
         default="pending",
@@ -105,25 +106,16 @@ class MlQuestionChannel(models.Model):
             question_id = str(question.get("id") or "").strip()
             if not question_id:
                 continue
+            self.env.cr.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                [f"ml-question:{account.id}:{question_id}"],
+            )
             existing = self.sudo().search(
                 [("account_id", "=", account.id), ("ml_question_id", "=", question_id)],
                 limit=1,
             )
             if existing:
                 result["already_tracked"] += 1
-                if not existing.last_message_id:
-                    try:
-                        existing._post_question_body(question)
-                        result["recovered"] += 1
-                    except Exception as error:
-                        _logger.exception(
-                            "Error recuperando el mensaje de la pregunta ML %s (cuenta %s)",
-                            question_id,
-                            account.display_name,
-                        )
-                        result["errors"].append(
-                            {"question_id": question_id, "stage": "recover", "error": str(error)}
-                        )
                 continue
             try:
                 self._create_channel_for_question(account, question)
@@ -142,24 +134,17 @@ class MlQuestionChannel(models.Model):
     def _create_channel_for_question(self, account, question):
         item_id, item_title, buyer_nickname = self._get_question_details(account, question)
         question_id = str(question.get("id"))
-
-        channel_name = f"ML: {item_title or item_id} - {buyer_nickname}"[:120]
-        remote_channel_id = account.create_remote_discuss_channel(channel_name)
-
-        # Se guarda apenas se crea el canal remoto (efecto ya irreversible) para
-        # que una falla posterior no dispare la creación de un canal duplicado
-        # en el próximo ciclo del cron.
         record = self.sudo().create(
             {
                 "account_id": account.id,
                 "ml_question_id": question_id,
                 "item_id": item_id,
-                "remote_channel_id": remote_channel_id,
                 "last_message_id": 0,
                 "state": "pending",
             }
         )
-        self.env.cr.commit()
+        channel_name = f"ML: {item_title or item_id} - {buyer_nickname}"[:120]
+        record.remote_channel_id = account.create_remote_discuss_channel(channel_name)
         record._post_question_body(question)
 
     def _get_question_details(self, account, question):
@@ -178,6 +163,8 @@ class MlQuestionChannel(models.Model):
 
     def _post_question_body(self, question):
         self.ensure_one()
+        if self.question_posted:
+            return
         item_id, item_title, buyer_nickname = self._get_question_details(self.account_id, question)
         question_text = question.get("text") or ""
         question_date = _format_ml_date(question.get("date_created"))
@@ -196,9 +183,9 @@ class MlQuestionChannel(models.Model):
             question_date=escape(question_date),
             question_text=escape(question_text),
         )
+        self.question_posted = True
         last_message_id = self.account_id.post_remote_discuss_message(self.remote_channel_id, body) or 0
         self.last_message_id = last_message_id
-        self.env.cr.commit()
 
     @api.model
     def cron_check_ml_question_replies(self):
