@@ -52,6 +52,7 @@ class MlQuestionChannel(models.Model):
         index=True,
     )
     answered_date = fields.Datetime(string="Fecha de respuesta")
+    channel_archived = fields.Boolean(string="Canal archivado", default=False, readonly=True)
 
     _ml_question_channel_unique = models.Constraint(
         "UNIQUE(account_id, ml_question_id)",
@@ -220,15 +221,14 @@ class MlQuestionChannel(models.Model):
         try:
             confirmation = Markup(
                 "<p>✅ Respuesta enviada a Mercado Libre correctamente.<br/>"
-                "Este canal se archivará automáticamente.</p>"
+                "Este canal se archivará automáticamente en unos minutos.</p>"
             )
             account.post_remote_discuss_message(
                 self.remote_channel_id, confirmation, mark_unread=False
             )
-            account.archive_remote_discuss_channel(self.remote_channel_id)
         except Exception:
             _logger.exception(
-                "Error confirmando/archivando el canal Discuss %s tras responder a ML",
+                "Error confirmando el canal Discuss %s tras responder a ML",
                 self.remote_channel_id,
             )
 
@@ -236,6 +236,29 @@ class MlQuestionChannel(models.Model):
     def _plain_text(html_body):
         text = re.sub(r"<[^>]+>", " ", html_body or "")
         return " ".join(text.split()).strip()
+
+    @api.model
+    def cron_archive_answered_ml_question_channels(self):
+        """Archiva canales respondidos, con demora, para no cerrarlos con el navegador abierto."""
+        deadline = fields.Datetime.now() - timedelta(minutes=3)
+        answered = self.sudo().search(
+            [
+                ("state", "=", "answered"),
+                ("channel_archived", "=", False),
+                ("answered_date", "!=", False),
+                ("answered_date", "<=", deadline),
+            ]
+        )
+        for record in answered:
+            try:
+                record.account_id.archive_remote_discuss_channel(record.remote_channel_id)
+                record.channel_archived = True
+            except Exception:
+                _logger.exception(
+                    "Error archivando el canal Discuss %s (cuenta %s)",
+                    record.remote_channel_id,
+                    record.account_id.display_name,
+                )
 
     @api.model
     def cron_cleanup_ml_question_channels(self):
