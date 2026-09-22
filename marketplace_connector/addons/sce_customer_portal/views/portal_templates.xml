@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_sce_dashboard" name="SCE Subscription Dashboard">
+        <t t-call="portal.portal_layout">
+            <div class="container py-4">
+                <t t-if="subscription">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h1 class="h3 mb-1">Mi suscripción SCE</h1>
+                            <p class="text-muted mb-0">Control de uso y sincronización</p>
+                        </div>
+                        <span class="badge rounded-pill text-bg-success" t-if="subscription.state == 'active'">Activa</span>
+                        <span class="badge rounded-pill text-bg-warning" t-else=""><t t-esc="subscription.state"/></span>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="text-muted small">Plan actual</div>
+                                    <div class="h4 mb-1"><t t-esc="subscription.plan_id.name"/></div>
+                                    <div class="text-muted">Desde <t t-esc="subscription.start_date"/></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="text-muted small">Cuentas conectadas</div>
+                                    <div class="h4 mb-1"><t t-esc="subscription.connected_accounts_count"/></div>
+                                    <div class="text-muted">Actualizado al último ciclo</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body">
+                                    <div class="text-muted small">Próximo período</div>
+                                    <div class="h5 mb-1"><t t-esc="subscription.period_start"/> - <t t-esc="subscription.period_end"/></div>
+                                    <a class="btn btn-primary btn-sm mt-2" href="/my/sce/connect/mercadolibre">Conectar Mercado Libre</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <t t-set="latest" t-value="summaries[:1]"/>
+                    <t t-if="latest">
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-body">
+                                <h2 class="h5 mb-3">Uso del período anterior</h2>
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between"><span>Ventas sincronizadas</span><strong><t t-esc="latest[0].orders_count"/> / <t t-esc="latest[0].plan_id.max_monthly_orders"/></strong></div>
+                                        <div class="progress mt-2" style="height: 8px"><div class="progress-bar" role="progressbar" t-att-style="'width: %s%%' % min(100, latest[0].orders_count * 100 / max(1, latest[0].plan_id.max_monthly_orders))"/></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between"><span>Publicaciones / SKU</span><strong><t t-esc="latest[0].products_count"/> / <t t-esc="latest[0].plan_id.max_synced_products"/></strong></div>
+                                        <div class="progress mt-2" style="height: 8px"><div class="progress-bar" role="progressbar" t-att-style="'width: %s%%' % min(100, latest[0].products_count * 100 / max(1, latest[0].plan_id.max_synced_products))"/></div>
+                                    </div>
+                                </div>
+                                <div class="mt-4"><span class="text-muted">Importe estimado:</span> <strong><t t-esc="latest[0].amount_company_currency"/> <t t-esc="latest[0].company_currency_id.symbol"/></strong></div>
+                            </div>
+                        </div>
+                    </t>
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5">Historial de uso</h2>
+                            <div class="table-responsive">
+                                <table class="table align-middle mb-0">
+                                    <thead><tr><th>Período</th><th>Ventas</th><th>Publicaciones</th><th>Importe</th></tr></thead>
+                                    <tbody>
+                                        <tr t-foreach="summaries" t-as="summary">
+                                            <td><t t-esc="summary.period_start"/> - <t t-esc="summary.period_end"/></td>
+                                            <td><t t-esc="summary.orders_count"/></td>
+                                            <td><t t-esc="summary.products_count"/></td>
+                                            <td><t t-esc="summary.amount_company_currency"/> <t t-esc="summary.company_currency_id.symbol"/></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card border-0 shadow-sm mt-4">
+                        <div class="card-body">
+                            <h2 class="h5">Conexión con tu Odoo</h2>
+                            <p class="text-muted small">Completá estos datos una vez. SCE los valida y comienza la sincronización automáticamente.</p>
+                            <form action="/my/sce/odoo" method="post" class="row g-3">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="col-md-6"><label class="form-label">URL de Odoo</label><input class="form-control" name="odoo_base_url" t-att-value="account.odoo_base_url if account else ''" placeholder="https://tu-odoo.com" required="required"/></div>
+                                <div class="col-md-6"><label class="form-label">Base de datos</label><input class="form-control" name="odoo_db_name" t-att-value="account.odoo_db_name if account else ''" required="required"/></div>
+                                <div class="col-md-6"><label class="form-label">Usuario</label><input class="form-control" name="odoo_user" t-att-value="account.odoo_user if account else ''" required="required"/></div>
+                                <div class="col-md-6"><label class="form-label">API Key / contraseña</label><input type="password" class="form-control" name="odoo_password" required="required"/></div>
+                                <div class="col-md-4 form-check ms-2"><input class="form-check-input" type="checkbox" name="sync_stock" t-att-checked="'checked' if account and account.sync_stock else None"/><label class="form-check-label">Sincronizar stock</label></div>
+                                <div class="col-md-4 form-check"><input class="form-check-input" type="checkbox" name="sync_prices" t-att-checked="'checked' if account and account.sync_prices else None"/><label class="form-check-label">Sincronizar precios</label></div>
+                                <div class="col-md-4 form-check"><input class="form-check-input" type="checkbox" name="sync_orders" t-att-checked="'checked' if account and account.sync_orders else None"/><label class="form-check-label">Sincronizar ventas</label></div>
+                                <div class="col-12"><button type="submit" class="btn btn-primary">Guardar y probar conexión</button></div>
+                            </form>
+                        </div>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="text-center py-5">
+                    <h1 class="h3">Conectá tu cuenta SCE</h1>
+                    <p class="text-muted">Todavía no hay una suscripción asociada a tu empresa.</p>
+                    </div>
+                </t>
+            </div>
+        </t>
+    </template>
+</odoo>

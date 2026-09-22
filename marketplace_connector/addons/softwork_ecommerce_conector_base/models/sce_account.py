@@ -117,6 +117,44 @@ class SceAccount(models.Model):
     sync_stock = fields.Boolean(string="Sincronizar Stock", default=True)
     sync_prices = fields.Boolean(string="Sincronizar Precios", default=True)
     last_sync = fields.Datetime(string="Última sincronización")
+    initial_sync_queued = fields.Boolean(
+        string="Sincronización inicial encolada",
+        default=False,
+        readonly=True,
+        copy=False,
+    )
+
+    def write(self, vals):
+        result = super().write(vals)
+        if not self.env.context.get("skip_initial_sync_check"):
+            self._enqueue_initial_sync_if_ready()
+        return result
+
+    def _enqueue_initial_sync_if_ready(self):
+        for account in self:
+            if account.initial_sync_queued or account.state != "connected":
+                continue
+            if account.provider_type != "mercadolibre":
+                continue
+            if not all(
+                (account.odoo_base_url, account.odoo_db_name, account.odoo_user, account.odoo_password)
+            ):
+                continue
+            job_model = self.env["sce.job"].sudo()
+            for job_type, label in (
+                ("sync_products", "productos"),
+                ("sync_stock", "stock"),
+                ("sync_prices", "precios"),
+            ):
+                job_model.create(
+                    {
+                        "name": f"Sincronización inicial {label} - {account.display_name}",
+                        "account_id": account.id,
+                        "job_type": job_type,
+                        "payload_json": "{}",
+                    }
+                )
+            account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
 
     @api.onchange("connector_id")
     def _onchange_connector_id_set_provider_type(self):

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
+from calendar import monthrange
 from datetime import timedelta
+import json
+
+from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
 
@@ -14,7 +18,11 @@ class SceSubscriptionPlan(models.Model):
     code = fields.Char(required=True, index=True)
     active = fields.Boolean(default=True)
     max_synced_products = fields.Integer(required=True, default=1000)
+    max_monthly_orders = fields.Integer(required=True, default=100)
     price_monthly = fields.Monetary(required=True, default=0.0, currency_field="currency_id")
+    portal_price_monthly = fields.Monetary(
+        required=True, default=0.0, currency_field="currency_id"
+    )
     currency_id = fields.Many2one("res.currency", required=True, default=lambda self: self.env.company.currency_id)
     description = fields.Text()
 
@@ -33,6 +41,13 @@ class SceSubscription(models.Model):
         index=True,
     )
     plan_id = fields.Many2one("sce.subscription.plan", required=True, ondelete="restrict", tracking=True)
+    partner_id = fields.Many2one("res.partner", required=True, ondelete="restrict", tracking=True)
+    customer_type = fields.Selection(
+        [("premium", "Cliente Premium"), ("portal", "Cliente Portal")],
+        default="portal",
+        required=True,
+        tracking=True,
+    )
     state = fields.Selection(
         selection=[
             ("trial", "Trial"),
@@ -61,12 +76,199 @@ class SceSubscription(models.Model):
     start_date = fields.Date(required=True, default=fields.Date.context_today)
     end_date = fields.Date()
     synced_products_count = fields.Integer(default=0, tracking=True)
+    synced_orders_count = fields.Integer(default=0, tracking=True)
+    connected_accounts_count = fields.Integer(default=0, tracking=True)
+    period_start = fields.Date(compute="_compute_current_period", store=True)
+    period_end = fields.Date(compute="_compute_current_period", store=True)
+    usage_summary_ids = fields.One2many("sce.usage.summary", "subscription_id")
+    sale_order_ids = fields.One2many("sale.order", "sce_subscription_id")
+    last_billed_period_end = fields.Date(readonly=True)
+    last_sale_order_id = fields.Many2one("sale.order", readonly=True)
     over_limit = fields.Boolean(compute="_compute_over_limit", store=True)
 
     @api.depends("synced_products_count", "plan_id.max_synced_products")
     def _compute_over_limit(self):
         for rec in self:
             rec.over_limit = bool(rec.plan_id and rec.synced_products_count > rec.plan_id.max_synced_products)
+
+    @api.depends("start_date", "end_date")
+    def _compute_current_period(self):
+        today = fields.Date.today()
+        for rec in self:
+            if not rec.start_date:
+                rec.period_start = rec.period_end = False
+                continue
+            start = rec.start_date
+            while start > today:
+                start -= relativedelta(months=1)
+            period_end = start + relativedelta(months=1) - timedelta(days=1)
+            while period_end < today:
+                start = start + relativedelta(months=1)
+                period_end = start + relativedelta(months=1) - timedelta(days=1)
+            rec.period_start = start
+            rec.period_end = period_end
+
+    def _period_for_date(self, date_value):
+        self.ensure_one()
+        start = self.start_date
+        while start + relativedelta(months=1) - timedelta(days=1) < date_value:
+            start += relativedelta(months=1)
+        return start, start + relativedelta(months=1) - timedelta(days=1)
+
+    def _monthly_price(self):
+        self.ensure_one()
+        return self.plan_id.portal_price_monthly if self.customer_type == "portal" else self.plan_id.price_monthly
+
+    @api.model
+    def get_or_create_portal_subscription(self, partner):
+        partner = partner.commercial_partner_id
+        subscription = self.search(
+            [("partner_id", "=", partner.id), ("state", "!=", "cancelled")],
+            order="create_date desc",
+            limit=1,
+        )
+        if subscription:
+            return subscription
+        plan = self.env.ref(
+            "softwork_ecommerce_conector_base.sce_subscription_plan_initial", raise_if_not_found=False
+        )
+        if not plan:
+            plan = self.env["sce.subscription.plan"].search([("active", "=", True)], order="sequence", limit=1)
+        if not plan:
+            return self.env["sce.subscription"]
+        return self.create(
+            {
+                "name": f"SCE - {partner.name}",
+                "company_id": self.env.company.id,
+                "partner_id": partner.id,
+                "plan_id": plan.id,
+                "customer_type": "portal",
+                "state": "trial",
+                "start_date": fields.Date.today(),
+            }
+        )
+
+    def _usage_for_period(self, start, end):
+        self.ensure_one()
+        metrics = self.env["sce.usage.metric"].read_group(
+            [
+                ("company_id", "=", self.company_id.id),
+                ("date", ">=", start),
+                ("date", "<=", end),
+                ("metric_type", "in", ["orders_imported", "products_synced"]),
+            ],
+            ["metric_type", "value:sum"],
+            ["metric_type"],
+        )
+        totals = {row["metric_type"]: row["value"] for row in metrics}
+        account_domain = [
+            ("company_id", "=", self.company_id.id),
+            ("state", "=", "connected"),
+            ("active", "=", True),
+        ]
+        publication_count = self.env["marketplace.publication"].search_count(
+            [("account_id.company_id", "=", self.company_id.id), ("state", "=", "published")]
+        ) if "marketplace.publication" in self.env else 0
+        return {
+            "orders": int(totals.get("orders_imported", 0)),
+            "products": publication_count or int(totals.get("products_synced", 0)),
+            "accounts": self.env["sce.account"].search_count(account_domain),
+        }
+
+    def _select_plan_for_usage(self, usage):
+        plans = self.env["sce.subscription.plan"].search(
+            [("active", "=", True)], order="price_monthly asc, sequence asc"
+        )
+        for plan in plans:
+            if usage["orders"] <= plan.max_monthly_orders and usage["products"] <= plan.max_synced_products:
+                return plan
+        return plans[-1] if plans else self.plan_id
+
+    def _ensure_billing_product(self):
+        product = self.env["product.product"].search(
+            [("default_code", "=", "SCE-SUBSCRIPTION")], limit=1
+        )
+        if product:
+            return product
+        template = self.env["product.template"].create(
+            {
+                "name": "SCE Suscripción de integración",
+                "default_code": "SCE-SUBSCRIPTION",
+                "type": "service",
+                "sale_ok": True,
+                "purchase_ok": False,
+            }
+        )
+        return template.product_variant_id
+
+    def _create_draft_sale_order(self, start, end, usage, plan, amount):
+        self.ensure_one()
+        existing = self.env["sale.order"].search(
+            [("sce_subscription_id", "=", self.id), ("sce_period_end", "=", end)], limit=1
+        )
+        if existing:
+            return existing
+        product = self._ensure_billing_product()
+        days_total = (end - start).days + 1
+        active_days = days_total
+        amount_company_currency = self.plan_id.currency_id._convert(
+            amount, self.company_id.currency_id, self.company_id, end
+        )
+        prorated_amount = amount_company_currency * active_days / days_total
+        order = self.env["sale.order"].create(
+            {
+                "partner_id": self.partner_id.id,
+                "company_id": self.company_id.id,
+                "origin": f"SCE {self.name} {start} - {end}",
+                "sce_subscription_id": self.id,
+                "sce_period_start": start,
+                "sce_period_end": end,
+                "sce_usage_json": json.dumps(usage, ensure_ascii=False),
+                "order_line": [(0, 0, {
+                    "product_id": product.id,
+                    "name": f"SCE {plan.name} - {start} a {end}",
+                    "product_uom_qty": 1.0,
+                    "price_unit": prorated_amount,
+                })],
+            }
+        )
+        self.write({"last_billed_period_end": end, "last_sale_order_id": order.id})
+        return order
+
+    @api.model
+    def cron_generate_usage_orders(self):
+        today = fields.Date.today()
+        for subscription in self.search([("state", "in", ["trial", "active", "grace", "restricted"])]):
+            start, end = subscription._period_for_date(today - relativedelta(months=1))
+            if end >= today or subscription.last_billed_period_end and subscription.last_billed_period_end >= end:
+                continue
+            usage = subscription._usage_for_period(start, end)
+            plan = subscription._select_plan_for_usage(usage)
+            order = subscription._create_draft_sale_order(
+                start, end, usage, plan, plan.portal_price_monthly if subscription.customer_type == "portal" else plan.price_monthly
+            )
+            summary = self.env["sce.usage.summary"].search(
+                [("subscription_id", "=", subscription.id), ("period_start", "=", start), ("period_end", "=", end)],
+                limit=1,
+            )
+            values = {
+                "subscription_id": subscription.id,
+                "period_start": start,
+                "period_end": end,
+                "plan_id": plan.id,
+                "orders_count": usage["orders"],
+                "products_count": usage["products"],
+                "connected_accounts_count": usage["accounts"],
+                "days_active": (end - start).days + 1,
+                "amount_usd": plan.portal_price_monthly if subscription.customer_type == "portal" else plan.price_monthly,
+                "amount_company_currency": order.amount_total,
+                "sale_order_id": order.id,
+                "state": "ordered",
+            }
+            if summary:
+                summary.write(values)
+            else:
+                self.env["sce.usage.summary"].create(values)
 
     def action_mark_past_due(self):
         today = fields.Date.today()

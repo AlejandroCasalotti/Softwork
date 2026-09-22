@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_sce_client_premium" model="res.groups">
+        <field name="name">SCE Cliente Premium</field>
+    </record>
+</odoo>

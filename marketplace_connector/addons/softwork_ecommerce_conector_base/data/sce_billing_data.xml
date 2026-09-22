@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_sce_subscription_template" model="product.template">
+        <field name="name">SCE Suscripción de integración</field>
+        <field name="default_code">SCE-SUBSCRIPTION</field>
+        <field name="type">service</field>
+        <field name="sale_ok">True</field>
+        <field name="purchase_ok">False</field>
+    </record>
+
+    <record id="sce_subscription_plan_initial" model="sce.subscription.plan">
+        <field name="name">Inicial</field>
+        <field name="code">initial</field>
+        <field name="sequence">10</field>
+        <field name="max_monthly_orders">100</field>
+        <field name="max_synced_products">100</field>
+        <field name="price_monthly">25</field>
+        <field name="portal_price_monthly">20</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="description">Hasta 100 ventas mensuales y 100 publicaciones o SKU.</field>
+    </record>
+    <record id="sce_subscription_plan_basic" model="sce.subscription.plan">
+        <field name="name">Básico</field>
+        <field name="code">basic</field>
+        <field name="sequence">20</field>
+        <field name="max_monthly_orders">600</field>
+        <field name="max_synced_products">3000</field>
+        <field name="price_monthly">60</field>
+        <field name="portal_price_monthly">48</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="description">Hasta 600 ventas mensuales y 3.000 publicaciones o SKU.</field>
+    </record>
+    <record id="sce_subscription_plan_advanced" model="sce.subscription.plan">
+        <field name="name">Avanzado</field>
+        <field name="code">advanced</field>
+        <field name="sequence">30</field>
+        <field name="max_monthly_orders">4000</field>
+        <field name="max_synced_products">6000</field>
+        <field name="price_monthly">125</field>
+        <field name="portal_price_monthly">100</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="description">Hasta 4.000 ventas mensuales y 6.000 publicaciones o SKU.</field>
+    </record>
+    <record id="sce_subscription_plan_enterprise" model="sce.subscription.plan">
+        <field name="name">Enterprise</field>
+        <field name="code">enterprise</field>
+        <field name="sequence">40</field>
+        <field name="max_monthly_orders">12000</field>
+        <field name="max_synced_products">15000</field>
+        <field name="price_monthly">170</field>
+        <field name="portal_price_monthly">136</field>
+        <field name="currency_id" ref="base.USD"/>
+        <field name="description">Hasta 12.000 ventas mensuales y 15.000 publicaciones o SKU.</field>
+    </record>
+</odoo>

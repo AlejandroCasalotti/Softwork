@@ -17,4 +17,5 @@
     <menuitem id="menu_sce_subscription_plan" name="Subscription Plans" parent="menu_sce_billing" action="action_sce_subscription_plan" sequence="10"/>
     <menuitem id="menu_sce_subscription" name="Subscriptions" parent="menu_sce_billing" action="action_sce_subscription" sequence="20"/>
     <menuitem id="menu_sce_usage_metric" name="Usage Metrics" parent="menu_sce_billing" action="action_sce_usage_metric" sequence="30"/>
+    <menuitem id="menu_sce_usage_summary" name="Resumen de uso" parent="menu_sce_billing" action="action_sce_usage_summary" sequence="40"/>
 </odoo>

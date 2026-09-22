@@ -30,7 +30,9 @@ Incluye:
     ],
     "data": [
         "security/ir.model.access.csv",
+        "security/sce_subscription_security.xml",
         "data/ir_cron.xml",
+        "data/sce_billing_data.xml",
         "views/sce_connector_views.xml",
         "views/sce_account_views.xml",
         "views/sce_job_views.xml",
