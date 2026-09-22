@@ -1,6 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="group_sce_technical" model="res.groups">
+        <field name="name">SCE Técnico</field>
+    </record>
+
     <record id="group_sce_client_premium" model="res.groups">
         <field name="name">SCE Cliente Premium</field>
+    </record>
+
+    <record id="rule_sce_subscription_portal_own" model="ir.rule">
+        <field name="name">SCE Subscription: solo su propia empresa/partner</field>
+        <field name="model_id" ref="model_sce_subscription"/>
+        <field name="domain_force">[('partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    </record>
+
+    <record id="rule_sce_usage_summary_portal_own" model="ir.rule">
+        <field name="name">SCE Usage Summary: solo su propia empresa/partner</field>
+        <field name="model_id" ref="model_sce_usage_summary"/>
+        <field name="domain_force">[('partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+    </record>
+
+    <record id="rule_sce_account_client_premium_own" model="ir.rule">
+        <field name="name">SCE Account: Cliente Premium solo su propia empresa</field>
+        <field name="model_id" ref="model_sce_account"/>
+        <field name="domain_force">[('company_id', '=', user.company_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_sce_client_premium'))]"/>
+    </record>
+
+    <record id="rule_sce_subscription_client_premium_own" model="ir.rule">
+        <field name="name">SCE Subscription: Cliente Premium solo su propia empresa</field>
+        <field name="model_id" ref="model_sce_subscription"/>
+        <field name="domain_force">[('company_id', '=', user.company_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_sce_client_premium'))]"/>
     </record>
 </odoo>

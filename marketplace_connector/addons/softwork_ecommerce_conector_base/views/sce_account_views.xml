@@ -58,6 +58,7 @@
                         </group>
                         <group>
                             <field name="external_user_id" readonly="1"/>
+                            <field name="ml_nickname" readonly="1"/>
                             <field name="external_account_ref" invisible="1"/>
                             <field name="last_connection_check" readonly="1"/>
                             <field name="token_expires_at" readonly="1"/>

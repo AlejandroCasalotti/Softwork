@@ -7,8 +7,8 @@
     "author": "Softwork",
     "website": "https://swsistemas.com",
     "license": "LGPL-3",
-    "depends": ["portal", "softwork_ecommerce_conector_base"],
-    "data": ["views/portal_templates.xml", "views/portal_home_templates.xml"],
+    "depends": ["portal", "softwork_ecommerce_conector_base", "sce_product_marketplace"],
+    "data": ["views/portal_templates.xml", "views/portal_home_templates.xml", "views/portal_rules_templates.xml"],
     "installable": True,
     "application": False,
 }

@@ -37,6 +37,7 @@
                                     <div class="text-muted small">Próximo período</div>
                                     <div class="h5 mb-1"><t t-esc="subscription.period_start"/> - <t t-esc="subscription.period_end"/></div>
                                     <a class="btn btn-primary btn-sm mt-2" href="/my/sce/connect/mercadolibre">Conectar Mercado Libre</a>
+                                    <a class="btn btn-outline-secondary btn-sm mt-2" href="/my/sce/rules">Reglas de sincronización</a>
                                 </div>
                             </div>
                         </div>

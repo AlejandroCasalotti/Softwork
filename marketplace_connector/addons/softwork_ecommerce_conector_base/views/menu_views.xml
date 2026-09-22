@@ -2,20 +2,31 @@
 <odoo>
     <menuitem id="menu_sce_root" name="Softwork Ecommerce Connector" sequence="60"/>
 
-    <menuitem id="menu_sce_configuration" name="Integraciones" parent="menu_sce_root" sequence="10"/>
-    <menuitem id="menu_sce_operations" name="Operaciones" parent="menu_sce_root" sequence="20"/>
-    <menuitem id="menu_sce_billing" name="Billing" parent="menu_sce_root" sequence="30"/>
+    <menuitem id="menu_sce_configuration" name="Integraciones" parent="menu_sce_root" sequence="10"
+              groups="softwork_ecommerce_conector_base.group_sce_technical,softwork_ecommerce_conector_base.group_sce_client_premium"/>
+    <menuitem id="menu_sce_operations" name="Operaciones" parent="menu_sce_root" sequence="20"
+              groups="softwork_ecommerce_conector_base.group_sce_technical,softwork_ecommerce_conector_base.group_sce_client_premium"/>
+    <menuitem id="menu_sce_billing" name="Billing" parent="menu_sce_root" sequence="30"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
 
-    <menuitem id="menu_sce_connector" name="Connectors" parent="menu_sce_configuration" action="action_sce_connector" sequence="10"/>
+    <menuitem id="menu_sce_connector" name="Connectors" parent="menu_sce_configuration" action="action_sce_connector" sequence="10"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
     <menuitem id="menu_sce_account" name="Accounts" parent="menu_sce_configuration" action="action_sce_account" sequence="20"/>
-    <menuitem id="menu_sce_integration_status_snapshot" name="Historial Diagnósticos" parent="menu_sce_operations" action="action_sce_integration_status_snapshot" sequence="25"/>
-    <menuitem id="menu_sce_odoo_migration_run" name="Migraciones Odoo a Odoo" parent="menu_sce_operations" action="action_sce_odoo_migration_run" sequence="26"/>
+    <menuitem id="menu_sce_integration_status_snapshot" name="Historial Diagnósticos" parent="menu_sce_operations" action="action_sce_integration_status_snapshot" sequence="25"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
+    <menuitem id="menu_sce_odoo_migration_run" name="Migraciones Odoo a Odoo" parent="menu_sce_operations" action="action_sce_odoo_migration_run" sequence="26"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
 
-    <menuitem id="menu_sce_job" name="Jobs" parent="menu_sce_operations" action="action_sce_job" sequence="10"/>
-    <menuitem id="menu_sce_log" name="Logs" parent="menu_sce_operations" action="action_sce_log" sequence="20"/>
+    <menuitem id="menu_sce_job" name="Jobs" parent="menu_sce_operations" action="action_sce_job" sequence="10"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
+    <menuitem id="menu_sce_log" name="Logs" parent="menu_sce_operations" action="action_sce_log" sequence="20"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"/>
 
     <menuitem id="menu_sce_subscription_plan" name="Subscription Plans" parent="menu_sce_billing" action="action_sce_subscription_plan" sequence="10"/>
     <menuitem id="menu_sce_subscription" name="Subscriptions" parent="menu_sce_billing" action="action_sce_subscription" sequence="20"/>
     <menuitem id="menu_sce_usage_metric" name="Usage Metrics" parent="menu_sce_billing" action="action_sce_usage_metric" sequence="30"/>
     <menuitem id="menu_sce_usage_summary" name="Resumen de uso" parent="menu_sce_billing" action="action_sce_usage_summary" sequence="40"/>
+    <menuitem id="menu_sce_my_subscription" name="Mi Suscripción" parent="menu_sce_configuration"
+              action="action_sce_subscription" sequence="30"
+              groups="softwork_ecommerce_conector_base.group_sce_client_premium"/>
 </odoo>

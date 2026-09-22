@@ -51,6 +51,6 @@
               name="Usuarios de prueba ML"
               parent="softwork_ecommerce_conector_base.menu_sce_operations"
               action="action_sce_ml_test_user_wizard"
-              groups="sce_product_marketplace.group_sce_technical"
+              groups="softwork_ecommerce_conector_base.group_sce_technical"
               sequence="90"/>
 </odoo>

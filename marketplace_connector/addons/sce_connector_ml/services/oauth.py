@@ -45,6 +45,7 @@ class MercadoLibreOAuth:
         expires_in = int(data.get("expires_in", 0) or 0)
         expires_at = fields.Datetime.now() + timedelta(seconds=expires_in) if expires_in else False
         external_user_id = False
+        external_nickname = False
         if data.get("access_token"):
             try:
                 me = self._request(
@@ -54,6 +55,7 @@ class MercadoLibreOAuth:
                     params={"access_token": data["access_token"]},
                 )
                 external_user_id = str(me.get("id") or "")
+                external_nickname = me.get("nickname") or ""
             except Exception:
                 _logger.exception("No se pudo resolver el usuario ML después del OAuth exchange.")
         return self._ok(
@@ -64,6 +66,7 @@ class MercadoLibreOAuth:
             token_type=data.get("token_type"),
             token_expires_at=expires_at,
             external_user_id=external_user_id,
+            external_nickname=external_nickname,
             raw=data,
         )
 

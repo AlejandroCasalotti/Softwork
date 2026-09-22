@@ -137,5 +137,6 @@
               name="Publicación remota"
               parent="softwork_ecommerce_conector_base.menu_sce_operations"
               action="action_remote_publication_wizard"
+              groups="softwork_ecommerce_conector_base.group_sce_technical,softwork_ecommerce_conector_base.group_sce_client_premium"
               sequence="5"/>
 </odoo>

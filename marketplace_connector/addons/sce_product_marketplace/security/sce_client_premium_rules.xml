@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="rule_marketplace_publication_client_premium_own" model="ir.rule">
+        <field name="name">Marketplace Publication: Cliente Premium solo su propia empresa</field>
+        <field name="model_id" ref="model_marketplace_publication"/>
+        <field name="domain_force">[('account_id.company_id', '=', user.company_id.id)]</field>
+        <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
+    </record>
+
+    <record id="rule_marketplace_product_mapping_client_premium_own" model="ir.rule">
+        <field name="name">Marketplace Product Mapping: Cliente Premium solo su propia empresa</field>
+        <field name="model_id" ref="model_marketplace_product_mapping"/>
+        <field name="domain_force">[('account_id.company_id', '=', user.company_id.id)]</field>
+        <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
+    </record>
+</odoo>

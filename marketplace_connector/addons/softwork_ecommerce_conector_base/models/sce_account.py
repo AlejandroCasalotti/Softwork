@@ -55,16 +55,31 @@ class SceAccount(models.Model):
         tracking=True,
     )
     external_account_ref = fields.Char(string="External Account Reference", index=True)
-    credentials_json = fields.Text(string="Credentials JSON")
-    client_id = fields.Char(string="Client ID")
-    client_secret = fields.Char(string="Client Secret")
-    redirect_uri = fields.Char(string="Redirect URI")
-    auth_code = fields.Char(string="Authorization Code")
-    access_token = fields.Char(string="Access Token")
-    refresh_token = fields.Char(string="Refresh Token")
-    token_type = fields.Char(string="Token Type")
+    credentials_json = fields.Text(
+        string="Credentials JSON", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    client_id = fields.Char(string="Client ID", groups="softwork_ecommerce_conector_base.group_sce_technical")
+    client_secret = fields.Char(
+        string="Client Secret", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    redirect_uri = fields.Char(
+        string="Redirect URI", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    auth_code = fields.Char(
+        string="Authorization Code", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    access_token = fields.Char(
+        string="Access Token", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    refresh_token = fields.Char(
+        string="Refresh Token", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    token_type = fields.Char(
+        string="Token Type", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
     token_expires_at = fields.Datetime(string="Token Expires At")
     external_user_id = fields.Char(string="External User ID")
+    ml_nickname = fields.Char(string="Usuario Mercado Libre", readonly=True)
     token_refresh_in_progress = fields.Boolean(default=False, readonly=True)
     token_refresh_started_at = fields.Datetime(readonly=True)
     token_refresh_fail_count = fields.Integer(default=0, readonly=True)
@@ -93,26 +108,42 @@ class SceAccount(models.Model):
     odoo_base_url = fields.Char(string="URL de Odoo")
     odoo_db_name = fields.Char(string="Base de datos Odoo")
     odoo_user = fields.Char(string="Usuario Odoo")
-    odoo_password = fields.Char(string="API Key / Password Odoo")
+    odoo_password = fields.Char(
+        string="API Key / Password Odoo",
+        groups="softwork_ecommerce_conector_base.group_sce_technical,"
+        "softwork_ecommerce_conector_base.group_sce_client_premium",
+    )
 
     # Odoo -> Odoo migration base (fase 1)
     odoo_source_url = fields.Char(string="Odoo Origen - URL")
     odoo_source_db = fields.Char(string="Odoo Origen - Base de datos")
     odoo_source_user = fields.Char(string="Odoo Origen - Usuario")
-    odoo_source_api_key = fields.Char(string="Odoo Origen - API Key / Password")
+    odoo_source_api_key = fields.Char(
+        string="Odoo Origen - API Key / Password",
+        groups="softwork_ecommerce_conector_base.group_sce_technical",
+    )
     odoo_target_url = fields.Char(string="Odoo Destino - URL")
     odoo_target_db = fields.Char(string="Odoo Destino - Base de datos")
     odoo_target_user = fields.Char(string="Odoo Destino - Usuario")
-    odoo_target_api_key = fields.Char(string="Odoo Destino - API Key / Password")
+    odoo_target_api_key = fields.Char(
+        string="Odoo Destino - API Key / Password",
+        groups="softwork_ecommerce_conector_base.group_sce_technical",
+    )
     migration_mode = fields.Selection(
         selection=[("full", "Completa"), ("incremental", "Incremental")],
         string="Modo de migración",
         default="full",
     )
     migration_since = fields.Datetime(string="Migrar cambios desde")
-    ml_client_id = fields.Char(string="MercadoLibre Client ID")
-    ml_client_secret = fields.Char(string="MercadoLibre Client Secret")
-    ml_redirect_uri = fields.Char(string="MercadoLibre Redirect URI")
+    ml_client_id = fields.Char(
+        string="MercadoLibre Client ID", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    ml_client_secret = fields.Char(
+        string="MercadoLibre Client Secret", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
+    ml_redirect_uri = fields.Char(
+        string="MercadoLibre Redirect URI", groups="softwork_ecommerce_conector_base.group_sce_technical"
+    )
     sync_orders = fields.Boolean(string="Sincronizar Ventas", default=True)
     sync_stock = fields.Boolean(string="Sincronizar Stock", default=True)
     sync_prices = fields.Boolean(string="Sincronizar Precios", default=True)
@@ -695,6 +726,7 @@ class SceAccount(models.Model):
                             "token_type": result.get("token_type"),
                             "token_expires_at": result.get("token_expires_at"),
                             "external_user_id": result.get("external_user_id"),
+                            "ml_nickname": result.get("external_nickname") or False,
                             "state": "connected",
                             "last_error": False,
                             "token_refresh_fail_count": 0,
