@@ -49,7 +49,7 @@ class SceOAuthController(http.Controller):
             msg = str(err) or "No se pudo iniciar la conexión OAuth."
             if "sce.mercadolibre.client_id" in msg or "Redirect URI" in msg:
                 return request.redirect("/sce/oauth/mercadolibre/result?status=missing_config")
-            return self._oauth_popup_response("error", f"Mercado Libre rechazó la autorización: {error}", account.id)
+            return self._oauth_popup_response("error", f"Mercado Libre rechazó la autorización: {msg}", account.id)
 
     @http.route(
         ["/sce/oauth/mercadolibre/callback"],

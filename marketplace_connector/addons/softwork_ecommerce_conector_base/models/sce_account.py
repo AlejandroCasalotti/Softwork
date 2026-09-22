@@ -251,6 +251,9 @@ class SceAccount(models.Model):
             limit=1,
         )
         if account:
+            if not account.client_id or not account.redirect_uri:
+                account._ensure_ml_global_credentials()
+                account._sync_onboarding_to_oauth_fields()
             return account
 
         client_id = (
