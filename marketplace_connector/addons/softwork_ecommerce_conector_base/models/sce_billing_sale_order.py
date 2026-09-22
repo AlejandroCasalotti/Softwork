@@ -38,8 +38,10 @@ class SceUsageSummary(models.Model):
     days_active = fields.Integer(default=0)
     amount_usd = fields.Monetary(currency_field="currency_id")
     amount_company_currency = fields.Monetary(currency_field="company_currency_id")
-    currency_id = fields.Many2one(related="plan_id.currency_id", store=True)
-    company_currency_id = fields.Many2one(related="company_id.currency_id", store=True)
+    currency_id = fields.Many2one(related="plan_id.currency_id", store=True, string="Moneda del plan")
+    company_currency_id = fields.Many2one(
+        related="company_id.currency_id", store=True, string="Moneda de la empresa"
+    )
     sale_order_id = fields.Many2one("sale.order", readonly=True, index=True)
     state = fields.Selection(
         [("calculated", "Calculated"), ("ordered", "Order Created")],

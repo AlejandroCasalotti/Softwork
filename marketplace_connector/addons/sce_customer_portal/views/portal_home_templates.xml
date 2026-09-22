@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="portal_my_home_sce" inherit_id="portal.portal_my_home" name="SCE Portal Home Entry">
-        <xpath expr="//div[contains(@class, 'o_portal_docs')]" position="inside">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
             <t t-call="portal.portal_docs_entry">
                 <t t-set="title">Mi suscripción SCE</t>
                 <t t-set="url" t-value="'/my/sce'"/>

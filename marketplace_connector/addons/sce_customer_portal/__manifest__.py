@@ -4,6 +4,8 @@
     "version": "19.0.1.0.0",
     "summary": "Portal de suscripción y uso de SCE",
     "category": "Sales",
+    "author": "Softwork",
+    "website": "https://swsistemas.com",
     "license": "LGPL-3",
     "depends": ["portal", "softwork_ecommerce_conector_base"],
     "data": ["views/portal_templates.xml", "views/portal_home_templates.xml"],
