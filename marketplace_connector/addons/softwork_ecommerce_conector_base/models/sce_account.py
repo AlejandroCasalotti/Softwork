@@ -291,6 +291,26 @@ class SceAccount(models.Model):
             if vals:
                 rec.write(vals)
 
+    def _ensure_ml_global_credentials(self):
+        """Completa client_id/secret/redirect_uri con la app única de SCE si la cuenta no tiene una propia."""
+        self.ensure_one()
+        params = self.env["ir.config_parameter"].sudo()
+        client_id = params.get_param("sce.mercadolibre.client_id", "") or ""
+        client_secret = params.get_param("sce.mercadolibre.client_secret", "") or ""
+        redirect_uri = params.get_param("sce.mercadolibre.redirect_uri", "") or ""
+        if not (client_id and client_secret and redirect_uri):
+            raise UserError(
+                "Falta configurar la app de Mercado Libre de SCE "
+                "(sce.mercadolibre.client_id/client_secret/redirect_uri)."
+            )
+        self.write(
+            {
+                "ml_client_id": client_id,
+                "ml_client_secret": client_secret,
+                "ml_redirect_uri": redirect_uri,
+            }
+        )
+
     def _validate_odoo_connection(self):
         self.ensure_one()
         if self.connector_id.provider_type != "odoo":
@@ -341,17 +361,15 @@ class SceAccount(models.Model):
                 missing.append("Usuario Odoo")
             if not self.odoo_password:
                 missing.append("API Key / Password Odoo")
-            if not self.ml_client_id:
-                missing.append("MercadoLibre Client ID")
-            if not self.ml_client_secret:
-                missing.append("MercadoLibre Client Secret")
-            if not self.ml_redirect_uri:
-                missing.append("MercadoLibre Redirect URI")
 
             if missing:
                 raise UserError("Completá estos campos antes de conectar:\n- " + "\n- ".join(missing))
 
-            self._sync_onboarding_to_oauth_fields()
+            # Si no hay una app ML propia cargada (caso normal para Portal/Premium),
+            # se usa la app única de SCE en lugar de exigir credenciales técnicas.
+            if not self.sudo().ml_client_id:
+                self.sudo()._ensure_ml_global_credentials()
+            self.sudo()._sync_onboarding_to_oauth_fields()
             return self.action_open_oauth_url()
 
         if provider == "odoo":
@@ -623,20 +641,21 @@ class SceAccount(models.Model):
         self.ensure_one()
         if self.provider_type != "mercadolibre":
             raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
-        if not self.client_id or not self.redirect_uri:
+        record = self.sudo()
+        if not record.client_id or not record.redirect_uri:
             raise UserError(
                 "Falta configurar Client ID / Client Secret / Redirect URI. "
                 "Cargalos en Parámetros del sistema: "
                 "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
             )
         verifier, challenge = self._generate_pkce_pair()
-        self.write({"oauth_code_verifier": verifier})
+        record.write({"oauth_code_verifier": verifier})
         params = urlencode(
             {
                 "response_type": "code",
-                "client_id": self.client_id,
-                "redirect_uri": self.redirect_uri,
-                "state": str(self.id),
+                "client_id": record.client_id,
+                "redirect_uri": record.redirect_uri,
+                "state": str(record.id),
                 "code_challenge": challenge,
                 "code_challenge_method": "S256",
             }
