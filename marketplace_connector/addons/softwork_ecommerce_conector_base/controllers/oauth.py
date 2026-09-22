@@ -44,7 +44,7 @@ class SceOAuthController(http.Controller):
         account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
         try:
             action = account.action_open_oauth_url()
-            return request.redirect(action.get("url"))
+            return request.redirect(action.get("url"), local=False)
         except Exception as err:
             msg = str(err) or "No se pudo iniciar la conexión OAuth."
             if "sce.mercadolibre.client_id" in msg or "Redirect URI" in msg:
