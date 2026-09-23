@@ -29,8 +29,8 @@ Incluye:
         "account",
     ],
     "data": [
-        "security/ir.model.access.csv",
         "security/sce_subscription_security.xml",
+        "security/ir.model.access.csv",
         "data/ir_cron.xml",
         "data/sce_billing_data.xml",
         "views/sce_connector_views.xml",
