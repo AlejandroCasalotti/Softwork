@@ -260,6 +260,8 @@ class SceAccount(models.Model):
             limit=1,
         )
         if account:
+            if account.provider_type != "mercadolibre":
+                account.write({"provider_type": "mercadolibre"})
             if not account.client_id or not account.redirect_uri:
                 account._ensure_ml_global_credentials()
                 account._sync_onboarding_to_oauth_fields()
@@ -279,6 +281,7 @@ class SceAccount(models.Model):
             {
                 "name": "Cuenta MercadoLibre",
                 "connector_id": connector.id,
+                "provider_type": "mercadolibre",
                 "company_id": company.id,
                 "active": True,
                 "state": "draft",
@@ -290,6 +293,42 @@ class SceAccount(models.Model):
                 "ml_redirect_uri": redirect_uri,
             }
         )
+
+    @api.model
+    def create_quick_ml_account(self, company=None):
+        company = company or self.env.company
+        connector = self.env["sce.connector"].search(
+            [
+                ("provider_type", "=", "mercadolibre"),
+                ("company_id", "=", company.id),
+                ("active", "=", True),
+            ],
+            limit=1,
+        )
+        if not connector:
+            connector = self.env["sce.connector"].create(
+                {
+                    "name": "MercadoLibre",
+                    "code": "mercadolibre",
+                    "provider_type": "mercadolibre",
+                    "state": "active",
+                    "active": True,
+                    "company_id": company.id,
+                }
+            )
+        account = self.create(
+            {
+                "name": "Cuenta MercadoLibre",
+                "connector_id": connector.id,
+                "provider_type": "mercadolibre",
+                "company_id": company.id,
+                "active": True,
+                "state": "draft",
+            }
+        )
+        account._ensure_ml_global_credentials()
+        account._sync_onboarding_to_oauth_fields()
+        return account
 
     def _sync_onboarding_to_oauth_fields(self):
         for rec in self:

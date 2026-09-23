@@ -8,7 +8,10 @@
                 </t>
                 <t t-if="account">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h1 class="h3 mb-0">Reglas de sincronización</h1>
+                        <div>
+                            <h1 class="h3 mb-0">Reglas de sincronización</h1>
+                            <p class="text-muted mb-0"><t t-esc="account.name"/> <t t-if="account.ml_nickname">- <t t-esc="account.ml_nickname"/></t></p>
+                        </div>
                         <a class="btn btn-outline-secondary btn-sm" href="/my/sce">Volver a mi suscripción</a>
                     </div>
 
@@ -16,8 +19,9 @@
                         <div class="card-body">
                             <h2 class="h5 mb-3">Stock y precios</h2>
                             <div id="sce_remote_options_notice" class="alert d-none" role="status"/>
-                            <form action="/my/sce/rules/save" method="post" class="row g-3">
+                            <form id="sce_rules_form" action="/my/sce/rules/save" method="post" class="row g-3">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="account_id" t-att-value="account.id"/>
                                 <div class="col-md-4">
                                     <label class="form-label">Stock de seguridad</label>
                                     <input class="form-control" type="number" name="safety_stock" t-att-value="account.safety_stock"/>
@@ -102,34 +106,24 @@
                     <div class="card border-0 shadow-sm">
                         <div class="card-body">
                             <h2 class="h5 mb-3">Reglas de cuotas</h2>
+                            <p class="text-muted small">Usamos las modalidades típicas de Mercado Libre. Solo ajustá el recargo que querés aplicar.</p>
                             <div class="table-responsive mb-3">
                                 <table class="table align-middle">
-                                    <thead><tr><th>Nombre</th><th>Cuotas</th><th>Sin interés</th><th>Cualquier cantidad</th><th>Recargo %</th><th/></tr></thead>
+                                    <thead><tr><th>Modalidad</th><th>Cuotas</th><th>Tipo</th><th>Recargo %</th></tr></thead>
                                     <tbody>
                                         <tr t-foreach="installment_rules" t-as="rule">
                                             <td><t t-esc="rule.name"/></td>
-                                            <td><t t-esc="rule.installments_qty"/></td>
-                                            <td><t t-esc="'Sí' if rule.no_interest else 'No'"/></td>
-                                            <td><t t-esc="'Sí' if rule.applies_to_any_qty else 'No'"/></td>
-                                            <td><t t-esc="rule.surcharge_percent"/></td>
-                                            <td>
-                                                <form t-attf-action="/my/sce/rules/installment/delete/#{rule.id}" method="post" class="d-inline">
-                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
-                                                </form>
-                                            </td>
+                                            <td><t t-esc="'Cualquiera' if rule.applies_to_any_qty else rule.installments_qty"/></td>
+                                            <td><t t-esc="'Sin interés' if rule.no_interest else 'Con interés'"/></td>
+                                            <td><input class="form-control form-control-sm" type="number" step="0.01" t-att-name="'surcharge_%s' % rule.id" t-att-value="rule.surcharge_percent" form="sce_rules_form"/></td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
-                            <form action="/my/sce/rules/installment/add" method="post" class="row g-2">
+                            <form action="/my/sce/rules/installment/restore" method="post">
                                 <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                <div class="col-md-3"><input class="form-control" name="name" placeholder="Nombre" required="required"/></div>
-                                <div class="col-md-2"><input class="form-control" type="number" name="installments_qty" placeholder="Cuotas"/></div>
-                                <div class="col-md-2 form-check mt-2"><input class="form-check-input" type="checkbox" name="no_interest"/><label class="form-check-label">Sin interés</label></div>
-                                <div class="col-md-2 form-check mt-2"><input class="form-check-input" type="checkbox" name="applies_to_any_qty"/><label class="form-check-label">Cualquier cantidad</label></div>
-                                <div class="col-md-2"><input class="form-control" type="number" step="0.01" name="surcharge_percent" placeholder="Recargo %"/></div>
-                                <div class="col-md-1"><button type="submit" class="btn btn-primary">Agregar</button></div>
+                                <input type="hidden" name="account_id" t-att-value="account.id"/>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Restaurar reglas sugeridas</button>
                             </form>
                         </div>
                     </div>

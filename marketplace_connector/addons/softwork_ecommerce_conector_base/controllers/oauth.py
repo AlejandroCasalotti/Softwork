@@ -41,7 +41,19 @@ class SceOAuthController(http.Controller):
     )
     def sce_ml_oauth_start(self, **kwargs):
         company = request.env.company
-        account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
+        account_id = kwargs.get("account_id")
+        if account_id:
+            try:
+                account_id = int(account_id)
+            except (TypeError, ValueError):
+                account_id = 0
+            account = request.env["sce.account"].sudo().search(
+                [("id", "=", account_id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)], limit=1
+            )
+            if not account:
+                return self._oauth_popup_response("error", "No se encontró la cuenta Mercado Libre a conectar.")
+        else:
+            account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
         try:
             action = account.action_open_oauth_url()
             return request.redirect(action.get("url"), local=False)

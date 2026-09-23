@@ -20,7 +20,10 @@ async function loadRemoteOptions(button) {
             body: JSON.stringify({
                 jsonrpc: "2.0",
                 method: "call",
-                params: {option_type: button.dataset.optionType},
+                params: {
+                    option_type: button.dataset.optionType,
+                    account_id: document.querySelector("input[name='account_id']")?.value,
+                },
                 id: Date.now(),
             }),
         });

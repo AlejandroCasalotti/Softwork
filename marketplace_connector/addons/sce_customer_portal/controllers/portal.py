@@ -24,15 +24,42 @@ class SceCustomerPortal(CustomerPortal):
             limit=1,
         )
 
+    def _get_portal_ml_accounts(self, subscription):
+        if not subscription:
+            return request.env["sce.account"]
+        return request.env["sce.account"].sudo().search(
+            [("company_id", "=", subscription.company_id.id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            order="create_date desc",
+        )
+
+    def _get_portal_account_by_id(self, subscription, account_id):
+        if not subscription or not account_id:
+            return self._get_portal_account(subscription)
+        return request.env["sce.account"].sudo().search(
+            [
+                ("id", "=", int(account_id)),
+                ("company_id", "=", subscription.company_id.id),
+                ("provider_type", "=", "mercadolibre"),
+                ("active", "=", True),
+            ],
+            limit=1,
+        )
+
     @http.route("/my/sce", type="http", auth="user", website=True)
     def portal_sce_dashboard(self, **kwargs):
         subscription = self._get_portal_subscription(create=True)
         account = self._get_portal_account(subscription)
+        ml_accounts = self._get_portal_ml_accounts(subscription)
+        total_products = request.env["marketplace.publication"].sudo().search_count(
+            [("account_id", "in", ml_accounts.ids), ("state", "=", "published")]
+        ) if ml_accounts else 0
         values = self._prepare_portal_layout_values()
         values.update(
             {
                 "subscription": subscription,
                 "account": account,
+                "ml_accounts": ml_accounts,
+                "total_products": total_products,
                 "summaries": subscription.usage_summary_ids[:6] if subscription else request.env["sce.usage.summary"],
                 "page_name": "sce_subscription",
                 "notice": request.session.pop("sce_portal_notice", None),
@@ -66,12 +93,18 @@ class SceCustomerPortal(CustomerPortal):
 
     @http.route("/my/sce/connect/mercadolibre", type="http", auth="user", website=True)
     def portal_connect_mercadolibre(self, **kwargs):
-        return request.redirect("/sce/oauth/mercadolibre/start")
-
-    @http.route("/my/sce/rules", type="http", auth="user", website=True)
-    def portal_sce_rules(self, **kwargs):
         subscription = self._get_portal_subscription(create=True)
-        account = self._get_portal_account(subscription)
+        account = request.env["sce.account"].sudo().create_quick_ml_account(company=subscription.company_id)
+        if not account.installment_rule_ids:
+            account._seed_default_installment_rules()
+        return request.redirect(f"/sce/oauth/mercadolibre/start?account_id={account.id}")
+
+    @http.route(["/my/sce/rules", "/my/sce/rules/<int:account_id>"], type="http", auth="user", website=True)
+    def portal_sce_rules(self, account_id=None, **kwargs):
+        subscription = self._get_portal_subscription(create=True)
+        account = self._get_portal_account_by_id(subscription, account_id)
+        if account and not account.installment_rule_ids:
+            account._seed_default_installment_rules()
         values = self._prepare_portal_layout_values()
         values.update(
             {
@@ -87,7 +120,7 @@ class SceCustomerPortal(CustomerPortal):
     @http.route("/my/sce/rules/save", type="http", auth="user", website=True, methods=["POST"])
     def portal_save_rules(self, **post):
         subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
         if account:
 
             def _to_float(value, default=0.0):
@@ -124,13 +157,17 @@ class SceCustomerPortal(CustomerPortal):
                     "ml_question_retention_days": max(1, _to_int(post.get("ml_question_retention_days"), 30)),
                 }
             )
+            for rule in account.installment_rule_ids:
+                value = post.get(f"surcharge_{rule.id}")
+                if value is not None:
+                    rule.sudo().write({"surcharge_percent": _to_float(value)})
             request.session["sce_portal_notice"] = "Reglas de stock y precios actualizadas."
-        return request.redirect("/my/sce/rules")
+        return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
 
     @http.route("/my/sce/remote-options", type="jsonrpc", auth="user", methods=["POST"])
     def portal_remote_options(self, option_type=None, **kwargs):
         subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, kwargs.get("account_id"))
         if not account:
             return {"ok": False, "error": "Primero conectá tu cuenta de Mercado Libre."}
         options = {
@@ -160,32 +197,12 @@ class SceCustomerPortal(CustomerPortal):
         except Exception as error:
             return {"ok": False, "error": str(error)}
 
-    @http.route("/my/sce/rules/installment/add", type="http", auth="user", website=True, methods=["POST"])
-    def portal_add_installment_rule(self, **post):
+    @http.route("/my/sce/rules/installment/restore", type="http", auth="user", website=True, methods=["POST"])
+    def portal_restore_installment_rules(self, **post):
         subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
         if account:
-            request.env["marketplace.installment.rule"].sudo().create(
-                {
-                    "account_id": account.id,
-                    "name": (post.get("name") or "Regla de cuotas").strip(),
-                    "installments_qty": int(post.get("installments_qty") or 0),
-                    "no_interest": post.get("no_interest") == "on",
-                    "applies_to_any_qty": post.get("applies_to_any_qty") == "on",
-                    "surcharge_percent": float(post.get("surcharge_percent") or 0.0),
-                }
-            )
-            request.session["sce_portal_notice"] = "Regla de cuotas agregada."
-        return request.redirect("/my/sce/rules")
-
-    @http.route("/my/sce/rules/installment/delete/<int:rule_id>", type="http", auth="user", website=True, methods=["POST"])
-    def portal_delete_installment_rule(self, rule_id, **post):
-        subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
-        if account:
-            rule = request.env["marketplace.installment.rule"].sudo().search(
-                [("id", "=", rule_id), ("account_id", "=", account.id)], limit=1
-            )
-            rule.unlink()
-            request.session["sce_portal_notice"] = "Regla de cuotas eliminada."
-        return request.redirect("/my/sce/rules")
+            account.installment_rule_ids.unlink()
+            account._seed_default_installment_rules()
+            request.session["sce_portal_notice"] = "Reglas sugeridas restauradas."
+        return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
