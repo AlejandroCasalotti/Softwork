@@ -111,10 +111,54 @@ class SceCustomerPortal(CustomerPortal):
                     "price_surcharge_percent": _to_float(post.get("price_surcharge_percent")),
                     "free_shipping_threshold": _to_float(post.get("free_shipping_threshold")),
                     "free_shipping_fee": _to_float(post.get("free_shipping_fee")),
+                    "stock_location_name": (post.get("stock_location_name") or "").strip(),
+                    "pricelist_name": (post.get("pricelist_name") or "").strip(),
+                    "odoo_company_name": (post.get("odoo_company_name") or "").strip(),
+                    "sales_team_name": (post.get("sales_team_name") or "").strip(),
+                    "warehouse_name": (post.get("warehouse_name") or "").strip(),
+                    "fulfillment_warehouse_name": (post.get("fulfillment_warehouse_name") or "").strip(),
+                    "sync_orders_full": post.get("sync_orders_full") == "on",
+                    "marketplace_auto_confirm_paid": post.get("marketplace_auto_confirm_paid") == "on",
+                    "marketplace_auto_cancelled": post.get("marketplace_auto_cancelled") == "on",
+                    "sync_ml_questions": post.get("sync_ml_questions") == "on",
+                    "ml_question_retention_days": max(1, _to_int(post.get("ml_question_retention_days"), 30)),
                 }
             )
             request.session["sce_portal_notice"] = "Reglas de stock y precios actualizadas."
         return request.redirect("/my/sce/rules")
+
+    @http.route("/my/sce/remote-options", type="jsonrpc", auth="user", methods=["POST"])
+    def portal_remote_options(self, option_type=None, **kwargs):
+        subscription = self._get_portal_subscription()
+        account = self._get_portal_account(subscription)
+        if not account:
+            return {"ok": False, "error": "Primero conectá tu cuenta de Mercado Libre."}
+        options = {
+            "companies": ("res.company", [], ["id", "name"], None),
+            "stock_locations": ("stock.warehouse", [], ["id", "name", "code"], "code"),
+            "pricelists": ("product.pricelist", [], ["id", "name"], None),
+            "sales_teams": ("crm.team", [], ["id", "name"], None),
+            "warehouses": ("stock.warehouse", [], ["id", "name", "code"], "code"),
+        }
+        config = options.get(option_type)
+        if not config:
+            return {"ok": False, "error": "Tipo de opción no permitido."}
+        model_name, domain, fields_to_read, code_field = config
+        try:
+            records = account._fetch_remote_odoo_records(model_name, domain, fields_to_read)
+            return {
+                "ok": True,
+                "items": [
+                    {
+                        "id": record.get("id"),
+                        "name": record.get("name") or record.get("display_name") or "Sin nombre",
+                        "code": record.get(code_field) if code_field else False,
+                    }
+                    for record in records
+                ],
+            }
+        except Exception as error:
+            return {"ok": False, "error": str(error)}
 
     @http.route("/my/sce/rules/installment/add", type="http", auth="user", website=True, methods=["POST"])
     def portal_add_installment_rule(self, **post):

@@ -10,6 +10,7 @@
                             <p class="text-muted mb-0">Control de uso y sincronización</p>
                         </div>
                         <span class="badge rounded-pill text-bg-success" t-if="subscription.state == 'active'">Activa</span>
+                        <span class="badge rounded-pill text-bg-info" t-elif="subscription.state == 'trial'">Prueba gratuita</span>
                         <span class="badge rounded-pill text-bg-warning" t-else=""><t t-esc="subscription.state"/></span>
                     </div>
                     <div class="row g-3 mb-4">
@@ -19,6 +20,7 @@
                                     <div class="text-muted small">Plan actual</div>
                                     <div class="h4 mb-1"><t t-esc="subscription.plan_id.name"/></div>
                                     <div class="text-muted">Desde <t t-esc="subscription.start_date"/></div>
+                                    <div class="text-muted" t-if="subscription.state == 'trial'">Prueba gratuita hasta <t t-esc="subscription.trial_end_date"/></div>
                                 </div>
                             </div>
                         </div>

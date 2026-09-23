@@ -74,6 +74,11 @@ class SceSubscription(models.Model):
     grace_until = fields.Date(tracking=True)
     last_billing_check = fields.Datetime(readonly=True)
     start_date = fields.Date(required=True, default=fields.Date.context_today)
+    trial_end_date = fields.Date(
+        string="Fin del período de prueba",
+        default=lambda self: fields.Date.today() + timedelta(days=13),
+        readonly=True,
+    )
     end_date = fields.Date()
     synced_products_count = fields.Integer(default=0, tracking=True)
     synced_orders_count = fields.Integer(default=0, tracking=True)
@@ -128,6 +133,8 @@ class SceSubscription(models.Model):
             limit=1,
         )
         if subscription:
+            if subscription.state == "trial" and not subscription.trial_end_date:
+                subscription.trial_end_date = subscription.start_date + timedelta(days=13)
             return subscription
         plan = self.env.ref(
             "softwork_ecommerce_conector_base.sce_subscription_plan_initial", raise_if_not_found=False
@@ -145,6 +152,7 @@ class SceSubscription(models.Model):
                 "customer_type": "portal",
                 "state": "trial",
                 "start_date": fields.Date.today(),
+                "trial_end_date": fields.Date.today() + timedelta(days=13),
             }
         )
 
@@ -210,7 +218,10 @@ class SceSubscription(models.Model):
             return existing
         product = self._ensure_billing_product()
         days_total = (end - start).days + 1
-        active_days = days_total
+        billable_start = start
+        if self.trial_end_date and self.trial_end_date >= start:
+            billable_start = min(end + timedelta(days=1), self.trial_end_date + timedelta(days=1))
+        active_days = max(0, (end - billable_start).days + 1)
         amount_company_currency = self.plan_id.currency_id._convert(
             amount, self.company_id.currency_id, self.company_id, end
         )
@@ -350,7 +361,15 @@ class SceSubscription(models.Model):
         for sub in subs:
             previous_state = sub.state
             updates = {"last_billing_check": now_dt}
-            if sub.billing_status == "unpaid":
+            if sub.state == "trial":
+                if sub.trial_end_date and today <= sub.trial_end_date:
+                    updates["state"] = "trial"
+                else:
+                    account_ready = bool(self.env["sce.account"].sudo().search_count(
+                        [("company_id", "=", sub.company_id.id), ("initial_sync_queued", "=", True)]
+                    ))
+                    updates["state"] = "active" if account_ready else "restricted"
+            elif sub.billing_status == "unpaid":
                 updates["state"] = "suspended"
             elif sub.over_limit:
                 updates["state"] = "restricted"

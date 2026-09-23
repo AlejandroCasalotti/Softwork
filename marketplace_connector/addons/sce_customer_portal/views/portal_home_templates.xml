@@ -3,9 +3,10 @@
     <template id="portal_my_home_sce" inherit_id="portal.portal_my_home" name="SCE Portal Home Entry">
         <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
             <t t-call="portal.portal_docs_entry">
+                <t t-set="config_card" t-value="True"/>
                 <t t-set="title">Mi suscripción SCE</t>
+                <t t-set="text">Conexiones, sincronización y consumo</t>
                 <t t-set="url" t-value="'/my/sce'"/>
-                <t t-set="placeholder_count">sce_subscription_count</t>
             </t>
         </xpath>
     </template>

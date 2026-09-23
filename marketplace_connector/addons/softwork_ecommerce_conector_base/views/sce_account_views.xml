@@ -20,7 +20,9 @@
         <field name="arch" type="xml">
             <form string="Integración">
                 <header>
-                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="state == 'connected'"/>
+                    <button name="action_connect_mercadolibre_oauth" type="object" string="Conectar Mercado Libre" class="btn-primary" invisible="provider_type != 'mercadolibre' or state == 'connected'"/>
+                    <button name="action_connect_mercadolibre_oauth" type="object" string="Reautorizar Mercado Libre" invisible="provider_type != 'mercadolibre' or state != 'connected'"/>
+                    <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="provider_type == 'mercadolibre' or state == 'connected'"/>
                     <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
                     <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary" icon="fa-random"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>

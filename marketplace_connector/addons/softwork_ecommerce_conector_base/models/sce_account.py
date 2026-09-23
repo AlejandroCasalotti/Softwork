@@ -187,6 +187,15 @@ class SceAccount(models.Model):
                 )
             account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
 
+    def action_connect_mercadolibre_oauth(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre":
+            raise UserError("Esta acción solo está disponible para cuentas Mercado Libre.")
+        record = self.sudo()
+        record._ensure_ml_global_credentials()
+        record._sync_onboarding_to_oauth_fields()
+        return record.action_open_oauth_url()
+
     @api.onchange("connector_id")
     def _onchange_connector_id_set_provider_type(self):
         for rec in self:
