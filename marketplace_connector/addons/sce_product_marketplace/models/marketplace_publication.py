@@ -99,7 +99,8 @@ class MarketplacePublication(models.Model):
             available = publication.product_tmpl_id.virtual_available if publication.product_tmpl_id else 0.0
             real_stock = max(0.0, available - reserve)
             if publication.account_id:
-                publication.effective_qty = publication.account_id.calculate_marketplace_stock(real_stock)
+                sku = publication.product_tmpl_id.default_code if publication.product_tmpl_id else False
+                publication.effective_qty = publication.account_id.calculate_marketplace_stock(real_stock, sku=sku)
             else:
                 publication.effective_qty = int(max(0.0, real_stock))
 

@@ -64,13 +64,32 @@
                             <h2 class="h5 mb-3">Cuentas Mercado Libre</h2>
                             <div class="table-responsive">
                                 <table class="table align-middle mb-0">
-                                    <thead><tr><th>Cuenta</th><th>Estado</th><th>Usuario ML</th><th/></tr></thead>
+                                    <thead><tr><th>Cuenta</th><th>Estado</th><th>Usuario ML</th><th>Sincronización</th><th/></tr></thead>
                                     <tbody>
                                         <tr t-foreach="ml_accounts" t-as="ml_account">
                                             <td><t t-esc="ml_account.name"/></td>
                                             <td><span class="badge text-bg-success" t-if="ml_account.state == 'connected'">Conectada</span><span class="badge text-bg-warning" t-else=""><t t-esc="ml_account.state"/></span></td>
                                             <td><t t-esc="ml_account.ml_nickname or ml_account.external_user_id or '-'"/></td>
-                                            <td class="text-end"><a class="btn btn-sm btn-outline-primary" t-att-href="'/my/sce/rules/%s' % ml_account.id">Reglas</a></td>
+                                            <td>
+                                                <span class="badge text-bg-secondary" t-if="ml_account.sync_paused">Pausada</span>
+                                                <span class="badge text-bg-success" t-elif="ml_account.initial_sync_queued">En marcha</span>
+                                                <span class="badge text-bg-warning" t-else="">Pendiente</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <a class="btn btn-sm btn-outline-primary" t-att-href="'/my/sce/rules/%s' % ml_account.id">Reglas</a>
+                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/start" method="post" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="submit" class="btn btn-sm btn-primary" t-att-disabled="'disabled' if ml_account.initial_sync_queued or ml_account.sync_paused or ml_account.state != 'connected' else None">Comenzar sincronización</button>
+                                                </form>
+                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/pause" method="post" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" t-att-disabled="'disabled' if ml_account.sync_paused or ml_account.state != 'connected' else None">Desconectar</button>
+                                                </form>
+                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/resume" method="post" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" t-att-disabled="'disabled' if not ml_account.sync_paused else None">Conectar</button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>

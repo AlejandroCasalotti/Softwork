@@ -81,6 +81,9 @@ class MarketplaceAccount(models.Model):
         default=0,
         help="Cantidad fija a restar del stock disponible real de Odoo antes de publicar en Mercado Libre.",
     )
+    stock_reserve_rule_ids = fields.One2many(
+        "marketplace.stock.reserve.rule", "account_id", string="Reservas por SKU"
+    )
     stock_location_name = fields.Char(
         string="Almacén de Stock",
         help="Nombre, código o ID de la ubicación/almacén físico en Odoo del cual consultar el stock.",
@@ -227,11 +230,19 @@ class MarketplaceAccount(models.Model):
         generic = rules.filtered(lambda r: r.applies_to_any_qty)
         return generic[0] if generic else self.env["marketplace.installment.rule"]
 
-    def calculate_marketplace_stock(self, real_stock):
+    def calculate_marketplace_stock(self, real_stock, sku=None):
         """Calcula el stock a enviar a Mercado Libre aplicando el stock de seguridad de la cuenta."""
         self.ensure_one()
         real = max(0, int(real_stock or 0))
-        available = real - self.safety_stock
+        reserve = self.safety_stock
+        sku = (sku or "").strip()
+        if sku:
+            rule = self.env["marketplace.stock.reserve.rule"].search(
+                [("account_id", "=", self.id), ("sku", "=", sku), ("active", "=", True)], limit=1
+            )
+            if rule:
+                reserve = rule.reserve_qty
+        available = real - reserve
         return max(0, available)
 
     def _resolve_local_pricelist(self):

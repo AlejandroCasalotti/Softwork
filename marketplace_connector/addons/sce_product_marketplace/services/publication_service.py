@@ -712,7 +712,7 @@ class MarketplacePublicationService(models.AbstractModel):
             if mapping and (mapping.product_id or mapping.product_tmpl_id):
                 prod = mapping.product_id or mapping.product_tmpl_id.product_variant_id
                 real_stock = prod.virtual_available if prod else 0
-                qty = account.calculate_marketplace_stock(real_stock)
+                qty = account.calculate_marketplace_stock(real_stock, sku=mapping.sku or (prod.default_code if prod else False))
             else:
                 qty = max(0, int(payload.get("available_quantity") or payload.get("stock") or 0))
             return {"result": _apply_stock(item_id_str, qty)}
@@ -736,7 +736,8 @@ class MarketplacePublicationService(models.AbstractModel):
                     continue
             else:
                 real_stock = prod.virtual_available or 0.0
-            qty = account.calculate_marketplace_stock(real_stock)
+            sku = mapping.sku or (prod.default_code if prod else False)
+            qty = account.calculate_marketplace_stock(real_stock, sku=sku)
             try:
                 outcome = _apply_stock(mapping.external_id, qty)
                 if outcome == "paused":

@@ -154,6 +154,7 @@ class SceAccount(models.Model):
         readonly=True,
         copy=False,
     )
+    sync_paused = fields.Boolean(string="Sincronización pausada", default=False, tracking=True)
 
     def write(self, vals):
         result = super().write(vals)
@@ -163,7 +164,7 @@ class SceAccount(models.Model):
 
     def _enqueue_initial_sync_if_ready(self):
         for account in self:
-            if account.initial_sync_queued or account.state != "connected":
+            if account.initial_sync_queued or account.sync_paused or account.state != "connected":
                 continue
             if account.provider_type != "mercadolibre":
                 continue
@@ -186,6 +187,23 @@ class SceAccount(models.Model):
                     }
                 )
             account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
+
+    def action_start_initial_sync(self):
+        for account in self:
+            account.with_context(skip_initial_sync_check=True).write(
+                {"sync_paused": False, "initial_sync_queued": False}
+            )
+            account._enqueue_initial_sync_if_ready()
+        return True
+
+    def action_pause_sync(self):
+        self.write({"sync_paused": True})
+        return True
+
+    def action_resume_sync(self):
+        self.write({"sync_paused": False})
+        self._enqueue_initial_sync_if_ready()
+        return True
 
     def action_connect_mercadolibre_oauth(self):
         self.ensure_one()
@@ -805,6 +823,7 @@ class SceAccount(models.Model):
                             "auth_code": False,
                         }
                     )
+                    rec._enqueue_initial_sync_if_ready()
                     rec._sync_credentials_blob()
                 safe_result = rec._sanitize_result_for_logs(result)
                 elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False

@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import csv
+import io
+
 from odoo import http
 from odoo.http import request
 from odoo.addons.portal.controllers.portal import CustomerPortal
@@ -86,9 +89,27 @@ class SceCustomerPortal(CustomerPortal):
             )
             try:
                 account._get_remote_odoo_rpc()
+                for ml_account in self._get_portal_ml_accounts(subscription).filtered(lambda a: a.state == "connected"):
+                    ml_account._enqueue_initial_sync_if_ready()
                 request.session["sce_portal_notice"] = "Conexión Odoo validada. La sincronización inicial quedó encolada si Mercado Libre ya está conectado."
             except Exception as error:
                 request.session["sce_portal_error"] = str(error)
+        return request.redirect("/my/sce")
+
+    @http.route("/my/sce/account/<int:account_id>/sync/<string:operation>", type="http", auth="user", website=True, methods=["POST"])
+    def portal_account_sync_control(self, account_id, operation, **post):
+        subscription = self._get_portal_subscription()
+        account = self._get_portal_account_by_id(subscription, account_id)
+        if account:
+            if operation == "start":
+                account.action_start_initial_sync()
+                request.session["sce_portal_notice"] = "Sincronización inicial encolada."
+            elif operation == "pause":
+                account.action_pause_sync()
+                request.session["sce_portal_notice"] = "Sincronización pausada para esta cuenta."
+            elif operation == "resume":
+                account.action_resume_sync()
+                request.session["sce_portal_notice"] = "Sincronización reanudada para esta cuenta."
         return request.redirect("/my/sce")
 
     @http.route("/my/sce/connect/mercadolibre", type="http", auth="user", website=True)
@@ -111,6 +132,7 @@ class SceCustomerPortal(CustomerPortal):
                 "subscription": subscription,
                 "account": account,
                 "installment_rules": account.installment_rule_ids if account else request.env["marketplace.installment.rule"],
+                "stock_reserve_rules": account.stock_reserve_rule_ids if account else request.env["marketplace.stock.reserve.rule"],
                 "page_name": "sce_rules",
                 "notice": request.session.pop("sce_portal_notice", None),
             }
@@ -162,6 +184,66 @@ class SceCustomerPortal(CustomerPortal):
                 if value is not None:
                     rule.sudo().write({"surcharge_percent": _to_float(value)})
             request.session["sce_portal_notice"] = "Reglas de stock y precios actualizadas."
+        return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
+
+    @http.route("/my/sce/rules/stock-reserve/add", type="http", auth="user", website=True, methods=["POST"])
+    def portal_add_stock_reserve_rule(self, **post):
+        subscription = self._get_portal_subscription()
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
+        if account:
+            sku = (post.get("sku") or "").strip()
+            reserve_qty = int(post.get("reserve_qty") or 0)
+            if sku:
+                rule = request.env["marketplace.stock.reserve.rule"].sudo().search(
+                    [("account_id", "=", account.id), ("sku", "=", sku)], limit=1
+                )
+                values = {"account_id": account.id, "sku": sku, "reserve_qty": max(0, reserve_qty), "active": True}
+                if rule:
+                    rule.write(values)
+                else:
+                    request.env["marketplace.stock.reserve.rule"].sudo().create(values)
+                request.session["sce_portal_notice"] = "Reserva por SKU guardada."
+        return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
+
+    @http.route("/my/sce/rules/stock-reserve/delete/<int:rule_id>", type="http", auth="user", website=True, methods=["POST"])
+    def portal_delete_stock_reserve_rule(self, rule_id, **post):
+        subscription = self._get_portal_subscription()
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
+        if account:
+            rule = request.env["marketplace.stock.reserve.rule"].sudo().search(
+                [("id", "=", rule_id), ("account_id", "=", account.id)], limit=1
+            )
+            rule.unlink()
+            request.session["sce_portal_notice"] = "Reserva por SKU eliminada."
+        return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
+
+    @http.route("/my/sce/rules/stock-reserve/import", type="http", auth="user", website=True, methods=["POST"])
+    def portal_import_stock_reserve_rules(self, **post):
+        subscription = self._get_portal_subscription()
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
+        upload = request.httprequest.files.get("reserve_file")
+        imported = 0
+        if account and upload:
+            content = upload.read().decode("utf-8-sig")
+            reader = csv.DictReader(io.StringIO(content))
+            for row in reader:
+                sku = (row.get("sku") or row.get("default_code") or "").strip()
+                if not sku:
+                    continue
+                try:
+                    reserve_qty = max(0, int(float(row.get("reserve_qty") or 0)))
+                except (TypeError, ValueError):
+                    continue
+                rule = request.env["marketplace.stock.reserve.rule"].sudo().search(
+                    [("account_id", "=", account.id), ("sku", "=", sku)], limit=1
+                )
+                values = {"account_id": account.id, "sku": sku, "reserve_qty": reserve_qty, "active": True}
+                if rule:
+                    rule.write(values)
+                else:
+                    request.env["marketplace.stock.reserve.rule"].sudo().create(values)
+                imported += 1
+            request.session["sce_portal_notice"] = f"Reservas importadas: {imported}."
         return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
 
     @http.route("/my/sce/remote-options", type="jsonrpc", auth="user", methods=["POST"])

@@ -127,6 +127,44 @@
                             </form>
                         </div>
                     </div>
+                    <div class="card border-0 shadow-sm mt-4">
+                        <div class="card-body">
+                            <h2 class="h5 mb-3">Reservas de stock por SKU</h2>
+                            <p class="text-muted small">Estas reglas reemplazan el stock de seguridad global para SKUs puntuales.</p>
+                            <div class="table-responsive mb-3">
+                                <table class="table align-middle">
+                                    <thead><tr><th>SKU / Referencia interna</th><th>Reservar</th><th/></tr></thead>
+                                    <tbody>
+                                        <tr t-foreach="stock_reserve_rules" t-as="rule">
+                                            <td><t t-esc="rule.sku"/></td>
+                                            <td><t t-esc="rule.reserve_qty"/></td>
+                                            <td class="text-end">
+                                                <form t-attf-action="/my/sce/rules/stock-reserve/delete/#{rule.id}" method="post" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <input type="hidden" name="account_id" t-att-value="account.id"/>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <form action="/my/sce/rules/stock-reserve/add" method="post" class="row g-2 mb-3">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="account_id" t-att-value="account.id"/>
+                                <div class="col-md-5"><input class="form-control" name="sku" placeholder="SKU / Referencia interna" required="required"/></div>
+                                <div class="col-md-3"><input class="form-control" type="number" min="0" name="reserve_qty" placeholder="Cantidad a reservar" required="required"/></div>
+                                <div class="col-md-2"><button type="submit" class="btn btn-primary">Guardar</button></div>
+                            </form>
+                            <form action="/my/sce/rules/stock-reserve/import" method="post" enctype="multipart/form-data" class="row g-2">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <input type="hidden" name="account_id" t-att-value="account.id"/>
+                                <div class="col-md-7"><input class="form-control" type="file" name="reserve_file" accept=".csv" required="required"/></div>
+                                <div class="col-md-3"><button type="submit" class="btn btn-outline-primary">Importar CSV</button></div>
+                                <div class="col-12 text-muted small">Formato: <code>sku,reserve_qty</code></div>
+                            </form>
+                        </div>
+                    </div>
                 </t>
                 <t t-else="">
                     <div class="text-center py-5">
