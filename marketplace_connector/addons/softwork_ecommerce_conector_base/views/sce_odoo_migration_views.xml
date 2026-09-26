@@ -30,6 +30,8 @@
             <form string="Migración Odoo a Odoo">
                 <header>
                     <button name="action_detect_versions" type="object" string="Detectar versiones" class="btn-secondary"/>
+                    <button name="action_analyze_fields" type="object" string="Analizar campos" class="btn-secondary" icon="fa-search"/>
+                    <button name="action_reuse_previous_field_map" type="object" string="Reutilizar mapeo" class="btn-secondary" icon="fa-copy"/>
                     <button name="action_enqueue_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state in ('queued', 'running')"/>
                     <button name="action_process_queued_migration" type="object" string="Procesar ahora" class="btn-primary" invisible="state != 'queued'"/>
                     <button name="action_pause_migration" type="object" string="Pausar" invisible="state != 'running'"/>
@@ -103,6 +105,49 @@
                             <field name="last_error" widget="text" readonly="1"/>
                         </group>
                     </group>
+
+                    <notebook>
+                        <page string="Mapeo de campos" name="page_field_map">
+                            <div class="alert alert-info" role="status" invisible="field_map_count != 0">
+                                Presioná <b>Analizar campos</b> para que SCE consulte el Odoo origen y destino
+                                y arme el mapeo. Después vas a poder desmarcar los campos que no quieras migrar.
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mb-2" invisible="field_map_count == 0">
+                                <button name="action_field_map_select_recommended" type="object"
+                                        string="Seleccionar recomendados" class="btn-secondary btn-sm"/>
+                                <button name="action_field_map_select_basic" type="object"
+                                        string="Solo campos básicos" class="btn-secondary btn-sm"/>
+                                <button name="action_field_map_select_none" type="object"
+                                        string="Deseleccionar todos" class="btn-secondary btn-sm"/>
+                                <span class="ms-3 text-muted">
+                                    <field name="field_map_selected_count" readonly="1" nolabel="1" class="oe_inline"/>
+                                    de
+                                    <field name="field_map_count" readonly="1" nolabel="1" class="oe_inline"/>
+                                    campos seleccionados
+                                </span>
+                            </div>
+                            <field name="field_map_ids" nolabel="1">
+                                <list editable="bottom" default_order="model_name,sequence,field_label"
+                                      decoration-muted="compatibility in ('missing_target','readonly','lines')"
+                                      decoration-bf="is_required">
+                                    <field name="model_label" readonly="1" optional="show"/>
+                                    <field name="field_label" readonly="1"/>
+                                    <field name="source_field" readonly="1" optional="show"/>
+                                    <field name="field_type" readonly="1" optional="hide"/>
+                                    <field name="relation_model" readonly="1" optional="hide"/>
+                                    <field name="compatibility" readonly="1" widget="badge"
+                                           decoration-success="compatibility == 'ok'"
+                                           decoration-info="compatibility == 'relation'"
+                                           decoration-warning="compatibility in ('required','readonly')"
+                                           decoration-danger="compatibility in ('missing_target','lines')"/>
+                                    <field name="is_required" readonly="1" optional="hide"/>
+                                    <field name="migrate" readonly="compatibility in ('missing_target','readonly','lines')"/>
+                                    <field name="model_name" column_invisible="1"/>
+                                    <field name="sequence" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>

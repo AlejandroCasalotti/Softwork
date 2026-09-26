@@ -10,4 +10,6 @@ from . import sce_billing_sale_order
 from . import sce_integration_status_wizard
 from . import sce_integration_status_snapshot
 from . import sce_odoo_migration
+from . import sce_migration_field_map
+from . import sce_odoo_migration_engine
 from . import sce_provider_factory

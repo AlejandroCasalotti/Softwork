@@ -30,6 +30,16 @@
         <field name="active">True</field>
     </record>
 
+    <record id="ir_cron_sce_cleanup_migration_field_maps" model="ir.cron">
+        <field name="name">SCE - Purgar mapeos de migración antiguos</field>
+        <field name="model_id" ref="model_sce_odoo_migration_run"/>
+        <field name="state">code</field>
+        <field name="code">model.cron_cleanup_migration_field_maps()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active">True</field>
+    </record>
+
     <record id="ir_cron_sce_retry_failed_jobs" model="ir.cron">
         <field name="name">SCE - Retry Failed Jobs</field>
         <field name="model_id" ref="model_sce_job"/>
