@@ -5,6 +5,7 @@ Solo persiste metadatos de esquema (nombres y tipos de campo), nunca datos
 de negocio del cliente.
 """
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 COMPATIBILITY = [
     ("ok", "Compatible"),
@@ -12,7 +13,7 @@ COMPATIBILITY = [
     ("relation", "Relación"),
     ("missing_target", "No existe en destino"),
     ("readonly", "Solo lectura / calculado"),
-    ("lines", "Líneas (no soportado aún)"),
+    ("lines", "Líneas gestionadas por entidad"),
     ("technical", "Técnico"),
 ]
 
@@ -56,3 +57,17 @@ class SceMigrationFieldMap(models.Model):
     def _compute_display_name(self):
         for record in self:
             record.display_name = f"{record.model_name}: {record.field_label or record.source_field}"
+
+    def action_delete_selected(self):
+        required = self.filtered("is_required")
+        if required:
+            labels = ", ".join(
+                f"{line.model_label or line.model_name}: {line.field_label or line.source_field}"
+                for line in required[:10]
+            )
+            raise UserError(
+                "La selección incluye campos obligatorios del destino y no se eliminó nada: "
+                f"{labels}. Podés desmarcarlos para excluirlos de la migración."
+            )
+        self.unlink()
+        return True

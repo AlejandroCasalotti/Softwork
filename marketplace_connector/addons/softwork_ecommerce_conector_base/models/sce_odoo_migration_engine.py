@@ -8,6 +8,8 @@ la corrida y el checkpoint guarda únicamente IDs de avance.
 import logging
 from datetime import timedelta
 
+from markupsafe import Markup, escape
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
@@ -78,6 +80,8 @@ MATCH_KEYS = {
     "account.payment.term": (("name",),),
     "account.move": (("name", "move_type"),),
     "account.payment": (("name",),),
+    "account.move.line": (("move_id", "account_id", "name", "debit", "credit"),),
+    "account.partial.reconcile": (("debit_move_id", "credit_move_id", "amount"),),
     "account.fiscal.position": (("name",),),
     "sale.order": (("name",),),
     "purchase.order": (("name",),),
@@ -104,6 +108,7 @@ MIGRATION_ENTITIES = (
     ("sync_purchases", "purchase.order", "migrated_purchases"),
     ("sync_invoices", "account.move", "migrated_invoices"),
     ("sync_payments", "account.payment", "migrated_payments"),
+    ("sync_reconciliations", "account.partial.reconcile", "migrated_reconciliations"),
     ("sync_documents", "ir.attachment", "migrated_documents"),
 )
 
@@ -139,6 +144,7 @@ class SceOdooMigrationEngine(models.Model):
     field_map_ids = fields.One2many(
         "sce.migration.field.map", "run_id", string="Mapeo de campos"
     )
+    field_map_analyzed = fields.Boolean(default=False, readonly=True, copy=False)
     field_map_count = fields.Integer(compute="_compute_field_map_count")
     field_map_selected_count = fields.Integer(compute="_compute_field_map_count")
 
@@ -283,7 +289,7 @@ class SceOdooMigrationEngine(models.Model):
     def _get_allowed_fields(self, model):
         """Campos habilitados por el usuario, o None si esa entidad no fue mapeada."""
         lines = self.field_map_ids.filtered(lambda line: line.model_name == model)
-        if not lines:
+        if not self.field_map_analyzed:
             return None
         return {line.source_field for line in lines if line.migrate}
 
@@ -362,6 +368,8 @@ class SceOdooMigrationEngine(models.Model):
         src_fields = self._cached_fields(ctx, "src", model)
         dst_fields = self._cached_fields(ctx, "dst", model)
         allowed = self._get_allowed_fields(model)
+        if allowed is not None and not allowed:
+            return errors
 
         readable = [
             name
@@ -524,6 +532,7 @@ class SceOdooMigrationEngine(models.Model):
                 ("Compras", "purchase.order"),
                 ("Facturas", "account.move"),
                 ("Pagos", "account.payment"),
+                ("Conciliaciones", "account.partial.reconcile"),
                 ("Documentos", "ir.attachment"),
                 ("Almacenes", "stock.warehouse"),
                 ("Ubicaciones", "stock.location"),
@@ -571,6 +580,7 @@ class SceOdooMigrationEngine(models.Model):
 
         if lines:
             self.env["sce.migration.field.map"].create(lines)
+        self.field_map_analyzed = True
 
         message = f"Se analizaron {len(lines)} campos en {len(analyzed) - len(skipped_models)} entidades."
         if skipped_models:
@@ -605,9 +615,78 @@ class SceOdooMigrationEngine(models.Model):
         self.field_map_ids.filtered(lambda line: not line.is_required).migrate = False
         return True
 
+    def action_preview_remote_sample(self):
+        """Muestra hasta tres registros remotos en una notificación; no los persiste en SCE."""
+        self.ensure_one()
+        entities = list(self._iter_selected_entities())
+        if not entities:
+            raise UserError("Seleccioná entidades y analizá los campos antes de pedir la vista previa.")
+        if not self.field_map_ids:
+            raise UserError("Primero presioná 'Analizar campos'.")
+
+        src_uid, src_rpc, dst_uid, dst_rpc = self._validate_source_target_connections()
+        ctx = self._build_migration_context(src_uid, src_rpc, dst_uid, dst_rpc)
+        output = ["Muestra remota de origen (máximo 3 registros, solo lectura):"]
+        remaining = 3
+        secret_tokens = ("password", "secret", "token", "api_key", "private_key")
+        for model, _counter in entities:
+            if remaining <= 0:
+                break
+            selected = self.field_map_ids.filtered(
+                lambda line: line.model_name == model and line.migrate
+            )
+            src_fields = self._cached_fields(ctx, "src", model)
+            field_names = [
+                line.source_field
+                for line in selected
+                if line.source_field in src_fields
+                and src_fields[line.source_field].get("type") not in ("binary", "one2many")
+                and not any(token in line.source_field.lower() for token in secret_tokens)
+            ][:6]
+            if not field_names:
+                continue
+            try:
+                ids = self._call(ctx, "src", model, "search", self._build_since_domain(), limit=remaining)
+                if not ids:
+                    continue
+                samples = self._call(ctx, "src", model, "read", ids[:remaining], fields=field_names)
+            except Exception as error:
+                output.append(f"{model}: no se pudo leer la muestra ({error}).")
+                continue
+            output.append(f"\n{model}:")
+            for sample in samples:
+                values = []
+                for field_name in field_names:
+                    value = sample.get(field_name)
+                    if isinstance(value, (list, tuple)):
+                        value = value[1] if len(value) > 1 else (value[0] if value else False)
+                    text = str(value if value not in (None, False) else "")
+                    if len(text) > 80:
+                        text = text[:77] + "..."
+                    values.append(f"{field_name}={text}")
+                output.append("  " + " | ".join(values))
+                remaining -= 1
+        if remaining == 3:
+            output.append("No se encontraron registros para mostrar.")
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Vista previa remota",
+                "message": Markup("<pre style='white-space:pre-wrap; margin:0'>%s</pre>")
+                % escape("\n".join(output)),
+                "type": "info",
+                "sticky": True,
+            },
+        }
+
     def _check_required_fields_mapped(self):
         """Avisa antes de ejecutar si falta mapear un campo obligatorio del destino."""
         self.ensure_one()
+        if self.field_map_analyzed and not self.field_map_ids.filtered("migrate"):
+            raise UserError(
+                "No hay campos seleccionados para migrar. Marcá al menos un campo o volvé a analizar el mapeo."
+            )
         missing = self.field_map_ids.filtered(
             lambda line: line.is_required and not line.migrate
         )
@@ -661,6 +740,7 @@ class SceOdooMigrationEngine(models.Model):
                 for line in previous.field_map_ids
             ]
         )
+        self.field_map_analyzed = True
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",

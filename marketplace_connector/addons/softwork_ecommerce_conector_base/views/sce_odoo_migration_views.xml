@@ -31,6 +31,7 @@
                 <header>
                     <button name="action_detect_versions" type="object" string="Detectar versiones" class="btn-secondary"/>
                     <button name="action_analyze_fields" type="object" string="Analizar campos" class="btn-secondary" icon="fa-search"/>
+                    <button name="action_preview_remote_sample" type="object" string="Vista previa" class="btn-secondary" icon="fa-eye"/>
                     <button name="action_reuse_previous_field_map" type="object" string="Reutilizar mapeo" class="btn-secondary" icon="fa-copy"/>
                     <button name="action_enqueue_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state in ('queued', 'running')"/>
                     <button name="action_process_queued_migration" type="object" string="Procesar ahora" class="btn-primary" invisible="state != 'queued'"/>
@@ -75,6 +76,7 @@
                             <field name="sync_purchases"/>
                             <field name="sync_invoices"/>
                             <field name="sync_payments"/>
+                            <field name="sync_reconciliations"/>
                             <field name="sync_documents"/>
                             <field name="sync_stock_warehouses"/>
                             <field name="sync_stock_locations"/>
@@ -90,6 +92,7 @@
                             <field name="migrated_purchases" readonly="1"/>
                             <field name="migrated_invoices" readonly="1"/>
                             <field name="migrated_payments" readonly="1"/>
+                            <field name="migrated_reconciliations" readonly="1"/>
                             <field name="migrated_documents" readonly="1"/>
                             <field name="migrated_warehouses" readonly="1"/>
                             <field name="migrated_locations" readonly="1"/>
@@ -130,6 +133,11 @@
                                 <list editable="bottom" default_order="model_name,sequence,field_label"
                                       decoration-muted="compatibility in ('missing_target','readonly','lines')"
                                       decoration-bf="is_required">
+                                                        <header>
+                                                        <button name="action_delete_selected" type="object"
+                                                            string="Eliminar seleccionados" class="btn-secondary"
+                                                            confirm="¿Eliminar los campos seleccionados del mapeo?"/>
+                                                        </header>
                                     <field name="model_label" readonly="1" optional="show"/>
                                     <field name="field_label" readonly="1"/>
                                     <field name="source_field" readonly="1" optional="show"/>
@@ -187,6 +195,7 @@
                     <field name="sync_purchases"/>
                     <field name="sync_invoices"/>
                     <field name="sync_payments"/>
+                    <field name="sync_reconciliations"/>
                     <field name="sync_documents"/>
                     <field name="sync_stock_warehouses"/>
                     <field name="sync_stock_locations"/>

@@ -55,6 +55,7 @@ class SceOdooMigrationRun(models.Model):
     sync_purchases = fields.Boolean(default=False)
     sync_invoices = fields.Boolean(default=False)
     sync_payments = fields.Boolean(default=False)
+    sync_reconciliations = fields.Boolean(default=False)
     sync_documents = fields.Boolean(default=False)
     sync_stock_warehouses = fields.Boolean(default=False)
     sync_stock_locations = fields.Boolean(default=False)
@@ -78,6 +79,7 @@ class SceOdooMigrationRun(models.Model):
     migrated_purchases = fields.Integer(default=0, readonly=True)
     migrated_invoices = fields.Integer(default=0, readonly=True)
     migrated_payments = fields.Integer(default=0, readonly=True)
+    migrated_reconciliations = fields.Integer(default=0, readonly=True)
     migrated_documents = fields.Integer(default=0, readonly=True)
     migrated_warehouses = fields.Integer(default=0, readonly=True)
     migrated_locations = fields.Integer(default=0, readonly=True)
@@ -321,6 +323,7 @@ class SceOdooMigrationRun(models.Model):
                                 "purchases": rec.migrated_purchases,
                                 "invoices": rec.migrated_invoices,
                                 "payments": rec.migrated_payments,
+                                "reconciliations": rec.migrated_reconciliations,
                                 "documents": rec.migrated_documents,
                                 "warehouses": rec.migrated_warehouses,
                                 "locations": rec.migrated_locations,
@@ -392,6 +395,9 @@ class SceOdooMigrationRun(models.Model):
             "migrated_sales": 0,
             "migrated_purchases": 0,
             "migrated_invoices": 0,
+            "migrated_payments": 0,
+            "migrated_reconciliations": 0,
+            "migrated_documents": 0,
             "migrated_warehouses": 0,
             "migrated_locations": 0,
             "error_count": 0,
@@ -420,6 +426,7 @@ class SceOdooMigrationWizard(models.TransientModel):
     sync_purchases = fields.Boolean(default=False, string="Compras")
     sync_invoices = fields.Boolean(default=False, string="Facturas")
     sync_payments = fields.Boolean(default=False, string="Pagos")
+    sync_reconciliations = fields.Boolean(default=False, string="Conciliaciones")
     sync_documents = fields.Boolean(default=False, string="Documentos/Adjuntos")
     sync_stock_warehouses = fields.Boolean(default=False, string="Almacenes")
     sync_stock_locations = fields.Boolean(default=False, string="Ubicaciones")
@@ -458,6 +465,7 @@ class SceOdooMigrationWizard(models.TransientModel):
                 "sync_purchases": self.sync_purchases,
                 "sync_invoices": self.sync_invoices,
                 "sync_payments": self.sync_payments,
+                "sync_reconciliations": self.sync_reconciliations,
                 "sync_documents": self.sync_documents,
                 "sync_stock_warehouses": self.sync_stock_warehouses,
                 "sync_stock_locations": self.sync_stock_locations,
