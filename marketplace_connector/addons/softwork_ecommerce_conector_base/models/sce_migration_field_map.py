@@ -54,6 +54,32 @@ class SceMigrationFieldMap(models.Model):
         "Ese campo ya está mapeado para esta entidad.",
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records.mapped("run_id").write({"preflight_json": False, "preflight_at": False})
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        if {
+            "model_name",
+            "source_field",
+            "target_field",
+            "migrate",
+            "compatibility",
+        }.intersection(vals):
+            self.mapped("run_id").write(
+                {"preflight_json": False, "preflight_at": False}
+            )
+        return result
+
+    def unlink(self):
+        runs = self.mapped("run_id")
+        result = super().unlink()
+        runs.write({"preflight_json": False, "preflight_at": False})
+        return result
+
     @api.depends("field_label", "source_field")
     def _compute_display_name(self):
         for record in self:

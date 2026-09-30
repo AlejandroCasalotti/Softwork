@@ -82,8 +82,8 @@
                                                 <span class="badge text-bg-warning" t-elif="ml_account.jobs_failed_count">Requiere atención</span>
                                                 <span class="badge text-bg-success" t-elif="ml_account.jobs_done_count">Lista</span>
                                                 <span class="badge text-bg-warning" t-else="">Pendiente</span>
-                                                <div class="small text-muted mt-1"><t t-esc="ml_account.jobs_done_count"/> completados · <t t-esc="ml_account.jobs_failed_count"/> fallidos</div>
-                                                <div class="small text-danger mt-1" t-if="ml_account.jobs_stale_count"><t t-esc="ml_account.jobs_stale_count"/> trabajo(s) sin actividad por más de 60 minutos.</div>
+                                                <div class="small text-muted mt-1"><t t-esc="ml_account.jobs_done_count"/> completados · <t t-esc="ml_account.jobs_failed_count"/> fallidos o parciales</div>
+                                                <div class="small text-danger mt-1" t-if="ml_account.jobs_stale_count"><t t-esc="ml_account.jobs_stale_count"/> trabajo(s) detenidos; el sistema los recuperará automáticamente.</div>
                                                 <ul class="small text-muted mt-1 mb-0" t-if="jobs_attention.get(ml_account.id)">
                                                     <li t-foreach="jobs_attention.get(ml_account.id)" t-as="attention_job">
                                                         <t t-esc="attention_job.job_type"/> — <t t-esc="attention_job.state"/> (intento <t t-esc="attention_job.attempts"/>)
@@ -94,6 +94,7 @@
                                             <td class="text-end">
                                                 <a class="btn btn-sm btn-outline-primary" t-att-href="'/my/sce/rules/%s' % ml_account.id">Reglas</a>
                                                 <a class="btn btn-sm btn-outline-warning" t-if="ml_account.state == 'error'" t-att-href="'/sce/oauth/mercadolibre/start?account_id=%s' % ml_account.id">Reautorizar</a>
+                                                <a class="btn btn-sm btn-outline-primary" t-if="ml_account.state == 'disabled'" t-att-href="'/sce/oauth/mercadolibre/start?account_id=%s' % ml_account.id">Conectar de nuevo</a>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/start" method="post" class="d-inline">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                     <button type="submit" class="btn btn-sm btn-primary" t-att-disabled="'disabled' if ml_account.sync_paused or ml_account.state != 'connected' else None">Sincronizar</button>
@@ -108,7 +109,7 @@
                                                 </form>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/retry" method="post" class="d-inline" t-if="ml_account.jobs_failed_count">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                    <button type="submit" class="btn btn-sm btn-outline-warning" t-att-disabled="'disabled' if ml_account.sync_paused else None">Reintentar fallidos</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-warning" t-att-disabled="'disabled' if ml_account.sync_paused or ml_account.state != 'connected' else None">Reintentar fallidos</button>
                                                 </form>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/disconnect" method="post" class="d-inline" t-if="ml_account.state != 'disabled'" onsubmit="return confirm('La cuenta se pausará y se eliminarán los tokens y claves guardados. Los datos ya sincronizados no se borrarán. ¿Continuar?');">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>

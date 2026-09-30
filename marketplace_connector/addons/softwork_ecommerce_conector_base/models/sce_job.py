@@ -353,11 +353,17 @@ class SceJob(models.Model):
             job.account_id._update_initial_sync_status()
 
     def cron_cleanup_old_jobs(self):
-        cutoff = fields.Datetime.now() - timedelta(days=30)
+        retention_days = int(
+            self.env["ir.config_parameter"].sudo().get_param(
+                "sce.jobs.retention_days", 30
+            )
+        )
+        retention_days = max(1, min(retention_days, 3650))
+        cutoff = fields.Datetime.now() - timedelta(days=retention_days)
         old_jobs = self.search(
             [
                 ("create_date", "<", cutoff),
-                ("state", "in", ["done", "failed", "cancelled"]),
+                ("state", "in", ["done", "partial", "failed", "cancelled"]),
             ]
         )
         old_jobs.unlink()
