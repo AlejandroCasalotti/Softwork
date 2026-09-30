@@ -1,11 +1,8 @@
 # -*- coding: utf-8 -*-
-import logging
 from datetime import timedelta
 
 from odoo import fields
 from odoo.exceptions import UserError
-
-_logger = logging.getLogger(__name__)
 
 
 class MercadoLibreOAuth:
@@ -47,17 +44,21 @@ class MercadoLibreOAuth:
         external_user_id = False
         external_nickname = False
         if data.get("access_token"):
-            try:
-                me = self._request(
-                    "GET",
-                    "/users/me",
-                    with_auth=False,
-                    params={"access_token": data["access_token"]},
+            me = self._request(
+                "GET",
+                "/users/me",
+                auth_token=data["access_token"],
+                _retried=True,
+            )
+            external_user_id = str(me.get("id") or "")
+            external_nickname = me.get("nickname") or ""
+            if not external_user_id:
+                raise UserError("Mercado Libre no devolvió la identidad del vendedor autorizado.")
+            if self.account.external_user_id and self.account.external_user_id != external_user_id:
+                raise UserError(
+                    "La cuenta autorizada pertenece a otro vendedor de Mercado Libre. "
+                    "Creá una cuenta nueva para mantener aisladas las sincronizaciones."
                 )
-                external_user_id = str(me.get("id") or "")
-                external_nickname = me.get("nickname") or ""
-            except Exception:
-                _logger.exception("No se pudo resolver el usuario ML después del OAuth exchange.")
         return self._ok(
             action="authenticate",
             account_id=self.account.id,

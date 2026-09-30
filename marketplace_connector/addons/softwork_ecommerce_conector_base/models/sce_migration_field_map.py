@@ -15,6 +15,7 @@ COMPATIBILITY = [
     ("readonly", "Solo lectura / calculado"),
     ("lines", "Líneas gestionadas por entidad"),
     ("technical", "Técnico"),
+    ("incompatible", "Tipo incompatible"),
 ]
 
 # Campos que casi siempre conviene migrar en una primera pasada.

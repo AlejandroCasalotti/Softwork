@@ -3,6 +3,7 @@ import json
 import logging
 import xmlrpc.client
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -28,6 +29,7 @@ class SceOdooMigrationRun(models.Model):
             ("running", "En ejecución"),
             ("paused", "Pausada"),
             ("done", "Finalizada"),
+            ("partial", "Finalizada con errores"),
             ("failed", "Fallida"),
         ],
         default="draft",
@@ -95,38 +97,40 @@ class SceOdooMigrationRun(models.Model):
             raise UserError("Falta API Key/Password de Odoo o es inválida.")
 
         clean_url = url.strip()
-        if not clean_url.startswith(("http://", "https://")):
+        if clean_url.lower().startswith("http://"):
+            raise UserError("La conexión remota a Odoo requiere HTTPS para proteger las credenciales.")
+        if "://" not in clean_url:
             clean_url = f"https://{clean_url}"
+        parsed_url = urlsplit(clean_url)
+        if (
+            parsed_url.scheme.lower() != "https"
+            or not parsed_url.hostname
+            or parsed_url.username
+            or parsed_url.password
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
+            raise UserError("La URL de Odoo remoto no es válida.")
 
         try:
             common = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/common")
             uid = common.authenticate(db, user, password, {})
         except Exception as err:
             raise UserError(
-                "No se pudo conectar al Odoo remoto.\n"
-                f"- URL: {clean_url}\n"
-                f"- DB: {db}\n"
-                f"- User: {user}\n"
-                f"- Detalle técnico: {err}"
-            )
+                f"No se pudo conectar al Odoo remoto ({type(err).__name__})."
+            ) from err
 
         if not uid:
             raise UserError(
-                "No se pudo autenticar en Odoo remoto.\n"
-                f"- URL: {clean_url}\n"
-                f"- DB: {db}\n"
-                f"- User: {user}\n"
-                "Revisá usuario y API Key/Password, y que el usuario tenga acceso a esa base."
+                "No se pudo autenticar en Odoo remoto. Revisá usuario, API Key y acceso a la base."
             )
 
         try:
             models_rpc = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/object")
         except Exception as err:
             raise UserError(
-                "Se autenticó en Odoo remoto pero falló el endpoint de objetos XML-RPC.\n"
-                f"- URL: {clean_url}\n"
-                f"- Detalle técnico: {err}"
-            )
+                f"Se autenticó en Odoo remoto pero falló el endpoint XML-RPC ({type(err).__name__})."
+            ) from err
 
         return uid, models_rpc
 
@@ -158,8 +162,15 @@ class SceOdooMigrationRun(models.Model):
             return result
         except Exception as err:
             # No se registran los valores enviados: pueden contener datos del cliente.
-            _logger.error("RPC ERROR model=%s method=%s err=%s", model, method, err)
-            raise
+            _logger.error(
+                "RPC ERROR model=%s method=%s error_type=%s",
+                model,
+                method,
+                type(err).__name__,
+            )
+            raise UserError(
+                f"Error remoto de Odoo al ejecutar {model}.{method} ({type(err).__name__})."
+            ) from err
 
     def _validate_source_target_connections(self):
         self.ensure_one()
@@ -302,14 +313,31 @@ class SceOdooMigrationRun(models.Model):
 
                 ctx = rec._build_migration_context(src_uid, src_rpc, dst_uid, dst_rpc)
                 errors = []
+                more_batches = False
                 for model, counter_field in rec._iter_selected_entities():
                     errors += rec._sync_remote_model(ctx, model, counter_field, cp) or []
+                    more_batches = bool(cp.pop("_migration_has_more", False))
                     rec._save_checkpoint(cp)
+                    rec.invalidate_recordset(["state"])
+                    if rec.state == "paused":
+                        break
+                    if more_batches:
+                        rec.write({"state": "queued", "finished_at": False})
+                        break
 
+                rec.invalidate_recordset(["state"])
+                if rec.state in ("paused", "queued"):
+                    continue
                 rec.error_count = len(errors) if errors else 0
                 rec.write(
                     {
-                        "state": "done",
+                        "state": "partial" if errors else "done",
+                        "last_error": (
+                            f"La migración terminó con {len(errors)} error(es). "
+                            "Revisá el resultado y reanudá para reintentar."
+                            if errors
+                            else False
+                        ),
                         "finished_at": fields.Datetime.now(),
                         "result_json": json.dumps(
                             {
@@ -335,6 +363,7 @@ class SceOdooMigrationRun(models.Model):
                     }
                 )
             except Exception as err:
+                rec._save_checkpoint(cp)
                 rec.write({"state": "failed", "last_error": str(err), "finished_at": fields.Datetime.now()})
                 _logger.exception("La migración Odoo a Odoo falló migration_id=%s", rec.id)
 
@@ -370,9 +399,14 @@ class SceOdooMigrationRun(models.Model):
 
     @api.model
     def cron_process_migration_queue(self):
-        runs = self.search([("state", "=", "queued")], limit=1, order="create_date asc")
-        for run in runs:
-            run._run_migration_now()
+        self.env.cr.execute(
+            f"SELECT id FROM {self._table} "
+            "WHERE state = %s ORDER BY create_date, id LIMIT 1 FOR UPDATE SKIP LOCKED",
+            ("queued",),
+        )
+        row = self.env.cr.fetchone()
+        if row:
+            self.browse(row[0])._run_migration_now()
 
     def action_pause_migration(self):
         self.write({"state": "paused"})
@@ -380,7 +414,7 @@ class SceOdooMigrationRun(models.Model):
 
     def action_resume_migration(self):
         for rec in self:
-            if rec.state in ("paused", "failed", "draft"):
+            if rec.state in ("paused", "partial", "failed", "draft"):
                 rec.action_enqueue_migration()
         return True
 
@@ -472,7 +506,6 @@ class SceOdooMigrationWizard(models.TransientModel):
             }
         )
         run._validate_source_target_connections()
-        run.action_enqueue_migration()
         return {
             "type": "ir.actions.act_window",
             "res_model": "sce.odoo.migration.run",

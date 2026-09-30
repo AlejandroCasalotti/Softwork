@@ -156,7 +156,7 @@ class MarketplacePublicationService(models.AbstractModel):
             return pending_job
         job = self.env["sce.job"].create(
             {
-                "name": "%s - %s" % (operation.replace("_", " ").title(), publication.display_name),
+                "name": "%s - publicación #%s" % (operation.replace("_", " ").title(), publication.id),
                 "account_id": publication.account_id.id,
                 "job_type": job_type,
                 "publication_id": publication.id,
@@ -198,13 +198,25 @@ class MarketplacePublicationService(models.AbstractModel):
     def enqueue_order(self, account, external_id):
         if not account or not external_id:
             raise UserError("La importación necesita cuenta e ID externo de orden.")
+        external_id = str(external_id)
+        pending_job = self.env["sce.job"].sudo().search(
+            [
+                ("account_id", "=", account.id),
+                ("job_type", "=", "import_order"),
+                ("external_id", "=", external_id),
+                ("state", "in", ("queued", "running")),
+            ],
+            limit=1,
+        )
+        if pending_job:
+            return pending_job
         return self.env["sce.job"].create(
             {
-                "name": "Import order %s" % external_id,
+                "name": "Import order",
                 "account_id": account.id,
                 "job_type": "import_order",
-                "external_id": str(external_id),
-                "payload_json": json.dumps({"external_id": str(external_id)}),
+                "external_id": external_id,
+                "payload_json": json.dumps({"external_id": external_id}),
             }
         )
 
@@ -302,137 +314,268 @@ class MarketplacePublicationService(models.AbstractModel):
         return result
 
     def import_order(self, account, external_id):
-        result = self._get_provider_for_account(account).get_order(external_id)
-        order_data = result.get("order") if isinstance(result, dict) else {}
+        external_id = str(external_id or "").strip()
+        if not external_id:
+            raise UserError("La importación necesita una cuenta e ID externo de orden válido.")
+        if not account or not account.odoo_base_url:
+            raise UserError("Configurá la conexión Odoo remota de esta cuenta antes de importar pedidos.")
+        self.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(%s, hashtext(%s))",
+            (account.id, external_id),
+        )
+        provider = self._get_provider_for_account(account)
+        response = provider.get_order(external_id)
+        order_data = response.get("order") if isinstance(response, dict) else {}
         if not isinstance(order_data, dict):
-            raise UserError("El marketplace devolvió una orden inválida.")
+            raise UserError("Mercado Libre devolvió una orden inválida.")
 
-        order_ref = "%s:%s" % (account.provider_type or "marketplace", external_id)
-        order_model = self.env["sale.order"].sudo()
-        existing = order_model.search([("client_order_ref", "=", order_ref)], limit=1)
-        previous_state = existing.marketplace_order_state if existing else None
-        previous_shipping_status = existing.marketplace_shipping_status if existing else None
-        order_values = {
-            "marketplace_external_order_id": str(external_id),
-            "marketplace_account_id": account.id,
-            "marketplace_order_state": self._normalize_order_state(order_data),
-            "marketplace_external_status": order_data.get("status") or False,
-            "marketplace_sync_date": fields.Datetime.now(),
-        }
-        if existing:
-            existing.write(order_values)
-            existing._apply_marketplace_logistics(order_data)
-            existing._apply_marketplace_transition()
-            existing._emit_marketplace_state_event(previous_state, previous_shipping_status)
-            return {
-                "order_id": existing.id,
-                "external_id": str(external_id),
-                "created": False,
-                "state": existing.marketplace_order_state,
-            }
+        db, uid, password, models_rpc = account._get_remote_odoo_rpc()
+        order_ref = "%s:%s:%s" % (account.provider_type or "marketplace", account.id, external_id)
+
+        def remote_call(model, method, args, kwargs=None):
+            try:
+                return models_rpc.execute_kw(
+                    db, uid, password, model, method, args, kwargs or {}
+                )
+            except Exception as error:
+                raise UserError(
+                    f"Error en Odoo destino al ejecutar {model}.{method} ({type(error).__name__})."
+                ) from error
+
+        def search_unique(model, domain):
+            ids = remote_call(
+                model,
+                "search",
+                [domain],
+                {"limit": 2},
+            )
+            if len(ids) > 1:
+                raise UserError(
+                    f"Hay registros duplicados en el Odoo destino para {model}; "
+                    "resolvelos antes de reintentar."
+                )
+            return ids[0] if ids else False
+
+        def apply_remote_state(order_id, state):
+            if state == "paid" and account.marketplace_auto_confirm_paid:
+                values = remote_call(
+                    "sale.order", "read", [[order_id]], {"fields": ["state"]}
+                )
+                if values and values[0].get("state") == "draft":
+                    remote_call(
+                        "sale.order", "action_confirm", [[order_id]]
+                    )
+            elif state == "cancelled" and account.marketplace_auto_cancelled:
+                values = remote_call(
+                    "sale.order", "read", [[order_id]], {"fields": ["state"]}
+                )
+                if values and values[0].get("state") not in ("cancel", "done"):
+                    remote_call(
+                        "sale.order", "action_cancel", [[order_id]]
+                    )
+
+        state = self._normalize_order_state(order_data)
+        existing_order_id = search_unique("sale.order", [("client_order_ref", "=", order_ref)])
+        if existing_order_id:
+            apply_remote_state(existing_order_id, state)
+            return {"created": False, "state": state}
 
         buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
-        buyer_name = buyer.get("nickname") or buyer.get("first_name") or "Marketplace buyer"
-        buyer_email = buyer.get("email") or False
-        partner_model = self.env["res.partner"].sudo()
-        partner = partner_model.search([("ref", "=", order_ref)], limit=1)
-        if not partner:
-            partner = partner_model.create({"name": buyer_name, "email": buyer_email, "ref": order_ref})
-
-        order = order_model.create(
-            {
-                "partner_id": partner.id,
-                "client_order_ref": order_ref,
-                "origin": "Marketplace %s" % external_id,
-                **order_values,
-            }
-        )
-        missing_items = []
-        for line in order_data.get("order_items") or []:
-            item = line.get("item") if isinstance(line, dict) and isinstance(line.get("item"), dict) else {}
-            item_id = str(item.get("id") or "")
-            variant_id = str(
-                line.get("variation_id")
-                or line.get("item", {}).get("variation_id")
-                or item.get("variation_id")
-                or ""
+        buyer_key = buyer.get("id") or buyer.get("email") or f"order-{external_id}"
+        partner_ref = f"SCE-ML-{account.id}-{buyer_key}"
+        partner_id = search_unique("res.partner", [("ref", "=", partner_ref)])
+        if not partner_id:
+            partner_id = remote_call(
+                "res.partner",
+                "create",
+                [
+                    {
+                        "name": buyer.get("nickname") or buyer.get("first_name") or "Comprador Mercado Libre",
+                        "email": buyer.get("email") or False,
+                        "ref": partner_ref,
+                    }
+                ],
             )
-            line_sku = str(
+
+        order_lines = []
+        for line in order_data.get("order_items") or []:
+            if not isinstance(line, dict):
+                continue
+            item = line.get("item") if isinstance(line.get("item"), dict) else {}
+            sku = str(
                 line.get("seller_custom_field")
                 or line.get("seller_sku")
                 or item.get("seller_custom_field")
                 or item.get("seller_sku")
                 or ""
             ).strip()
-            line_barcode = str(line.get("barcode") or item.get("barcode") or "").strip()
-
-            mapping_domain = [("account_id", "=", account.id), ("external_id", "=", item_id)]
-            if variant_id:
-                mapping_domain.append(("external_variant_id", "=", variant_id))
-            mapping = self.env["marketplace.product.mapping"].sudo().search(mapping_domain, limit=1)
-
-            product = False
-            if mapping and mapping.product_id:
-                product = mapping.product_id
-            elif mapping and mapping.product_tmpl_id:
-                product = mapping.product_tmpl_id.product_variant_id
-
-            matching_field = getattr(account, "matching_field", "default") or "default"
-            if not product and matching_field == "barcode" and line_barcode:
-                product = self.env["product.product"].sudo().search([("barcode", "=", line_barcode)], limit=1)
-                if not product:
-                    tmpl = self.env["product.template"].sudo().search([("barcode", "=", line_barcode)], limit=1)
-                    product = tmpl.product_variant_id if tmpl else False
-
-            if not product and line_sku:
-                product = self.env["product.product"].sudo().search([("default_code", "=", line_sku)], limit=1)
-                if not product:
-                    tmpl = self.env["product.template"].sudo().search([("default_code", "=", line_sku)], limit=1)
-                    product = tmpl.product_variant_id if tmpl else False
-
-            if not product and mapping and mapping.sku:
-                product = self.env["product.product"].sudo().search([("default_code", "=", mapping.sku)], limit=1)
-
-            if not product and item_id:
-                pub = self.env["marketplace.publication"].sudo().search(
-                    [("account_id", "=", account.id), ("external_id", "=", item_id)], limit=1
+            barcode = str(line.get("barcode") or item.get("barcode") or "").strip()
+            product_id = False
+            if account.matching_field == "barcode" and barcode:
+                product_id = search_unique("product.product", [("barcode", "=", barcode)])
+            if not product_id and sku:
+                product_id = search_unique("product.product", [("default_code", "=", sku)])
+            if not product_id and barcode:
+                product_id = search_unique("product.product", [("barcode", "=", barcode)])
+            if not product_id:
+                raise UserError(
+                    "No se encontró un producto remoto por SKU/código de barras. "
+                    "Vinculá el producto en el Odoo destino y reintentá."
                 )
-                if pub and pub.product_tmpl_id:
-                    product = pub.product_tmpl_id.product_variant_id
-
+            product = remote_call(
+                "product.product",
+                "read",
+                [[product_id]],
+                {"fields": ["name", "uom_id"]},
+            )
             if not product:
-                missing_items.append(item_id or item.get("title") or "unknown")
-                continue
-            external_line_id = str(line.get("id") or "") or False
-            line_domain = [("order_id", "=", order.id), ("product_id", "=", product.id)]
-            if external_line_id:
-                line_domain = [
-                    ("order_id", "=", order.id),
-                    ("marketplace_external_line_id", "=", external_line_id),
-                ]
-            order_line = order.env["sale.order.line"].sudo().search(line_domain, limit=1)
+                raise UserError("No se pudo leer el producto vinculado en el Odoo destino.")
+            item_title = item.get("title") or product[0].get("name") or "Producto"
             line_values = {
-                "order_id": order.id,
-                "product_id": product.id,
+                "product_id": product_id,
+                "name": item_title,
                 "product_uom_qty": float(line.get("quantity") or 1.0),
                 "price_unit": float(line.get("unit_price") or line.get("sale_fee") or 0.0),
-                "name": item.get("title") or product.display_name,
-                "marketplace_external_line_id": external_line_id,
-                "marketplace_external_variant_id": variant_id or False,
             }
-            if order_line:
-                order_line.write(line_values)
+            uom = product[0].get("uom_id")
+            if isinstance(uom, (list, tuple)) and uom:
+                line_values["product_uom"] = uom[0]
+            order_lines.append((0, 0, line_values))
+        if not order_lines:
+            raise UserError("El pedido no contiene líneas de producto válidas.")
+
+        order_values = {
+            "partner_id": partner_id,
+            "client_order_ref": order_ref,
+            "origin": f"Mercado Libre {external_id}",
+            "order_line": order_lines,
+        }
+        if account.odoo_company_name:
+            company_value = account.odoo_company_name.strip()
+            try:
+                company_id = int(company_value)
+                company_domain = [("id", "=", company_id)]
+            except ValueError:
+                company_domain = [("name", "=", company_value)]
+            remote_company_id = search_unique("res.company", company_domain)
+            if not remote_company_id:
+                raise UserError("No se encontró la compañía configurada en el Odoo destino.")
+            order_values["company_id"] = remote_company_id
+
+        order_id = remote_call(
+            "sale.order", "create", [order_values]
+        )
+        apply_remote_state(order_id, state)
+        return {"created": True, "state": state}
+
+    def sync_account_orders(self, account, payload=None):
+        if not account:
+            raise UserError("Se requiere una cuenta para sincronizar pedidos.")
+        if not account.sync_orders:
+            return {"ok": True, "skipped": True, "reason": "order sync is disabled"}
+
+        payload = payload or {}
+        try:
+            offset = max(0, int(payload.get("offset") or 0))
+        except (TypeError, ValueError):
+            offset = 0
+        failed_orders = payload.get("failed_orders")
+        failed_orders = failed_orders if isinstance(failed_orders, dict) else {}
+        retry_ids = {str(external_id) for external_id in failed_orders}
+        provider = self._get_provider_for_account(account)
+        imported = 0
+        errors = 0
+        unresolved = {}
+
+        for external_id, attempts in failed_orders.items():
+            try:
+                attempt_count = int(attempts)
+            except (TypeError, ValueError):
+                attempt_count = 0
+            try:
+                self.import_order(account, external_id)
+                imported += 1
+            except Exception:
+                errors += 1
+                if attempt_count < 3:
+                    unresolved[str(external_id)] = attempt_count + 1
+
+        next_offset = offset
+        total = None
+        completed = False
+        page_budget = 5
+        page_limit = 50
+        for _page in range(page_budget):
+            response = provider.get_orders({"offset": next_offset, "limit": page_limit})
+            items = response.get("items", []) if isinstance(response, dict) else []
+            paging = response.get("paging", {}) if isinstance(response, dict) else {}
+            if isinstance(paging, dict):
+                try:
+                    total = int(paging.get("total"))
+                except (TypeError, ValueError):
+                    pass
+            if not items:
+                completed = True
+                break
+
+            for order in items:
+                external_id = order.get("id") if isinstance(order, dict) else False
+                if not external_id:
+                    errors += 1
+                    continue
+                if str(external_id) in retry_ids:
+                    continue
+                try:
+                    self.import_order(account, str(external_id))
+                    imported += 1
+                except Exception:
+                    errors += 1
+                    unresolved[str(external_id)] = 1
+
+            next_offset += len(items)
+            if len(items) < page_limit or (total is not None and next_offset >= total):
+                completed = True
+                break
+
+        continuation = not completed or bool(unresolved)
+        job_id = payload.get("_job_id")
+        if continuation:
+            job_model = self.env["sce.job"].sudo()
+            domain = [
+                ("account_id", "=", account.id),
+                ("job_type", "=", "import_orders"),
+                ("state", "in", ("queued", "running")),
+            ]
+            try:
+                job_id = int(job_id) if job_id else 0
+            except (TypeError, ValueError):
+                job_id = 0
+            if job_id:
+                domain.append(("id", "!=", job_id))
+            queued = job_model.search(domain, limit=1)
+            continuation_payload = {
+                "offset": next_offset,
+                "failed_orders": unresolved,
+            }
+            if queued:
+                queued.write({"payload_json": json.dumps(continuation_payload)})
             else:
-                order.env["sale.order.line"].sudo().create(line_values)
-        order._apply_marketplace_logistics(order_data)
-        order._apply_marketplace_transition()
-        order._emit_marketplace_state_event()
+                job_model.create(
+                    {
+                        "name": f"Continuación de pedidos - cuenta #{account.id}",
+                        "account_id": account.id,
+                        "job_type": "import_orders",
+                        "payload_json": json.dumps(continuation_payload),
+                    }
+                )
+
         return {
-            "order_id": order.id,
-            "external_id": str(external_id),
-            "created": True,
-            "state": order.marketplace_order_state,
-            "missing_items": missing_items,
+            "ok": errors == 0,
+            "imported": imported,
+            "error_count": errors,
+            "unresolved_count": len(unresolved),
+            "next_offset": next_offset,
+            "complete": not continuation,
         }
 
     def _normalize_order_state(self, order_data):
@@ -475,28 +618,70 @@ class MarketplacePublicationService(models.AbstractModel):
                 raise UserError(f"No se pudo consultar la cuenta de Mercado Libre: {err}")
 
         all_item_ids = []
+        discovery_truncated = False
         if account.provider_type == "mercadolibre" and user_id:
-            offset = 0
-            limit = 50
-            while True:
-                res = provider._request(
+            endpoint = f"/users/{user_id}/items/search"
+            seen_ids = set()
+            try:
+                response = provider._request(
                     "GET",
-                    f"/users/{user_id}/items/search",
+                    endpoint,
                     with_auth=True,
-                    params={"limit": limit, "offset": offset},
+                    params={"search_type": "scan", "limit": 100},
                 )
-                items = res.get("results", []) if isinstance(res, dict) else []
-                if not items:
-                    break
-                all_item_ids.extend(items)
-                paging = res.get("paging", {}) if isinstance(res, dict) else {}
-                total = paging.get("total", 0)
-                offset += len(items)
-                if offset >= total or len(items) < limit or offset >= 1000:
-                    break
+                scroll_id = response.get("scroll_id") if isinstance(response, dict) else False
+                while scroll_id:
+                    items = response.get("results", []) if isinstance(response, dict) else []
+                    new_ids = [item for item in items if item and str(item) not in seen_ids]
+                    if not new_ids:
+                        break
+                    all_item_ids.extend(new_ids)
+                    seen_ids.update(str(item) for item in new_ids)
+                    response = provider._request(
+                        "GET",
+                        endpoint,
+                        with_auth=True,
+                        params={"scroll_id": scroll_id},
+                    )
+                    scroll_id = (
+                        response.get("scroll_id")
+                        if isinstance(response, dict) and response.get("scroll_id")
+                        else scroll_id
+                    )
+            except Exception:
+                all_item_ids = []
+                seen_ids.clear()
+
+            if not all_item_ids:
+                offset = 0
+                limit = 50
+                while offset < 1000:
+                    res = provider._request(
+                        "GET",
+                        endpoint,
+                        with_auth=True,
+                        params={"limit": limit, "offset": offset},
+                    )
+                    items = res.get("results", []) if isinstance(res, dict) else []
+                    if not items:
+                        break
+                    all_item_ids.extend(item for item in items if item and str(item) not in seen_ids)
+                    seen_ids.update(str(item) for item in items if item)
+                    paging = res.get("paging", {}) if isinstance(res, dict) else {}
+                    total = paging.get("total", 0)
+                    offset += len(items)
+                    if offset >= total or len(items) < limit:
+                        break
+                else:
+                    discovery_truncated = True
 
         if not all_item_ids:
-            return {"imported": 0, "reconciled": 0, "total_items": 0}
+            return {
+                "imported": 0,
+                "reconciled": 0,
+                "total_items": 0,
+                "truncated": discovery_truncated,
+            }
 
         pub_model = self.env["marketplace.publication"].sudo()
         tmpl_model = self.env["product.template"].sudo()
@@ -657,6 +842,7 @@ class MarketplacePublicationService(models.AbstractModel):
             "imported": imported_count,
             "reconciled": reconciled_count,
             "total_items": len(all_item_ids),
+            "truncated": discovery_truncated,
         }
 
     def delete(self, publication):

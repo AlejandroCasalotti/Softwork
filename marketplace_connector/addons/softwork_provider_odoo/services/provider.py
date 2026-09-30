@@ -2,6 +2,7 @@
 import json
 import logging
 import xmlrpc.client
+from urllib.parse import urlsplit
 
 from odoo.exceptions import UserError
 
@@ -63,8 +64,20 @@ class OdooProvider(IProvider):
         if not password:
             raise UserError("Falta password/API key de Odoo en la cuenta.")
 
-        if not clean_url.startswith(("http://", "https://")):
+        if clean_url.lower().startswith("http://"):
+            raise UserError("La conexión remota a Odoo requiere HTTPS para proteger las credenciales.")
+        if "://" not in clean_url:
             clean_url = f"https://{clean_url}"
+        parsed_url = urlsplit(clean_url)
+        if (
+            parsed_url.scheme.lower() != "https"
+            or not parsed_url.hostname
+            or parsed_url.username
+            or parsed_url.password
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
+            raise UserError("La URL de Odoo remoto debe ser HTTPS y no puede incluir credenciales ni parámetros.")
 
         common = xmlrpc.client.ServerProxy(f"{clean_url.rstrip('/')}/xmlrpc/2/common")
         uid = common.authenticate(db, user, password, {})

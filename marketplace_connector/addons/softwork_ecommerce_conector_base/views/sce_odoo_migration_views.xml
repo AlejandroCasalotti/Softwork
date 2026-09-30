@@ -35,10 +35,10 @@
                     <button name="action_reuse_previous_field_map" type="object" string="Reutilizar mapeo" class="btn-secondary" icon="fa-copy"/>
                     <button name="action_enqueue_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state in ('queued', 'running')"/>
                     <button name="action_process_queued_migration" type="object" string="Procesar ahora" class="btn-primary" invisible="state != 'queued'"/>
-                    <button name="action_pause_migration" type="object" string="Pausar" invisible="state != 'running'"/>
-                    <button name="action_resume_migration" type="object" string="Reanudar" invisible="state not in ('paused','failed','draft')"/>
+                    <button name="action_pause_migration" type="object" string="Pausar" invisible="state not in ('queued','running')"/>
+                    <button name="action_resume_migration" type="object" string="Reanudar / reintentar" invisible="state not in ('paused','partial','failed','draft')"/>
                     <button name="action_reset_checkpoint" type="object" string="Reset checkpoint" class="btn-secondary"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,queued,running,paused,done,failed"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,queued,running,paused,partial,done,failed"/>
                 </header>
                 <sheet>
                     <group>
@@ -131,7 +131,7 @@
                             </div>
                             <field name="field_map_ids" nolabel="1">
                                 <list editable="bottom" default_order="model_name,sequence,field_label"
-                                      decoration-muted="compatibility in ('missing_target','readonly','lines')"
+                                      decoration-muted="compatibility in ('missing_target','readonly','lines','incompatible')"
                                       decoration-bf="is_required">
                                                         <header>
                                                         <button name="action_delete_selected" type="object"
@@ -147,9 +147,9 @@
                                            decoration-success="compatibility == 'ok'"
                                            decoration-info="compatibility == 'relation'"
                                            decoration-warning="compatibility in ('required','readonly')"
-                                           decoration-danger="compatibility in ('missing_target','lines')"/>
+                                           decoration-danger="compatibility in ('missing_target','lines','incompatible')"/>
                                     <field name="is_required" readonly="1" optional="hide"/>
-                                    <field name="migrate" readonly="compatibility in ('missing_target','readonly','lines')"/>
+                                    <field name="migrate" readonly="compatibility in ('missing_target','readonly','lines','incompatible')"/>
                                     <field name="model_name" column_invisible="1"/>
                                     <field name="sequence" column_invisible="1"/>
                                 </list>
@@ -201,7 +201,7 @@
                     <field name="sync_stock_locations"/>
                 </group>
                 <footer>
-                    <button name="action_start" type="object" string="Iniciar migración" class="btn-primary"/>
+                    <button name="action_start" type="object" string="Configurar migración" class="btn-primary"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

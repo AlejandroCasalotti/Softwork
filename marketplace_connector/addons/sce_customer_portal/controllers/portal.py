@@ -38,9 +38,13 @@ class SceCustomerPortal(CustomerPortal):
     def _get_portal_account_by_id(self, subscription, account_id):
         if not subscription or not account_id:
             return self._get_portal_account(subscription)
+        try:
+            account_id = int(account_id)
+        except (TypeError, ValueError):
+            return request.env["sce.account"]
         return request.env["sce.account"].sudo().search(
             [
-                ("id", "=", int(account_id)),
+                ("id", "=", account_id),
                 ("company_id", "=", subscription.company_id.id),
                 ("provider_type", "=", "mercadolibre"),
                 ("active", "=", True),
@@ -71,29 +75,41 @@ class SceCustomerPortal(CustomerPortal):
         )
         return request.render("sce_customer_portal.portal_sce_dashboard", values)
 
-    @http.route("/my/sce/odoo", type="http", auth="user", website=True, methods=["POST"])
-    def portal_save_odoo_connection(self, **post):
+    @http.route(
+        "/my/sce/account/<int:account_id>/odoo",
+        type="http",
+        auth="user",
+        website=True,
+        methods=["POST"],
+    )
+    def portal_save_odoo_connection(self, account_id, **post):
         subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, account_id)
         if account:
-            account.write(
-                {
-                    "odoo_base_url": (post.get("odoo_base_url") or "").strip(),
-                    "odoo_db_name": (post.get("odoo_db_name") or "").strip(),
-                    "odoo_user": (post.get("odoo_user") or "").strip(),
-                    "odoo_password": post.get("odoo_password") or "",
-                    "sync_stock": post.get("sync_stock") == "on",
-                    "sync_prices": post.get("sync_prices") == "on",
-                    "sync_orders": post.get("sync_orders") == "on",
-                }
-            )
+            values = {
+                "odoo_base_url": (post.get("odoo_base_url") or "").strip(),
+                "odoo_db_name": (post.get("odoo_db_name") or "").strip(),
+                "odoo_user": (post.get("odoo_user") or "").strip(),
+                "sync_stock": post.get("sync_stock") == "on",
+                "sync_prices": post.get("sync_prices") == "on",
+                "sync_orders": post.get("sync_orders") == "on",
+            }
+            if post.get("odoo_password"):
+                values["odoo_password"] = post["odoo_password"]
+            account.with_context(skip_initial_sync_check=True).write(values)
             try:
                 account._get_remote_odoo_rpc()
-                for ml_account in self._get_portal_ml_accounts(subscription).filtered(lambda a: a.state == "connected"):
-                    ml_account._enqueue_initial_sync_if_ready()
-                request.session["sce_portal_notice"] = "Conexión Odoo validada. La sincronización inicial quedó encolada si Mercado Libre ya está conectado."
+                account._enqueue_initial_sync_if_ready()
+                request.session["sce_portal_notice"] = (
+                    f"Conexión Odoo validada para {account.display_name}. "
+                    "La sincronización de esta cuenta quedó encolada."
+                )
             except Exception as error:
-                request.session["sce_portal_error"] = str(error)
+                request.session["sce_portal_error"] = (
+                    f"No se pudo validar Odoo para {account.display_name}: {error}"
+                )
+        else:
+            request.session["sce_portal_error"] = "No se encontró una cuenta Mercado Libre autorizada."
         return request.redirect("/my/sce")
 
     @http.route("/my/sce/account/<int:account_id>/sync/<string:operation>", type="http", auth="user", website=True, methods=["POST"])
@@ -101,18 +117,34 @@ class SceCustomerPortal(CustomerPortal):
         subscription = self._get_portal_subscription()
         account = self._get_portal_account_by_id(subscription, account_id)
         if account:
-            if operation == "start":
-                account.action_start_initial_sync()
-                request.session["sce_portal_notice"] = "Sincronización inicial encolada."
-            elif operation == "pause":
-                account.action_pause_sync()
-                request.session["sce_portal_notice"] = "Sincronización pausada para esta cuenta."
-            elif operation == "resume":
-                account.action_resume_sync()
-                request.session["sce_portal_notice"] = "Sincronización reanudada para esta cuenta."
+            try:
+                if operation == "start":
+                    account.action_start_initial_sync()
+                    request.session["sce_portal_notice"] = "Sincronización encolada para esta cuenta."
+                elif operation == "pause":
+                    account.action_pause_sync()
+                    request.session["sce_portal_notice"] = "Sincronización pausada para esta cuenta."
+                elif operation == "resume":
+                    account.action_resume_sync()
+                    request.session["sce_portal_notice"] = "Sincronización reanudada para esta cuenta."
+                elif operation == "retry":
+                    retried = account.action_retry_failed_jobs()
+                    request.session["sce_portal_notice"] = (
+                        f"Se reencolaron {retried} trabajo(s) fallido(s) de esta cuenta."
+                    )
+                else:
+                    request.session["sce_portal_error"] = "La acción de sincronización solicitada no es válida."
+            except Exception as error:
+                request.session["sce_portal_error"] = str(error)
         return request.redirect("/my/sce")
 
-    @http.route("/my/sce/connect/mercadolibre", type="http", auth="user", website=True)
+    @http.route(
+        "/my/sce/connect/mercadolibre",
+        type="http",
+        auth="user",
+        website=True,
+        methods=["POST"],
+    )
     def portal_connect_mercadolibre(self, **kwargs):
         subscription = self._get_portal_subscription(create=True)
         account = request.env["sce.account"].sudo().create_quick_ml_account(company=subscription.company_id)

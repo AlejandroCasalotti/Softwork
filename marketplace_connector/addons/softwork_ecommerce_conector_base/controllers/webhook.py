@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
+import hmac
 
 from odoo import http
 from odoo.http import request
@@ -33,12 +34,24 @@ class SceWebhookController(http.Controller):
         if not isinstance(payload, dict):
             payload = {"raw": payload}
 
-        account = request.env["sce.account"].sudo().search(
-            [("active", "=", True), ("connector_id.provider_type", "=", provider_key)],
-            limit=1,
+        seller_id = payload.get("user_id") or payload.get("seller_id")
+        if isinstance(payload.get("user"), dict):
+            seller_id = seller_id or payload["user"].get("id")
+        if not seller_id:
+            return {"ok": False, "error": "missing seller identity"}
+
+        accounts = request.env["sce.account"].sudo().search(
+            [
+                ("active", "=", True),
+                ("state", "=", "connected"),
+                ("provider_type", "=", provider_key),
+                ("external_user_id", "=", str(seller_id)),
+            ],
+            limit=2,
         )
-        if not account:
-            return {"ok": False, "error": f"no active account for provider '{provider_key}'"}
+        if len(accounts) != 1:
+            return {"ok": False, "error": "account not found or seller identity is ambiguous"}
+        account = accounts
 
         expected = False
         if account.credentials_json:
@@ -48,7 +61,9 @@ class SceWebhookController(http.Controller):
             except Exception:
                 expected = False
 
-        if expected and token != expected:
+        if not expected:
+            return {"ok": False, "error": "webhook authentication is not configured"}
+        if not hmac.compare_digest(str(token).encode("utf-8"), str(expected).encode("utf-8")):
             return {"ok": False, "error": "invalid webhook token"}
 
         event = request.env["sce.event"].sudo().emit_event(
@@ -56,7 +71,11 @@ class SceWebhookController(http.Controller):
             event_type="WebhookReceived",
             connector=account.connector_id,
             account=account,
-            payload=payload,
+            payload={
+                "topic": payload.get("topic") or payload.get("type"),
+                "resource": payload.get("resource"),
+                "user_id": str(seller_id),
+            },
             company=account.company_id,
         )
 
@@ -76,7 +95,6 @@ class SceWebhookController(http.Controller):
             level="INFO",
             connector=account.connector_id,
             account=account,
-            details_json=json.dumps(payload),
         )
 
         return {

@@ -20,13 +20,23 @@ class MercadoLibreHttpTransport:
         if not requests:
             raise UserError("La librería Python 'requests' no está disponible en el entorno Odoo.")
 
-    def _request(self, method, endpoint, payload=None, params=None, with_auth=True, form_encoded=False, _retried=False):
+    def _request(
+        self,
+        method,
+        endpoint,
+        payload=None,
+        params=None,
+        with_auth=True,
+        form_encoded=False,
+        _retried=False,
+        auth_token=None,
+    ):
         self._ensure_requests()
         headers = {"Content-Type": "application/json"}
         if form_encoded:
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         if with_auth:
-            token = self.account.access_token
+            token = auth_token or self.account.access_token
             if not token:
                 raise UserError("No hay access token configurado en la cuenta.")
             headers["Authorization"] = f"Bearer {token}"
@@ -70,17 +80,17 @@ class MercadoLibreHttpTransport:
         if response.status_code >= 400:
             payload_keys = sorted(payload) if isinstance(payload, dict) else []
             _logger.error(
-                "ML error HTTP %s en %s %s account_id=%s payload_keys=%s response=%s",
+                "ML error HTTP %s en %s %s account_id=%s payload_keys=%s",
                 response.status_code,
                 method,
                 endpoint,
                 self.account.id,
                 payload_keys,
-                response.text,
             )
             raise UserError(
                 f"Error MercadoLibre {response.status_code} en {method} {endpoint} "
-                f"(campos enviados: {', '.join(payload_keys) or 'ninguno'}): {response.text}"
+                f"(campos enviados: {', '.join(payload_keys) or 'ninguno'}). "
+                "Revisá el estado de la conexión e intentá nuevamente."
             )
         if not response.text:
             return {"_meta": {"elapsed_ms": elapsed_ms}}

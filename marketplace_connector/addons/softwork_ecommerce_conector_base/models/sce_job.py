@@ -61,6 +61,16 @@ class SceJob(models.Model):
 
     def _execute_job(self):
         self.ensure_one()
+        if self.account_id.sync_paused:
+            self.write(
+                {
+                    "state": "cancelled",
+                    "finished_at": fields.Datetime.now(),
+                    "error_message": "Sincronización pausada para esta cuenta.",
+                }
+            )
+            self.account_id._update_initial_sync_status()
+            return
         start_dt = fields.Datetime.now()
         self.write({
             "state": "running",
@@ -94,6 +104,7 @@ class SceJob(models.Model):
                     payload = {"raw": self.payload_json}
 
             result = self._execute_provider_operation(provider, payload)
+            result_summary = self._summarize_result(result or {})
             end_dt = fields.Datetime.now()
             duration = int((end_dt - start_dt).total_seconds() * 1000)
 
@@ -101,7 +112,8 @@ class SceJob(models.Model):
                 "state": "done",
                 "finished_at": end_dt,
                 "duration_ms": duration,
-                "result_json": json.dumps(result or {}),
+                "result_json": json.dumps(result_summary),
+                "payload_json": False,
                 "error_message": False,
             })
             metric_model.create({
@@ -136,7 +148,7 @@ class SceJob(models.Model):
                 connector=self.connector_id,
                 account=self.account_id,
                 job=self,
-                details_json=self.result_json,
+                details_json=json.dumps(result_summary),
             )
         except Exception as err:
             self._on_execution_failed(err)
@@ -148,6 +160,14 @@ class SceJob(models.Model):
                 "duration_ms": duration,
                 "error_message": str(err),
             })
+            self.account_id.with_context(skip_initial_sync_check=True).write(
+                {
+                    "last_error": (
+                        f"Falló la sincronización «{self.name}» ({type(err).__name__}). "
+                        "Podés reintentarla desde esta cuenta."
+                    )
+                }
+            )
             metric_model.create({
                 "company_id": self.company_id.id,
                 "connector_id": self.connector_id.id,
@@ -162,17 +182,28 @@ class SceJob(models.Model):
                 connector=self.connector_id,
                 account=self.account_id,
                 job=self,
-                payload={"error": str(err)},
+                payload={"error_type": type(err).__name__},
             )
             log_service.log(
                 name="Job failed",
-                message=f"Job {self.display_name} failed: {err}",
+                message=f"Job {self.display_name} failed ({type(err).__name__})",
                 level="ERROR",
                 connector=self.connector_id,
                 account=self.account_id,
                 job=self,
-                details_json=str(err),
+                details_json=json.dumps({"error_type": type(err).__name__}),
             )
+        self.account_id._update_initial_sync_status()
+        if self.state == "done" and (self.account_id.last_error or "").startswith(
+            "Falló la sincronización"
+        ):
+            remaining_failures = self.search_count(
+                [("account_id", "=", self.account_id.id), ("state", "=", "failed")]
+            )
+            if not remaining_failures:
+                self.account_id.with_context(skip_initial_sync_check=True).write(
+                    {"last_error": False}
+                )
 
     def _on_execution_failed(self, error):
         """Hook for specialized jobs to synchronize domain error state."""
@@ -186,13 +217,48 @@ class SceJob(models.Model):
         """
         return provider.sync({"operation": self.job_type, "payload": payload})
 
+    def _summarize_result(self, result):
+        if not isinstance(result, dict):
+            return {"ok": bool(result)}
+        allowed = (
+            "ok",
+            "action",
+            "provider",
+            "imported",
+            "reconciled",
+            "total_items",
+            "updated_count",
+            "total_mappings",
+            "created",
+            "state",
+            "error_count",
+            "unresolved_count",
+            "next_offset",
+            "complete",
+            "truncated",
+        )
+        summary = {key: result[key] for key in allowed if key in result}
+        if isinstance(result.get("errors"), list):
+            summary["error_count"] = len(result["errors"])
+        return summary
+
     def cron_process_queue(self):
-        jobs = self.search([("state", "=", "queued")], limit=50, order="create_date asc")
+        self.env.cr.execute(
+            f"SELECT id FROM {self._table} "
+            "WHERE state = %s ORDER BY create_date, id LIMIT 50 FOR UPDATE SKIP LOCKED",
+            ("queued",),
+        )
+        jobs = self.browse([row[0] for row in self.env.cr.fetchall()])
         for job in jobs:
             job._execute_job()
 
     def cron_retry_failed_jobs(self):
-        jobs = self.search([("state", "=", "failed")], limit=50, order="write_date asc")
+        self.env.cr.execute(
+            f"SELECT id FROM {self._table} "
+            "WHERE state = %s ORDER BY write_date, id LIMIT 50 FOR UPDATE SKIP LOCKED",
+            ("failed",),
+        )
+        jobs = self.browse([row[0] for row in self.env.cr.fetchall()])
         for job in jobs:
             if (job.attempts or 0) < (job.max_retries or 0):
                 job.write({"state": "queued", "error_message": False})

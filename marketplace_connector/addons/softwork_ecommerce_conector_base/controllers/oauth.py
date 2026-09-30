@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import json
 import logging
+from datetime import timedelta
 
+from odoo import fields
 from odoo import http
 from odoo.http import request
 
@@ -41,6 +43,7 @@ class SceOAuthController(http.Controller):
     )
     def sce_ml_oauth_start(self, **kwargs):
         company = request.env.company
+        allowed_company_ids = request.env.user.company_ids.ids
         account_id = kwargs.get("account_id")
         if account_id:
             try:
@@ -48,7 +51,13 @@ class SceOAuthController(http.Controller):
             except (TypeError, ValueError):
                 account_id = 0
             account = request.env["sce.account"].sudo().search(
-                [("id", "=", account_id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)], limit=1
+                [
+                    ("id", "=", account_id),
+                    ("company_id", "in", allowed_company_ids),
+                    ("provider_type", "=", "mercadolibre"),
+                    ("active", "=", True),
+                ],
+                limit=1,
             )
             if not account:
                 return self._oauth_popup_response("error", "No se encontró la cuenta Mercado Libre a conectar.")
@@ -75,8 +84,8 @@ class SceOAuthController(http.Controller):
         code = kwargs.get("code") or kwargs.get("authorization_code")
         error = kwargs.get("error")
         _logger.info(
-            "ML OAuth callback received: state=%s has_code=%s code_len=%s keys=%s",
-            state,
+            "ML OAuth callback received: has_state=%s has_code=%s code_len=%s keys=%s",
+            bool(state),
             bool(code),
             len((code or "").strip()),
             sorted(list(kwargs.keys())),
@@ -85,20 +94,26 @@ class SceOAuthController(http.Controller):
         if not state:
             return request.redirect("/web#action=base.action_res_users")
 
-        try:
-            account_id = int(state)
-        except Exception:
+        account = request.env["sce.account"].sudo().search(
+            [
+                ("oauth_state_nonce", "=", state),
+                ("oauth_state_created_at", ">=", fields.Datetime.now() - timedelta(minutes=15)),
+                ("company_id", "in", request.env.user.company_ids.ids),
+                ("provider_type", "=", "mercadolibre"),
+                ("active", "=", True),
+            ],
+            limit=1,
+        )
+        if not account:
             return request.redirect("/web#action=base.action_res_users")
 
-        account = request.env["sce.account"].sudo().browse(account_id)
-        if not account.exists():
-            return request.redirect("/web#action=base.action_res_users")
-
+        account.write({"oauth_state_nonce": False, "oauth_state_created_at": False})
         if error:
             account.write(
                 {
-                    "state": "error",
+                    "state": "connected" if account.access_token else "error",
                     "last_error": f"OAuth error: {error}",
+                    "oauth_code_verifier": False,
                 }
             )
             return request.redirect("/sce/oauth/mercadolibre/result?status=error")
@@ -109,8 +124,9 @@ class SceOAuthController(http.Controller):
                 if not account.oauth_code_verifier:
                     account.write(
                         {
-                            "state": "draft",
+                            "state": "connected" if account.access_token else "draft",
                             "last_error": "Falta PKCE code_verifier vigente. Reautorizá la conexión.",
+                            "oauth_code_verifier": False,
                         }
                     )
                     return self._oauth_popup_response("error", "Falta una autorización vigente. Volvé a intentar la conexión.", account.id)
@@ -121,20 +137,17 @@ class SceOAuthController(http.Controller):
                 if "invalid_grant" in err_msg:
                     account.write(
                         {
-                            "state": "draft",
+                            "state": "connected" if account.access_token else "draft",
                             "auth_code": False,
                             "oauth_code_verifier": False,
-                            "access_token": False,
-                            "refresh_token": False,
-                            "token_type": False,
-                            "token_expires_at": False,
+                            "oauth_state_nonce": False,
                             "last_error": "OAuth inválido: código y/o refresh token vencido/revocado. Reautorizá la conexión.",
                         }
                     )
                     return self._oauth_popup_response("error", "La autorización venció o fue revocada. Volvé a conectar la cuenta.", account.id)
                 account.write(
                     {
-                        "state": "error",
+                        "state": "connected" if account.access_token else "error",
                         "last_error": err_msg,
                     }
                 )

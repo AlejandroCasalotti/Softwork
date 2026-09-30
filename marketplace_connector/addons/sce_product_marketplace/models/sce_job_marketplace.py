@@ -48,6 +48,10 @@ class SceMarketplaceJob(models.Model):
 
         if self.job_type == "sync_products":
             return service.import_account_publications(self.account_id)
+        if self.job_type == "import_orders":
+            order_payload = dict(payload or {})
+            order_payload["_job_id"] = self.id
+            return service.sync_account_orders(self.account_id, order_payload)
         if self.job_type in ("sync_stock", "sync_publication_stock") and not self.publication_id:
             return service.sync_account_stock(self.account_id, payload)
         if self.job_type in ("sync_prices", "sync_publication_price") and not self.publication_id:

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from urllib.parse import urlsplit
 
 from markupsafe import Markup
 
@@ -442,7 +443,22 @@ class MarketplaceAccount(models.Model):
     # --- 6. Métodos RPC para mapear opciones desde el Odoo del cliente ---
     def _get_remote_odoo_rpc(self):
         self.ensure_one()
-        url = (self.odoo_base_url or "").strip().rstrip('/')
+        url = (self.odoo_base_url or "").strip()
+        if url.lower().startswith("http://"):
+            raise UserError("La conexión remota a Odoo requiere HTTPS para proteger las credenciales.")
+        if url and "://" not in url:
+            url = f"https://{url}"
+        parsed_url = urlsplit(url)
+        if url and (
+            parsed_url.scheme.lower() != "https"
+            or not parsed_url.hostname
+            or parsed_url.username
+            or parsed_url.password
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
+            raise UserError("La URL de Odoo remoto debe ser HTTPS y no puede incluir credenciales ni parámetros.")
+        url = url.rstrip("/")
         db = (self.odoo_db_name or "").strip()
         user = (self.odoo_user or "").strip()
         password = (self.odoo_password or "").strip()
@@ -463,7 +479,9 @@ class MarketplaceAccount(models.Model):
         except UserError:
             raise
         except Exception as err:
-            raise UserError(f"No se pudo conectar con el Odoo remoto: {err}") from err
+            raise UserError(
+                f"No se pudo conectar con el Odoo remoto ({type(err).__name__})."
+            ) from err
 
     def _fetch_remote_odoo_records(self, model_name, domain=None, fields_to_read=None):
         db, uid, password, models_rpc = self._get_remote_odoo_rpc()
@@ -478,7 +496,9 @@ class MarketplaceAccount(models.Model):
             )
             return records or []
         except Exception as err:
-            raise UserError(f"Error al consultar '{model_name}' en Odoo remoto: {err}")
+            raise UserError(
+                f"Error al consultar '{model_name}' en Odoo remoto ({type(err).__name__})."
+            ) from err
 
     def get_remote_product_stock_price(self, sku=None, barcode=None):
         """Lee stock pronosticado y precio de venta (con impuestos del producto) directo del Odoo remoto del cliente, sin crear ningún registro local."""
@@ -760,7 +780,7 @@ class MarketplaceAccount(models.Model):
                 ], limit=1)
                 if not pending:
                     job_model.create({
-                        "name": f"Auto sync remote {label} - {account.display_name}",
+                        "name": f"Auto sync remote {label} - account #{account.id}",
                         "account_id": account.id,
                         "job_type": job_type,
                         "payload_json": '{"trigger": "remote_poll"}',

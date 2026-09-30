@@ -86,12 +86,15 @@ class SceAccount(models.Model):
     last_token_refresh_error = fields.Text(readonly=True)
     token_circuit_open_until = fields.Datetime(readonly=True)
     oauth_code_verifier = fields.Char(string="OAuth Code Verifier", copy=False)
+    oauth_state_nonce = fields.Char(copy=False, groups="softwork_ecommerce_conector_base.group_sce_technical")
+    oauth_state_created_at = fields.Datetime(copy=False, groups="softwork_ecommerce_conector_base.group_sce_technical")
     oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
     job_ids = fields.One2many("sce.job", "account_id", string="Jobs")
     jobs_done_count = fields.Integer(compute="_compute_job_metrics")
     jobs_failed_count = fields.Integer(compute="_compute_job_metrics")
+    jobs_pending_count = fields.Integer(compute="_compute_job_metrics")
     avg_duration_ms = fields.Float(compute="_compute_job_metrics")
     provider_timeout_seconds = fields.Integer(
         string="Provider Timeout (s)",
@@ -164,7 +167,7 @@ class SceAccount(models.Model):
 
     def _enqueue_initial_sync_if_ready(self):
         for account in self:
-            if account.initial_sync_queued or account.sync_paused or account.state != "connected":
+            if account.sync_paused or account.state != "connected":
                 continue
             if account.provider_type != "mercadolibre":
                 continue
@@ -173,14 +176,27 @@ class SceAccount(models.Model):
             ):
                 continue
             job_model = self.env["sce.job"].sudo()
-            for job_type, label in (
-                ("sync_products", "productos"),
-                ("sync_stock", "stock"),
-                ("sync_prices", "precios"),
+            initial_jobs = [("sync_products", "productos")]
+            if account.sync_stock:
+                initial_jobs.append(("sync_stock", "stock"))
+            if account.sync_prices:
+                initial_jobs.append(("sync_prices", "precios"))
+            if account.sync_orders:
+                initial_jobs.append(("import_orders", "ventas"))
+            initial_job_types = [job_type for job_type, _label in initial_jobs]
+            if job_model.search_count(
+                [
+                    ("account_id", "=", account.id),
+                    ("job_type", "in", initial_job_types),
+                    ("state", "in", ("queued", "running")),
+                ]
             ):
+                account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
+                continue
+            for job_type, label in initial_jobs:
                 job_model.create(
                     {
-                        "name": f"Sincronización inicial {label} - {account.display_name}",
+                        "name": f"Sincronización inicial {label} - cuenta #{account.id}",
                         "account_id": account.id,
                         "job_type": job_type,
                         "payload_json": "{}",
@@ -188,8 +204,27 @@ class SceAccount(models.Model):
                 )
             account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
 
+    def _update_initial_sync_status(self):
+        for account in self:
+            pending = self.env["sce.job"].sudo().search_count(
+                [
+                    ("account_id", "=", account.id),
+                    ("job_type", "in", ("sync_products", "sync_stock", "sync_prices", "import_orders")),
+                    ("state", "in", ("queued", "running")),
+                ]
+            )
+            account.with_context(skip_initial_sync_check=True).write(
+                {"initial_sync_queued": bool(pending)}
+            )
+
     def action_start_initial_sync(self):
         for account in self:
+            if account.provider_type == "mercadolibre" and account.state != "connected":
+                raise UserError("Conectá la cuenta de Mercado Libre antes de iniciar la sincronización.")
+            if account.provider_type == "mercadolibre" and not all(
+                (account.odoo_base_url, account.odoo_db_name, account.odoo_user, account.odoo_password)
+            ):
+                raise UserError("Configurá y validá la conexión Odoo de esta cuenta antes de sincronizar.")
             account.with_context(skip_initial_sync_check=True).write(
                 {"sync_paused": False, "initial_sync_queued": False}
             )
@@ -204,6 +239,17 @@ class SceAccount(models.Model):
         self.write({"sync_paused": False})
         self._enqueue_initial_sync_if_ready()
         return True
+
+    def action_retry_failed_jobs(self):
+        self.ensure_one()
+        jobs = self.env["sce.job"].sudo().search(
+            [("account_id", "=", self.id), ("state", "=", "failed")]
+        )
+        if not jobs:
+            raise UserError("No hay trabajos fallidos para reintentar en esta cuenta.")
+        jobs.write({"state": "queued", "attempts": 0, "error_message": False})
+        self.with_context(skip_initial_sync_check=True).write({"last_error": False})
+        return len(jobs)
 
     def action_connect_mercadolibre_oauth(self):
         self.ensure_one()
@@ -233,18 +279,7 @@ class SceAccount(models.Model):
     @api.depends("client_id", "redirect_uri", "provider_type")
     def _compute_oauth_url(self):
         for rec in self:
-            if rec.provider_type == "mercadolibre" and rec.client_id and rec.redirect_uri and rec.id:
-                params = urlencode(
-                    {
-                        "response_type": "code",
-                        "client_id": rec.client_id,
-                        "redirect_uri": rec.redirect_uri,
-                        "state": str(rec.id),
-                    }
-                )
-                rec.oauth_url = f"https://auth.mercadolibre.com.ar/authorization?{params}"
-            else:
-                rec.oauth_url = False
+            rec.oauth_url = False
 
     @api.model
     def get_or_create_quick_ml_account(self, company=None):
@@ -718,13 +753,20 @@ class SceAccount(models.Model):
                 "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
             )
         verifier, challenge = self._generate_pkce_pair()
-        record.write({"oauth_code_verifier": verifier})
+        state_nonce = secrets.token_urlsafe(32)
+        record.write(
+            {
+                "oauth_code_verifier": verifier,
+                "oauth_state_nonce": state_nonce,
+                "oauth_state_created_at": fields.Datetime.now(),
+            }
+        )
         params = urlencode(
             {
                 "response_type": "code",
                 "client_id": record.client_id,
                 "redirect_uri": record.redirect_uri,
-                "state": str(record.id),
+                "state": state_nonce,
                 "code_challenge": challenge,
                 "code_challenge_method": "S256",
             }
@@ -741,8 +783,10 @@ class SceAccount(models.Model):
         for rec in self:
             done_jobs = rec.job_ids.filtered(lambda j: j.state == "done")
             failed_jobs = rec.job_ids.filtered(lambda j: j.state == "failed")
+            pending_jobs = rec.job_ids.filtered(lambda j: j.state in ("queued", "running"))
             rec.jobs_done_count = len(done_jobs)
             rec.jobs_failed_count = len(failed_jobs)
+            rec.jobs_pending_count = len(pending_jobs)
             rec.avg_duration_ms = (sum(done_jobs.mapped("duration_ms")) / len(done_jobs)) if done_jobs else 0.0
 
     def _get_credentials_dict(self):
@@ -771,9 +815,14 @@ class SceAccount(models.Model):
                 "refresh_token": self.refresh_token or "",
                 "token_type": self.token_type or "",
                 "token_expires_at": self.token_expires_at.isoformat() if self.token_expires_at else "",
-                "external_user_id": self.external_user_id or "",
             }
         )
+        for key in tuple(data):
+            if key != "webhook_token" and any(
+                fragment in key.lower()
+                for fragment in ("secret", "password", "token", "auth_code", "code_verifier")
+            ):
+                data.pop(key, None)
         self._set_credentials_dict(data)
 
     def _provider_capabilities(self, provider):
@@ -785,11 +834,20 @@ class SceAccount(models.Model):
         return {}
 
     def _sanitize_result_for_logs(self, result):
-        clean = dict(result or {})
-        for key in ("access_token", "refresh_token", "client_secret"):
-            if clean.get(key):
-                clean[key] = "***"
-        return clean
+        sensitive_fragments = ("token", "secret", "password", "authorization_code", "code_verifier")
+
+        def sanitize(value):
+            if isinstance(value, dict):
+                return {
+                    key: "***" if any(fragment in key.lower() for fragment in sensitive_fragments)
+                    else sanitize(item)
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                return [sanitize(item) for item in value]
+            return value
+
+        return sanitize(result or {})
 
     def action_exchange_code(self):
         event_model = self.env["sce.event"]
@@ -820,6 +878,8 @@ class SceAccount(models.Model):
                             "token_refresh_fail_count": 0,
                             "last_token_refresh_error": False,
                             "oauth_code_verifier": False,
+                            "oauth_state_nonce": False,
+                            "oauth_state_created_at": False,
                             "auth_code": False,
                         }
                     )
@@ -846,9 +906,20 @@ class SceAccount(models.Model):
                 )
             except Exception as err:
                 err_msg = str(err)
+                if "otro vendedor de Mercado Libre" in err_msg:
+                    rec.write(
+                        {
+                            "last_error": err_msg,
+                            "auth_code": False,
+                            "oauth_code_verifier": False,
+                            "oauth_state_nonce": False,
+                            "oauth_state_created_at": False,
+                        }
+                    )
+                    raise
                 used_refresh_fallback = False
 
-                if "invalid_grant" in err_msg and rec.refresh_token:
+                if "invalid_grant" in err_msg and rec.refresh_token and not rec.access_token:
                     try:
                         from ..services.provider_factory import ProviderFactory
                         provider = ProviderFactory.get_provider(rec)
@@ -901,13 +972,20 @@ class SceAccount(models.Model):
                     )
                     continue
 
-                rec.state = "error"
-                rec.last_error = err_msg
+                rec.write(
+                    {
+                        "state": "connected" if rec.access_token else "error",
+                        "last_error": err_msg,
+                        "oauth_state_nonce": False,
+                        "oauth_state_created_at": False,
+                    }
+                )
                 rec.token_refresh_fail_count = (rec.token_refresh_fail_count or 0) + 1
                 rec.last_token_refresh_error = err_msg
                 if rec.token_refresh_fail_count >= 3:
                     rec._open_token_circuit(minutes=10)
                 rec.oauth_code_verifier = False
+                rec.oauth_state_nonce = False
                 rec.auth_code = False
                 event_model.emit_event(
                     name=f"Token exchange failed: {rec.display_name}",
@@ -954,6 +1032,9 @@ class SceAccount(models.Model):
                     vals.setdefault("token_type", False)
                     vals.setdefault("token_expires_at", False)
                     vals.setdefault("external_user_id", False)
+                    vals.setdefault("oauth_code_verifier", False)
+                    vals.setdefault("oauth_state_nonce", False)
+                    vals.setdefault("oauth_state_created_at", False)
         return super().write(vals)
 
     def _is_token_circuit_open(self):

@@ -113,6 +113,7 @@ MIGRATION_ENTITIES = (
 )
 
 MAX_RELATION_DEPTH = 3
+MAX_MIGRATION_BATCHES_PER_RUN = 5
 
 # Modelos con campos binarios: lotes chicos para no agotar memoria ni el RPC.
 MODEL_BATCH_LIMITS = {"ir.attachment": 20}
@@ -339,9 +340,15 @@ class SceOdooMigrationEngine(models.Model):
             if not domain:
                 continue
             try:
-                found = self._call(ctx, "dst", model, "search", domain, limit=1)
+                found = self._call(ctx, "dst", model, "search", domain, limit=2)
             except Exception:
                 found = []
+            if len(found) > 1:
+                raise UserError(
+                    "Coincidencia ambigua en destino para %s (clave: %s). "
+                    "Resuelve los duplicados antes de reanudar la migración."
+                    % (model, ", ".join(keys))
+                )
             if found:
                 return found[0]
         return False
@@ -387,26 +394,69 @@ class SceOdooMigrationEngine(models.Model):
         if not readable:
             return errors
 
-        try:
-            source_ids = self._call(ctx, "src", model, "search", self._build_since_domain())
-        except Exception as err:
-            errors.append({"model": model, "id": False, "error": str(err)})
-            return errors
-
         checkpoint_key = f"{model}_last_id"
+        failed_key = f"{model}_failed_ids"
+        cp.pop("_migration_has_more", None)
         last_id = cp.get(checkpoint_key, 0)
-        pending = [rid for rid in sorted(source_ids) if rid > last_id]
+        retry_ids = sorted(set(cp.get(failed_key, [])))
+        retry_offset = 0
         migrated = 0
+        processed_batches = 0
 
-        for batch in self._iter_model_batches(model, pending):
+        size = max(1, int(self.batch_size or 100))
+        size = min(size, MODEL_BATCH_LIMITS.get(model, size))
+        while True:
+            self.invalidate_recordset(["state"])
+            if self.state == "paused":
+                self._save_checkpoint(cp)
+                return errors
+
+            is_retry = retry_offset < len(retry_ids)
+            if is_retry:
+                batch = retry_ids[retry_offset:retry_offset + size]
+                retry_offset += len(batch)
+            else:
+                domain = self._build_since_domain()
+                domain.append(("id", ">", last_id))
+                try:
+                    batch = self._call(
+                        ctx,
+                        "src",
+                        model,
+                        "search",
+                        domain,
+                        limit=size,
+                        order="id asc",
+                    )
+                except Exception as err:
+                    errors.append({"model": model, "id": False, "error": str(err)})
+                    return errors
+                if not batch:
+                    break
+
             try:
                 records = self._call(ctx, "src", model, "read", batch, fields=readable)
             except Exception as err:
-                errors.append({"model": model, "id": False, "error": str(err)})
+                errors.extend(
+                    {"model": model, "id": record_id, "error": str(err)}
+                    for record_id in batch
+                )
                 if not self.continue_on_error:
                     raise
+                cp[failed_key] = sorted(set(cp.get(failed_key, [])).union(batch))
+                if not is_retry:
+                    last_id = max(last_id, max(batch))
+                    cp[checkpoint_key] = last_id
+                self._save_checkpoint(cp)
+                processed_batches += 1
+                if processed_batches >= MAX_MIGRATION_BATCHES_PER_RUN:
+                    cp["_migration_has_more"] = True
+                    self._save_checkpoint(cp)
+                    break
                 continue
 
+            records_by_id = {record.get("id"): record for record in records if record.get("id")}
+            failed_ids = set(cp.get(failed_key, []))
             for src_vals in records:
                 record_id = src_vals.get("id")
 
@@ -424,8 +474,26 @@ class SceOdooMigrationEngine(models.Model):
                             write_vals[CHILD_LINES[model][0]] = line_commands
                         self._call(ctx, "dst", model, "create", write_vals)
 
-                if self._safe_process_record(_process, record_id, cp, checkpoint_key, errors, model):
+                record_checkpoint = cp if not is_retry else {}
+                if self._safe_process_record(
+                    _process, record_id, record_checkpoint, checkpoint_key, errors, model
+                ):
                     migrated += 1
+                    failed_ids.discard(record_id)
+                else:
+                    failed_ids.add(record_id)
+
+            failed_ids.update(set(batch) - set(records_by_id))
+            cp[failed_key] = sorted(failed_ids)
+            if not is_retry:
+                last_id = max(last_id, max(batch))
+                cp[checkpoint_key] = last_id
+            self._save_checkpoint(cp)
+            processed_batches += 1
+            if processed_batches >= MAX_MIGRATION_BATCHES_PER_RUN:
+                cp["_migration_has_more"] = True
+                self._save_checkpoint(cp)
+                break
 
         if migrated and counter_field in self._fields:
             self[counter_field] = (self[counter_field] or 0) + migrated
@@ -498,6 +566,10 @@ class SceOdooMigrationEngine(models.Model):
             return "technical", False
         if not dst_def:
             return "missing_target", False
+        if src_def.get("type") != dst_def.get("type"):
+            return "incompatible", False
+        if src_def.get("relation") and src_def.get("relation") != dst_def.get("relation"):
+            return "incompatible", False
         if dst_def.get("readonly"):
             return "readonly", False
         if dst_def.get("type") == "one2many":
@@ -683,6 +755,11 @@ class SceOdooMigrationEngine(models.Model):
     def _check_required_fields_mapped(self):
         """Avisa antes de ejecutar si falta mapear un campo obligatorio del destino."""
         self.ensure_one()
+        if not self.field_map_analyzed:
+            raise UserError(
+                "Analizá los campos de origen y destino antes de ejecutar para evitar "
+                "copiar datos con esquemas incompatibles."
+            )
         if self.field_map_analyzed and not self.field_map_ids.filtered("migrate"):
             raise UserError(
                 "No hay campos seleccionados para migrar. Marcá al menos un campo o volvé a analizar el mapeo."
