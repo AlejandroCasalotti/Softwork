@@ -7,7 +7,7 @@
             <list string="Jobs">
                 <field name="name"/>
                 <field name="job_type"/>
-                <field name="state"/>
+                <field name="state" decoration-warning="state == 'partial'" decoration-danger="state == 'failed'"/>
                 <field name="attempts"/>
                 <field name="max_retries"/>
                 <field name="account_id"/>
@@ -16,6 +16,7 @@
                 <field name="finished_at"/>
                 <field name="duration_ms"/>
                 <field name="company_id"/>
+                <field name="error_message"/>
             </list>
         </field>
     </record>
@@ -34,7 +35,7 @@
                         <group>
                             <field name="name"/>
                             <field name="job_type"/>
-                            <field name="state"/>
+                            <field name="state" decoration-warning="state == 'partial'" decoration-danger="state == 'failed'"/>
                             <field name="attempts"/>
                             <field name="max_retries"/>
                             <field name="account_id"/>

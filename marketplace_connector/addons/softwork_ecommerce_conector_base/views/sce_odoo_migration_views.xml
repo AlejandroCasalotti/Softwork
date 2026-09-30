@@ -31,6 +31,7 @@
                 <header>
                     <button name="action_detect_versions" type="object" string="Detectar versiones" class="btn-secondary"/>
                     <button name="action_analyze_fields" type="object" string="Analizar campos" class="btn-secondary" icon="fa-search"/>
+                    <button name="action_preflight_migration" type="object" string="Preflight (solo lectura)" class="btn-secondary" icon="fa-shield"/>
                     <button name="action_preview_remote_sample" type="object" string="Vista previa" class="btn-secondary" icon="fa-eye"/>
                     <button name="action_reuse_previous_field_map" type="object" string="Reutilizar mapeo" class="btn-secondary" icon="fa-copy"/>
                     <button name="action_enqueue_migration" type="object" string="Ejecutar" class="btn-primary" invisible="state in ('queued', 'running')"/>
@@ -106,6 +107,8 @@
                         <group>
                             <field name="result_json" widget="text" readonly="1"/>
                             <field name="last_error" widget="text" readonly="1"/>
+                            <field name="preflight_at" readonly="1"/>
+                            <field name="preflight_json" widget="text" readonly="1"/>
                         </group>
                     </group>
 

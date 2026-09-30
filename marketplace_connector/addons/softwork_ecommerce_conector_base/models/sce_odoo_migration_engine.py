@@ -142,6 +142,8 @@ LINE_SKIP_FIELDS = frozenset(
 class SceOdooMigrationEngine(models.Model):
     _inherit = "sce.odoo.migration.run"
 
+    preflight_json = fields.Text(readonly=True)
+    preflight_at = fields.Datetime(readonly=True)
     field_map_ids = fields.One2many(
         "sce.migration.field.map", "run_id", string="Mapeo de campos"
     )
@@ -341,8 +343,11 @@ class SceOdooMigrationEngine(models.Model):
                 continue
             try:
                 found = self._call(ctx, "dst", model, "search", domain, limit=2)
-            except Exception:
-                found = []
+            except Exception as err:
+                raise UserError(
+                    "No se pudo verificar una coincidencia en el Odoo destino "
+                    f"para {model} ({type(err).__name__})."
+                ) from err
             if len(found) > 1:
                 raise UserError(
                     "Coincidencia ambigua en destino para %s (clave: %s). "
@@ -429,7 +434,9 @@ class SceOdooMigrationEngine(models.Model):
                         order="id asc",
                     )
                 except Exception as err:
-                    errors.append({"model": model, "id": False, "error": str(err)})
+                    errors.append(
+                        {"model": model, "error_type": type(err).__name__}
+                    )
                     return errors
                 if not batch:
                     break
@@ -438,7 +445,11 @@ class SceOdooMigrationEngine(models.Model):
                 records = self._call(ctx, "src", model, "read", batch, fields=readable)
             except Exception as err:
                 errors.extend(
-                    {"model": model, "id": record_id, "error": str(err)}
+                    {
+                        "model": model,
+                        "record_id_present": bool(record_id),
+                        "error_type": type(err).__name__,
+                    }
                     for record_id in batch
                 )
                 if not self.continue_on_error:
@@ -686,6 +697,120 @@ class SceOdooMigrationEngine(models.Model):
         self.ensure_one()
         self.field_map_ids.filtered(lambda line: not line.is_required).migrate = False
         return True
+
+    def action_preflight_migration(self):
+        """Read-only, bounded sample that reports match risks without exposing records."""
+        self.ensure_one()
+        self._check_required_fields_mapped()
+        src_uid, src_rpc, dst_uid, dst_rpc = self._validate_source_target_connections()
+        ctx = self._build_migration_context(src_uid, src_rpc, dst_uid, dst_rpc)
+        sample_limit = 100
+        summaries = []
+        for model, _counter in self._iter_selected_entities():
+            src_fields = self._cached_fields(ctx, "src", model)
+            dst_fields = self._cached_fields(ctx, "dst", model)
+            if not src_fields or not dst_fields:
+                summaries.append(
+                    {
+                        "model": model,
+                        "check_error": "model_unavailable",
+                    }
+                )
+                continue
+
+            match_keys = MATCH_KEYS.get(model) or (("name",),)
+            read_fields = sorted(
+                {
+                    field_name
+                    for key_set in match_keys
+                    for field_name in key_set
+                    if field_name in src_fields
+                }
+            )
+            domain = self._build_since_domain()
+            try:
+                source_total = self._call(ctx, "src", model, "search_count", domain)
+                source_ids = self._call(
+                    ctx,
+                    "src",
+                    model,
+                    "search",
+                    domain,
+                    limit=sample_limit,
+                    order="id asc",
+                )
+                source_records = self._call(
+                    ctx, "src", model, "read", source_ids, fields=read_fields
+                ) if source_ids and read_fields else []
+            except Exception as err:
+                summaries.append(
+                    {
+                        "model": model,
+                        "check_error": type(err).__name__,
+                    }
+                )
+                continue
+
+            matched = 0
+            ambiguous = 0
+            check_errors = 0
+            for source_record in source_records:
+                try:
+                    if self._find_existing_target(ctx, model, source_record, dst_fields):
+                        matched += 1
+                except UserError as err:
+                    if "Coincidencia ambigua" in str(err):
+                        ambiguous += 1
+                    else:
+                        check_errors += 1
+                except Exception:
+                    check_errors += 1
+
+            sampled = len(source_records)
+            summaries.append(
+                {
+                    "model": model,
+                    "source_total": source_total,
+                    "sampled": sampled,
+                    "matches": matched,
+                    "potential_creates_in_sample": max(0, sampled - matched - ambiguous - check_errors),
+                    "ambiguous": ambiguous,
+                    "check_errors": check_errors,
+                    "sample_truncated": source_total > sampled,
+                }
+            )
+
+        report = {
+            "sample_limit_per_model": sample_limit,
+            "read_only": True,
+            "models": summaries,
+            "ambiguous_count": sum(item.get("ambiguous", 0) for item in summaries),
+            "check_error_count": sum(
+                item.get("check_errors", 0) + int(bool(item.get("check_error")))
+                for item in summaries
+            ),
+        }
+        self.write(
+            {
+                "preflight_json": json.dumps(report),
+                "preflight_at": fields.Datetime.now(),
+            }
+        )
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Preflight de migración",
+                "message": (
+                    f"Análisis de solo lectura completado: {report['ambiguous_count']} "
+                    f"coincidencia(s) ambigua(s), {report['check_error_count']} "
+                    "error(es) de verificación. Es una muestra limitada a 100 registros "
+                    "por entidad; no garantiza ausencia de conflictos fuera de la muestra."
+                ),
+                "type": "warning" if report["ambiguous_count"] or report["check_error_count"] else "success",
+                "sticky": True,
+            },
+        }
 
     def action_preview_remote_sample(self):
         """Muestra hasta tres registros remotos en una notificación; no los persiste en SCE."""

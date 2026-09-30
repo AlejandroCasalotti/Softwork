@@ -54,23 +54,28 @@ class SceJob(models.Model):
         for rec in self:
             values = {"state": "queued", "error_message": False, "attempts": 0}
             if rec.job_type == "import_orders" and rec.payload_json:
-                try:
-                    payload = json.loads(rec.payload_json)
-                except (TypeError, ValueError):
-                    payload = {}
-                failed_orders = payload.get("failed_orders", {})
-                manual_retry_orders = payload.pop("manual_retry_orders", {})
-                if isinstance(failed_orders, dict) or isinstance(manual_retry_orders, dict):
-                    failed_orders = {
-                        **(failed_orders if isinstance(failed_orders, dict) else {}),
-                        **(manual_retry_orders if isinstance(manual_retry_orders, dict) else {}),
-                    }
-                    payload["failed_orders"] = {
-                        str(external_id): 0 for external_id in failed_orders
-                    }
-                    values["payload_json"] = json.dumps(payload)
+                values["payload_json"] = rec._reset_import_order_retries(
+                    rec.payload_json
+                )
             rec.write(values)
         return True
+
+    def _reset_import_order_retries(self, payload_json):
+        try:
+            payload = json.loads(payload_json or "{}")
+        except (TypeError, ValueError):
+            payload = {}
+        failed_orders = payload.get("failed_orders", {})
+        manual_retry_orders = payload.pop("manual_retry_orders", {})
+        if isinstance(failed_orders, dict) or isinstance(manual_retry_orders, dict):
+            failed_orders = {
+                **(failed_orders if isinstance(failed_orders, dict) else {}),
+                **(manual_retry_orders if isinstance(manual_retry_orders, dict) else {}),
+            }
+            payload["failed_orders"] = {
+                str(external_id): 0 for external_id in failed_orders
+            }
+        return json.dumps(payload)
 
     def action_run_now(self):
         for rec in self:
@@ -85,6 +90,7 @@ class SceJob(models.Model):
                     "state": "cancelled",
                     "finished_at": fields.Datetime.now(),
                     "error_message": "Sincronización pausada para esta cuenta.",
+                    "payload_json": False,
                 }
             )
             self.account_id._update_initial_sync_status()
@@ -171,17 +177,25 @@ class SceJob(models.Model):
             })
 
             event_model.emit_event(
-                name=f"Job finished: {self.name}",
-                event_type="JobFinished",
+                name=(
+                    f"Job finished: {self.name}"
+                    if job_state == "done"
+                    else f"Job partially completed: {self.name}"
+                ),
+                event_type="JobFinished" if job_state == "done" else "JobPartiallyCompleted",
                 connector=self.connector_id,
                 account=self.account_id,
                 job=self,
                 payload={"duration_ms": duration},
             )
             log_service.log(
-                name="Job finished",
-                message=f"Job {self.display_name} finished successfully",
-                level="INFO",
+                name="Job finished" if job_state == "done" else "Job partially completed",
+                message=(
+                    f"Job {self.display_name} finished successfully"
+                    if job_state == "done"
+                    else f"Job {self.display_name} requires manual retry"
+                ),
+                level="INFO" if job_state == "done" else "WARNING",
                 connector=self.connector_id,
                 account=self.account_id,
                 job=self,

@@ -276,8 +276,13 @@ class SceOdooMigrationRun(models.Model):
             cp[cp_key] = record_id
             return True
         except Exception as err:
-            err_msg = str(err)
-            errors.append({"model": model_name, "id": record_id, "error": err_msg})
+            errors.append(
+                {
+                    "model": model_name,
+                    "record_id_present": bool(record_id),
+                    "error_type": type(err).__name__,
+                }
+            )
             self.error_count = (self.error_count or 0) + 1
             if not self.continue_on_error:
                 raise
@@ -364,8 +369,18 @@ class SceOdooMigrationRun(models.Model):
                 )
             except Exception as err:
                 rec._save_checkpoint(cp)
-                rec.write({"state": "failed", "last_error": str(err), "finished_at": fields.Datetime.now()})
-                _logger.exception("La migración Odoo a Odoo falló migration_id=%s", rec.id)
+                rec.write(
+                    {
+                        "state": "failed",
+                        "last_error": f"Falló la migración ({type(err).__name__}).",
+                        "finished_at": fields.Datetime.now(),
+                    }
+                )
+                _logger.warning(
+                    "La migración Odoo a Odoo falló migration_id=%s error_type=%s",
+                    rec.id,
+                    type(err).__name__,
+                )
 
     def action_enqueue_migration(self):
         for rec in self:

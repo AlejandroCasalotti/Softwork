@@ -265,7 +265,16 @@ class SceAccount(models.Model):
                     "error_message": "Cuenta desconectada.",
                 }
             )
-            jobs.write({"payload_json": False})
+            jobs.write(
+                {
+                    "payload_json": False,
+                    "result_json": False,
+                    "error_message": False,
+                }
+            )
+            jobs.filtered(lambda job: job.state == "cancelled").write(
+                {"error_message": "Cuenta desconectada."}
+            )
             account.with_context(skip_initial_sync_check=True).write(
                 {
                     "state": "disabled",
@@ -280,6 +289,11 @@ class SceAccount(models.Model):
                     "refresh_token": False,
                     "token_type": False,
                     "token_expires_at": False,
+                    "token_refresh_in_progress": False,
+                    "token_refresh_started_at": False,
+                    "token_refresh_fail_count": 0,
+                    "last_token_refresh_error": False,
+                    "token_circuit_open_until": False,
                     "external_user_id": False,
                     "external_account_ref": False,
                     "ml_nickname": False,

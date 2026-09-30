@@ -60,12 +60,23 @@ class SceCustomerPortal(CustomerPortal):
         total_products = request.env["marketplace.publication"].sudo().search_count(
             [("account_id", "in", ml_accounts.ids), ("state", "=", "published")]
         ) if ml_accounts else 0
+        jobs_attention = {}
+        for ml_account in ml_accounts:
+            jobs_attention[ml_account.id] = request.env["sce.job"].sudo().search(
+                [
+                    ("account_id", "=", ml_account.id),
+                    ("state", "in", ("partial", "failed")),
+                ],
+                order="write_date desc, id desc",
+                limit=3,
+            )
         values = self._prepare_portal_layout_values()
         values.update(
             {
                 "subscription": subscription,
                 "account": account,
                 "ml_accounts": ml_accounts,
+                "jobs_attention": jobs_attention,
                 "total_products": total_products,
                 "summaries": subscription.usage_summary_ids[:6] if subscription else request.env["sce.usage.summary"],
                 "page_name": "sce_subscription",
@@ -106,7 +117,8 @@ class SceCustomerPortal(CustomerPortal):
                 )
             except Exception as error:
                 request.session["sce_portal_error"] = (
-                    f"No se pudo validar Odoo para {account.display_name}: {error}"
+                    f"No se pudo validar Odoo para {account.display_name} "
+                    f"({type(error).__name__}). Revisá la URL, la base, el usuario y los permisos."
                 )
         else:
             request.session["sce_portal_error"] = "No se encontró una cuenta Mercado Libre autorizada."
@@ -131,6 +143,12 @@ class SceCustomerPortal(CustomerPortal):
                     retried = account.action_retry_failed_jobs()
                     request.session["sce_portal_notice"] = (
                         f"Se reencolaron {retried} trabajo(s) fallido(s) de esta cuenta."
+                    )
+                elif operation == "disconnect":
+                    account.action_disconnect()
+                    request.session["sce_portal_notice"] = (
+                        "Cuenta desconectada: se pausó la sincronización y se eliminaron "
+                        "las credenciales guardadas. Los datos ya sincronizados no se borraron."
                     )
                 else:
                     request.session["sce_portal_error"] = "La acción de sincronización solicitada no es válida."

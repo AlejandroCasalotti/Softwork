@@ -77,10 +77,18 @@
                                             <td><t t-esc="ml_account.ml_nickname or ml_account.external_user_id or '-'"/></td>
                                             <td>
                                                 <span class="badge text-bg-secondary" t-if="ml_account.sync_paused">Pausada</span>
+                                                <span class="badge text-bg-danger" t-elif="ml_account.jobs_stale_count">Atención: trabajo detenido</span>
                                                 <span class="badge text-bg-success" t-elif="ml_account.jobs_pending_count">En marcha</span>
+                                                <span class="badge text-bg-warning" t-elif="ml_account.jobs_failed_count">Requiere atención</span>
                                                 <span class="badge text-bg-success" t-elif="ml_account.jobs_done_count">Lista</span>
                                                 <span class="badge text-bg-warning" t-else="">Pendiente</span>
                                                 <div class="small text-muted mt-1"><t t-esc="ml_account.jobs_done_count"/> completados · <t t-esc="ml_account.jobs_failed_count"/> fallidos</div>
+                                                <div class="small text-danger mt-1" t-if="ml_account.jobs_stale_count"><t t-esc="ml_account.jobs_stale_count"/> trabajo(s) sin actividad por más de 60 minutos.</div>
+                                                <ul class="small text-muted mt-1 mb-0" t-if="jobs_attention.get(ml_account.id)">
+                                                    <li t-foreach="jobs_attention.get(ml_account.id)" t-as="attention_job">
+                                                        <t t-esc="attention_job.job_type"/> — <t t-esc="attention_job.state"/> (intento <t t-esc="attention_job.attempts"/>)
+                                                    </li>
+                                                </ul>
                                                 <div class="small text-danger mt-1" t-if="ml_account.last_error"><t t-esc="ml_account.last_error"/></div>
                                             </td>
                                             <td class="text-end">
@@ -96,11 +104,15 @@
                                                 </form>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/resume" method="post" class="d-inline">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                    <button type="submit" class="btn btn-sm btn-outline-success" t-att-disabled="'disabled' if not ml_account.sync_paused else None">Reanudar</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-success" t-att-disabled="'disabled' if not ml_account.sync_paused or ml_account.state != 'connected' else None">Reanudar</button>
                                                 </form>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/retry" method="post" class="d-inline" t-if="ml_account.jobs_failed_count">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                     <button type="submit" class="btn btn-sm btn-outline-warning" t-att-disabled="'disabled' if ml_account.sync_paused else None">Reintentar fallidos</button>
+                                                </form>
+                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/disconnect" method="post" class="d-inline" t-if="ml_account.state != 'disabled'" onsubmit="return confirm('La cuenta se pausará y se eliminarán los tokens y claves guardados. Los datos ya sincronizados no se borrarán. ¿Continuar?');">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Desconectar y borrar credenciales</button>
                                                 </form>
                                                 <details class="text-start mt-2">
                                                     <summary class="btn btn-sm btn-outline-secondary">Configurar Odoo de esta cuenta</summary>

@@ -565,6 +565,22 @@ class MarketplacePublicationService(models.AbstractModel):
                 "manual_retry_orders": manual_retry_orders,
             }
             if queued:
+                try:
+                    queued_payload = json.loads(queued.payload_json or "{}")
+                except (TypeError, ValueError):
+                    queued_payload = {}
+                queued_failed = queued_payload.get("failed_orders")
+                queued_manual = queued_payload.get("manual_retry_orders")
+                if isinstance(queued_failed, dict):
+                    continuation_payload["failed_orders"].update(queued_failed)
+                if isinstance(queued_manual, dict):
+                    continuation_payload["manual_retry_orders"].update(queued_manual)
+                try:
+                    continuation_payload["offset"] = min(
+                        next_offset, max(0, int(queued_payload.get("offset") or 0))
+                    )
+                except (TypeError, ValueError):
+                    pass
                 queued.write({"payload_json": json.dumps(continuation_payload)})
             else:
                 job_model.create(
