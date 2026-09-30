@@ -593,7 +593,7 @@ class MarketplacePublicationService(models.AbstractModel):
                 )
 
         return {
-            "ok": not bool(manual_retry_orders),
+            "ok": not bool(completed and manual_retry_orders),
             "partial": bool(completed and manual_retry_orders),
             "imported": imported,
             "error_count": errors,
