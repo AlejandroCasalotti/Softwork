@@ -33,6 +33,7 @@ class SceJob(models.Model):
             ("queued", "Queued"),
             ("running", "Running"),
             ("done", "Done"),
+            ("partial", "Partially Completed"),
             ("failed", "Failed"),
             ("cancelled", "Cancelled"),
         ],
@@ -51,7 +52,24 @@ class SceJob(models.Model):
 
     def action_enqueue(self):
         for rec in self:
-            rec.write({"state": "queued", "error_message": False})
+            values = {"state": "queued", "error_message": False, "attempts": 0}
+            if rec.job_type == "import_orders" and rec.payload_json:
+                try:
+                    payload = json.loads(rec.payload_json)
+                except (TypeError, ValueError):
+                    payload = {}
+                failed_orders = payload.get("failed_orders", {})
+                manual_retry_orders = payload.pop("manual_retry_orders", {})
+                if isinstance(failed_orders, dict) or isinstance(manual_retry_orders, dict):
+                    failed_orders = {
+                        **(failed_orders if isinstance(failed_orders, dict) else {}),
+                        **(manual_retry_orders if isinstance(manual_retry_orders, dict) else {}),
+                    }
+                    payload["failed_orders"] = {
+                        str(external_id): 0 for external_id in failed_orders
+                    }
+                    values["payload_json"] = json.dumps(payload)
+            rec.write(values)
         return True
 
     def action_run_now(self):
@@ -105,24 +123,43 @@ class SceJob(models.Model):
 
             result = self._execute_provider_operation(provider, payload)
             result_summary = self._summarize_result(result or {})
+            job_state = self._get_result_state(result)
             end_dt = fields.Datetime.now()
             duration = int((end_dt - start_dt).total_seconds() * 1000)
+            retry_payload = self.payload_json if job_state == "partial" else False
+            if job_state == "partial" and isinstance(result, dict):
+                manual_orders = result.get("manual_retry_orders")
+                if isinstance(manual_orders, dict):
+                    try:
+                        retry_data = json.loads(self.payload_json or "{}")
+                    except (TypeError, ValueError):
+                        retry_data = {}
+                    retry_payload = json.dumps(
+                        {
+                            "offset": result.get("next_offset", retry_data.get("offset", 0)),
+                            "failed_orders": manual_orders,
+                        }
+                    )
 
             self.write({
-                "state": "done",
+                "state": job_state,
                 "finished_at": end_dt,
                 "duration_ms": duration,
                 "result_json": json.dumps(result_summary),
-                "payload_json": False,
-                "error_message": False,
+                "payload_json": retry_payload,
+                "error_message": (
+                    "La operación terminó parcialmente. Revisá los elementos pendientes y reintentá."
+                    if job_state == "partial"
+                    else False
+                ),
             })
             metric_model.create({
                 "company_id": self.company_id.id,
                 "connector_id": self.connector_id.id,
                 "account_id": self.account_id.id,
-                "metric_type": "jobs_done",
+                "metric_type": "jobs_done" if job_state == "done" else "jobs_failed",
                 "value": 1.0,
-                "notes": f"Job {self.display_name} done",
+                "notes": f"Job {self.display_name} {job_state}",
             })
             metric_model.create({
                 "company_id": self.company_id.id,
@@ -158,7 +195,10 @@ class SceJob(models.Model):
                 "state": "failed",
                 "finished_at": end_dt,
                 "duration_ms": duration,
-                "error_message": str(err),
+                "error_message": (
+                    f"Falló la operación ({type(err).__name__}). "
+                    "Revisá la configuración y reintentá."
+                ),
             })
             self.account_id.with_context(skip_initial_sync_check=True).write(
                 {
@@ -236,11 +276,19 @@ class SceJob(models.Model):
             "next_offset",
             "complete",
             "truncated",
+            "manual_retry_count",
         )
         summary = {key: result[key] for key in allowed if key in result}
         if isinstance(result.get("errors"), list):
             summary["error_count"] = len(result["errors"])
         return summary
+
+    def _get_result_state(self, result):
+        if isinstance(result, dict) and (
+            result.get("partial") or result.get("ok") is False
+        ):
+            return "partial"
+        return "done"
 
     def cron_process_queue(self):
         self.env.cr.execute(
@@ -262,6 +310,33 @@ class SceJob(models.Model):
         for job in jobs:
             if (job.attempts or 0) < (job.max_retries or 0):
                 job.write({"state": "queued", "error_message": False})
+
+    def cron_recover_stale_jobs(self):
+        stale_minutes = int(
+            self.env["ir.config_parameter"].sudo().get_param(
+                "sce.jobs.stale_after_minutes", 60
+            )
+        )
+        stale_minutes = max(10, min(stale_minutes, 1440))
+        cutoff = fields.Datetime.now() - timedelta(minutes=stale_minutes)
+        self.env.cr.execute(
+            f"SELECT id FROM {self._table} "
+            "WHERE state = %s AND started_at < %s "
+            "ORDER BY started_at, id LIMIT 50 FOR UPDATE SKIP LOCKED",
+            ("running", cutoff),
+        )
+        for job in self.browse([row[0] for row in self.env.cr.fetchall()]):
+            if (job.attempts or 0) < (job.max_retries or 0):
+                job.write({"state": "queued", "error_message": False})
+            else:
+                job.write(
+                    {
+                        "state": "failed",
+                        "finished_at": fields.Datetime.now(),
+                        "error_message": "El trabajo excedió el tiempo máximo y agotó sus reintentos.",
+                    }
+                )
+            job.account_id._update_initial_sync_status()
 
     def cron_cleanup_old_jobs(self):
         cutoff = fields.Datetime.now() - timedelta(days=30)

@@ -95,6 +95,7 @@ class SceAccount(models.Model):
     jobs_done_count = fields.Integer(compute="_compute_job_metrics")
     jobs_failed_count = fields.Integer(compute="_compute_job_metrics")
     jobs_pending_count = fields.Integer(compute="_compute_job_metrics")
+    jobs_stale_count = fields.Integer(compute="_compute_job_metrics")
     avg_duration_ms = fields.Float(compute="_compute_job_metrics")
     provider_timeout_seconds = fields.Integer(
         string="Provider Timeout (s)",
@@ -242,14 +243,59 @@ class SceAccount(models.Model):
 
     def action_retry_failed_jobs(self):
         self.ensure_one()
+        if self.sync_paused or self.state != "connected":
+            raise UserError("Reanudá y conectá la cuenta antes de reintentar trabajos.")
         jobs = self.env["sce.job"].sudo().search(
-            [("account_id", "=", self.id), ("state", "=", "failed")]
+            [("account_id", "=", self.id), ("state", "in", ("failed", "partial"))]
         )
         if not jobs:
             raise UserError("No hay trabajos fallidos para reintentar en esta cuenta.")
-        jobs.write({"state": "queued", "attempts": 0, "error_message": False})
+        jobs.action_enqueue()
         self.with_context(skip_initial_sync_check=True).write({"last_error": False})
         return len(jobs)
+
+    def action_disconnect(self):
+        """Pause this account and remove stored credentials and retry payloads."""
+        for account in self:
+            jobs = self.env["sce.job"].sudo().search([("account_id", "=", account.id)])
+            jobs.filtered(lambda job: job.state == "queued").write(
+                {
+                    "state": "cancelled",
+                    "finished_at": fields.Datetime.now(),
+                    "error_message": "Cuenta desconectada.",
+                }
+            )
+            jobs.write({"payload_json": False})
+            account.with_context(skip_initial_sync_check=True).write(
+                {
+                    "state": "disabled",
+                    "sync_paused": True,
+                    "initial_sync_queued": False,
+                    "client_id": False,
+                    "client_secret": False,
+                    "redirect_uri": False,
+                    "credentials_json": False,
+                    "auth_code": False,
+                    "access_token": False,
+                    "refresh_token": False,
+                    "token_type": False,
+                    "token_expires_at": False,
+                    "external_user_id": False,
+                    "external_account_ref": False,
+                    "ml_nickname": False,
+                    "oauth_code_verifier": False,
+                    "oauth_state_nonce": False,
+                    "oauth_state_created_at": False,
+                    "odoo_password": False,
+                    "odoo_source_api_key": False,
+                    "odoo_target_api_key": False,
+                    "ml_client_id": False,
+                    "ml_client_secret": False,
+                    "ml_redirect_uri": False,
+                    "last_error": False,
+                }
+            )
+        return True
 
     def action_connect_mercadolibre_oauth(self):
         self.ensure_one()
@@ -778,15 +824,23 @@ class SceAccount(models.Model):
             "target": "new",
         }
 
-    @api.depends("job_ids.state", "job_ids.duration_ms")
+    @api.depends("job_ids.state", "job_ids.duration_ms", "job_ids.started_at")
     def _compute_job_metrics(self):
+        stale_cutoff = fields.Datetime.now() - timedelta(minutes=60)
         for rec in self:
             done_jobs = rec.job_ids.filtered(lambda j: j.state == "done")
-            failed_jobs = rec.job_ids.filtered(lambda j: j.state == "failed")
+            failed_jobs = rec.job_ids.filtered(lambda j: j.state in ("failed", "partial"))
             pending_jobs = rec.job_ids.filtered(lambda j: j.state in ("queued", "running"))
             rec.jobs_done_count = len(done_jobs)
             rec.jobs_failed_count = len(failed_jobs)
             rec.jobs_pending_count = len(pending_jobs)
+            rec.jobs_stale_count = rec.env["sce.job"].sudo().search_count(
+                [
+                    ("account_id", "=", rec.id),
+                    ("state", "=", "running"),
+                    ("started_at", "<", stale_cutoff),
+                ]
+            )
             rec.avg_duration_ms = (sum(done_jobs.mapped("duration_ms")) / len(done_jobs)) if done_jobs else 0.0
 
     def _get_credentials_dict(self):

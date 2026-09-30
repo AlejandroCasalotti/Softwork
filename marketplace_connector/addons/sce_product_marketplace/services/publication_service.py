@@ -482,6 +482,10 @@ class MarketplacePublicationService(models.AbstractModel):
         failed_orders = payload.get("failed_orders")
         failed_orders = failed_orders if isinstance(failed_orders, dict) else {}
         retry_ids = {str(external_id) for external_id in failed_orders}
+        manual_retry_orders = payload.get("manual_retry_orders")
+        manual_retry_orders = (
+            manual_retry_orders if isinstance(manual_retry_orders, dict) else {}
+        )
         provider = self._get_provider_for_account(account)
         imported = 0
         errors = 0
@@ -499,6 +503,8 @@ class MarketplacePublicationService(models.AbstractModel):
                 errors += 1
                 if attempt_count < 3:
                     unresolved[str(external_id)] = attempt_count + 1
+                else:
+                    manual_retry_orders[str(external_id)] = attempt_count
 
         next_offset = offset
         total = None
@@ -556,6 +562,7 @@ class MarketplacePublicationService(models.AbstractModel):
             continuation_payload = {
                 "offset": next_offset,
                 "failed_orders": unresolved,
+                "manual_retry_orders": manual_retry_orders,
             }
             if queued:
                 queued.write({"payload_json": json.dumps(continuation_payload)})
@@ -570,10 +577,13 @@ class MarketplacePublicationService(models.AbstractModel):
                 )
 
         return {
-            "ok": errors == 0,
+            "ok": not bool(manual_retry_orders),
+            "partial": bool(completed and manual_retry_orders),
             "imported": imported,
             "error_count": errors,
             "unresolved_count": len(unresolved),
+            "manual_retry_count": len(manual_retry_orders),
+            "manual_retry_orders": manual_retry_orders if completed and not continuation else {},
             "next_offset": next_offset,
             "complete": not continuation,
         }
