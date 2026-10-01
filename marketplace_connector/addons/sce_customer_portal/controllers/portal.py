@@ -148,12 +148,16 @@ class SceCustomerPortal(CustomerPortal):
                     account.action_disconnect()
                     request.session["sce_portal_notice"] = (
                         "Cuenta desconectada: se pausó la sincronización y se eliminaron "
-                        "las credenciales guardadas. Los datos ya sincronizados no se borraron."
+                        "las credenciales propias de esta cuenta. La clave compartida de la "
+                        "aplicación Mercado Libre y los datos ya sincronizados no se borraron."
                     )
                 else:
                     request.session["sce_portal_error"] = "La acción de sincronización solicitada no es válida."
             except Exception as error:
-                request.session["sce_portal_error"] = str(error)
+                request.session["sce_portal_error"] = (
+                    f"No se pudo completar la acción ({type(error).__name__}). "
+                    "Revisá el estado de la cuenta e intentá nuevamente."
+                )
         return request.redirect("/my/sce")
 
     @http.route(
@@ -327,7 +331,10 @@ class SceCustomerPortal(CustomerPortal):
                 ],
             }
         except Exception as error:
-            return {"ok": False, "error": str(error)}
+            return {
+                "ok": False,
+                "error": f"No se pudieron consultar las opciones remotas ({type(error).__name__}).",
+            }
 
     @http.route("/my/sce/rules/installment/restore", type="http", auth="user", website=True, methods=["POST"])
     def portal_restore_installment_rules(self, **post):

@@ -26,6 +26,7 @@ class SceEvent(models.Model):
             ("WebhookReceived", "WebhookReceived"),
             ("JobStarted", "JobStarted"),
             ("JobFinished", "JobFinished"),
+            ("JobPartiallyCompleted", "JobPartiallyCompleted"),
             ("JobFailed", "JobFailed"),
             ("OAuthRefreshed", "OAuthRefreshed"),
             ("TokenExchangeSuccess", "TokenExchangeSuccess"),

@@ -111,9 +111,9 @@
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                                     <button type="submit" class="btn btn-sm btn-outline-warning" t-att-disabled="'disabled' if ml_account.sync_paused or ml_account.state != 'connected' else None">Reintentar fallidos</button>
                                                 </form>
-                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/disconnect" method="post" class="d-inline" t-if="ml_account.state != 'disabled'" onsubmit="return confirm('La cuenta se pausará y se eliminarán los tokens y claves guardados. Los datos ya sincronizados no se borrarán. ¿Continuar?');">
+                                                <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/disconnect" method="post" class="d-inline" t-if="ml_account.state != 'disabled'" onsubmit="return confirm('La cuenta se pausará y se eliminarán sus tokens y claves propios. La clave compartida de la app Mercado Libre y los datos sincronizados no se borrarán. ¿Continuar?');">
                                                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Desconectar y borrar credenciales</button>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">Desconectar cuenta</button>
                                                 </form>
                                                 <details class="text-start mt-2">
                                                     <summary class="btn btn-sm btn-outline-secondary">Configurar Odoo de esta cuenta</summary>

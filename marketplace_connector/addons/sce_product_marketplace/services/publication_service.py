@@ -501,10 +501,13 @@ class MarketplacePublicationService(models.AbstractModel):
                 imported += 1
             except Exception:
                 errors += 1
-                if attempt_count < 3:
-                    unresolved[str(external_id)] = attempt_count + 1
+                target, next_attempt = self._order_retry_bucket(
+                    external_id, attempt_count
+                )
+                if target == "automatic":
+                    unresolved[str(external_id)] = next_attempt
                 else:
-                    manual_retry_orders[str(external_id)] = attempt_count
+                    manual_retry_orders[str(external_id)] = next_attempt
 
         next_offset = offset
         total = None
@@ -603,6 +606,11 @@ class MarketplacePublicationService(models.AbstractModel):
             "next_offset": next_offset,
             "complete": not continuation,
         }
+
+    def _order_retry_bucket(self, external_id, attempt_count):
+        if int(attempt_count) < 3:
+            return "automatic", int(attempt_count) + 1
+        return "manual", int(attempt_count)
 
     def _normalize_order_state(self, order_data):
         status = str(order_data.get("status") or "").lower()
