@@ -1,3 +1,4 @@
+from odoo import SUPERUSER_ID
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import TransactionCase, tagged
 from odoo.tests.common import new_test_user
@@ -34,6 +35,37 @@ class CustomerSecurityTest(TransactionCase):
     def test_oauth_checks_owner_even_with_sudo(self):
         with self.assertRaises(UserError):
             self.accounts[1:].with_user(self.customer).sudo()._check_customer_access()
+
+    def test_system_can_process_customer_accounts(self):
+        self.accounts.with_user(SUPERUSER_ID)._check_customer_access()
+        for xml_id in ("ir_cron_sce_process_queue", "ir_cron_sce_health_check", "ir_cron_sce_refresh_provider_tokens"):
+            cron = self.env.ref(f"softwork_ecommerce_conector_base.{xml_id}")
+            self.assertEqual(cron.user_id.id, SUPERUSER_ID)
+
+    def test_same_seller_reuses_original_account(self):
+        original = self.accounts[:1]
+        original.write({"client_id": "test-app", "external_user_id": "test-seller"})
+        duplicate = self.env["sce.account"].create({
+            "name": "Second authorization", "connector_id": self.connector.id,
+            "provider_type": "mercadolibre", "subscription_id": original.subscription_id.id,
+            "client_id": "test-app", "external_user_id": "test-seller",
+            "access_token": "fixture-new-access", "refresh_token": "fixture-new-refresh",
+        })
+        job = self.env["sce.job"].create({
+            "name": "Duplicate sync", "account_id": duplicate.id, "job_type": "sync_products",
+        })
+        canonical = duplicate.with_user(self.customer).sudo()._reuse_ml_seller_account()
+        self.assertEqual(canonical.id, original.id)
+        self.assertEqual(original.access_token, "fixture-new-access")
+        self.assertFalse(duplicate.active)
+        self.assertFalse(duplicate.refresh_token)
+        self.assertEqual(job.state, "cancelled")
+
+    def test_same_seller_of_other_customer_is_not_reused(self):
+        self.accounts.write({"client_id": "test-app", "external_user_id": "test-seller"})
+        original = self.accounts[:1]
+        self.assertEqual(original.with_user(self.customer).sudo()._reuse_ml_seller_account().id, original.id)
+        self.assertTrue(self.accounts[1].active)
 
     def test_customer_cannot_reassign_ownership(self):
         with self.assertRaises(UserError):

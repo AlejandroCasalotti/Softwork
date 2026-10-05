@@ -77,6 +77,10 @@
                                                 <div class="small text-muted" t-if="ml_account.last_sync">Último éxito: <t t-esc="ml_account.last_sync"/></div>
                                             </td>
                                             <td class="text-end">
+                                                <a class="btn btn-sm btn-outline-primary" t-att-href="'/sce/oauth/mercadolibre/start?account_id=%s' % ml_account.id">
+                                                    <t t-if="ml_account.state == 'connected'">Reautorizar ML</t>
+                                                    <t t-else="">Autorizar ML</t>
+                                                </a>
                                                 <a class="btn btn-sm btn-outline-primary" t-att-href="'/my/sce/rules/%s' % ml_account.id">Reglas</a>
                                                 <a class="btn btn-sm btn-outline-secondary" t-att-href="'/my/sce?account_id=%s' % ml_account.id">Configurar Odoo</a>
                                                 <form t-attf-action="/my/sce/account/#{ml_account.id}/sync/start" method="post" class="d-inline">

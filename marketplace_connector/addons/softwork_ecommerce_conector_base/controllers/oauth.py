@@ -16,7 +16,9 @@ class SceOAuthController(http.Controller):
             if account_id else "/web"
         )
         if request.env.user.has_group("base.group_portal"):
-            fallback_url = "/my/sce"
+            fallback_url = f"/my/sce?account_id={account_id}" if account_id else "/my/sce"
+            request.session["sce_portal_notice" if status == "ok" else "sce_portal_error"] = message
+            return request.redirect(fallback_url)
         html = f"""
         <!doctype html>
         <html><head><meta charset="utf-8"><title>Mercado Libre</title></head>
@@ -120,7 +122,9 @@ class SceOAuthController(http.Controller):
                     )
                     return self._oauth_popup_response("error", "Falta una autorización vigente. Volvé a intentar la conexión.", account.id)
                 account.write({"auth_code": clean_code})
-                account.action_exchange_code()
+                result = account.action_exchange_code()
+                if isinstance(result, dict) and result.get("account_id"):
+                    account = request.env["sce.account"].sudo().browse(result["account_id"])
             except Exception as err:
                 err_msg = str(err)
                 if "invalid_grant" in err_msg:

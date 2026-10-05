@@ -111,9 +111,17 @@ class SceCustomerPortal(CustomerPortal):
             )
             try:
                 account._get_remote_odoo_rpc()
+                if account.access_token:
+                    request.env["sce.provider.factory"].get_provider(account).health()
+                    account.with_context(skip_initial_sync_check=True).write({"state": "connected", "last_error": False})
                 account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": False})
                 account._enqueue_initial_sync_if_ready()
-                request.session["sce_portal_notice"] = "Conexión Odoo validada. La sincronización inicial quedó encolada si Mercado Libre ya está conectado."
+                if account.initial_sync_queued:
+                    request.session["sce_portal_notice"] = "Odoo y Mercado Libre validados. Sincronización inicial en cola."
+                elif account.sync_paused:
+                    request.session["sce_portal_notice"] = "Conexión Odoo validada. La sincronización sigue pausada."
+                else:
+                    request.session["sce_portal_notice"] = "Conexión Odoo validada. Falta autorizar Mercado Libre en esta cuenta."
             except Exception as error:
                 request.session["sce_portal_error"] = str(error)
         return request.redirect(f"/my/sce?account_id={account.id}" if account else "/my/sce")

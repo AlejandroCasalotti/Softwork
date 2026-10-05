@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 from datetime import timedelta
 
-from odoo import api, fields, models
+from odoo import SUPERUSER_ID, api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -795,6 +795,8 @@ class SceAccount(models.Model):
         }
 
     def _check_customer_access(self):
+        if self.env.uid == SUPERUSER_ID:
+            return
         if self.env.user.has_group("softwork_ecommerce_conector_base.group_sce_technical"):
             return
         partner = self.env.user.partner_id.commercial_partner_id
@@ -860,6 +862,7 @@ class SceAccount(models.Model):
     def action_exchange_code(self):
         event_model = self.env["sce.event"]
         log_service = self.env["sce.log.service"]
+        connected_account_id = False
         for rec in self:
             try:
                 if not rec.auth_code:
@@ -891,6 +894,8 @@ class SceAccount(models.Model):
                     )
                     rec._enqueue_initial_sync_if_ready()
                     rec._sync_credentials_blob()
+                    authorized = rec._reuse_ml_seller_account()
+                    connected_account_id = authorized.id
                 safe_result = rec._sanitize_result_for_logs(result)
                 elapsed_ms = result.get("elapsed_ms") if isinstance(result, dict) else False
                 log_service.log(
@@ -989,7 +994,48 @@ class SceAccount(models.Model):
                     connector=rec.connector_id,
                 )
                 raise
-        return True
+        return {"account_id": connected_account_id}
+
+    def _reuse_ml_seller_account(self):
+        self.ensure_one()
+        self._check_customer_access()
+        record = self.sudo()
+        if not record.subscription_id or not record.external_user_id:
+            return record
+        self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [
+            f"sce-ml-seller:{record.subscription_id.id}:{record.client_id}:{record.external_user_id}"
+        ])
+        accounts = self.sudo().search([
+            ("subscription_id", "=", record.subscription_id.id),
+            ("provider_type", "=", "mercadolibre"), ("client_id", "=", record.client_id),
+            ("external_user_id", "=", record.external_user_id), ("active", "=", True),
+        ], order="id asc")
+        existing = accounts[:1]
+        duplicates = accounts - existing
+        if not duplicates:
+            return record
+        values = {name: record[name] for name in (
+            "access_token", "refresh_token", "token_type", "token_expires_at", "ml_nickname"
+        )}
+        values.update({"state": "connected", "last_error": False,
+                       "token_refresh_fail_count": 0, "token_circuit_open_until": False})
+        if not existing.odoo_base_url and record.odoo_base_url:
+            values.update({name: record[name] for name in (
+                "odoo_base_url", "odoo_db_name", "odoo_user", "odoo_password"
+            )})
+        existing.write(values)
+        existing._sync_credentials_blob()
+        duplicates.with_context(skip_initial_sync_check=True).write({
+            "active": False, "state": "disabled", "sync_paused": True,
+            "access_token": False, "refresh_token": False, "auth_code": False,
+            "oauth_code_verifier": False, "token_expires_at": False,
+        })
+        for duplicate in duplicates:
+            duplicate._sync_credentials_blob()
+        self.env["sce.job"].sudo().search([
+            ("account_id", "in", duplicates.ids), ("state", "=", "queued")
+        ]).write({"state": "cancelled"})
+        return existing
 
     def action_force_unlock_token_refresh(self):
         self.write(
@@ -1143,10 +1189,9 @@ class SceAccount(models.Model):
                 acc.action_refresh_token()
             except Exception as err:
                 acc.last_error = str(err)
-                acc.state = "error"
 
     def cron_health_check(self):
-        accounts = self.search([("active", "=", True)])
+        accounts = self.search([("active", "=", True), ("state", "in", ["connected", "error"])])
         log_service = self.env["sce.log.service"]
         for acc in accounts:
             try:
@@ -1172,7 +1217,6 @@ class SceAccount(models.Model):
                     connector=acc.connector_id,
                 )
             except Exception as err:
-                acc.state = "error"
                 acc.last_error = str(err)
                 log_service.log(
                     name="Health check error",
