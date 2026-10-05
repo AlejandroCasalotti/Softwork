@@ -2,10 +2,15 @@
 from calendar import monthrange
 from datetime import timedelta
 import json
+import logging
 
 from dateutil.relativedelta import relativedelta
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
+from ..services.billing_period import billable_days, period_for_date
+
+_logger = logging.getLogger(__name__)
 
 
 class SceSubscriptionPlan(models.Model):
@@ -83,8 +88,8 @@ class SceSubscription(models.Model):
     synced_products_count = fields.Integer(default=0, tracking=True)
     synced_orders_count = fields.Integer(default=0, tracking=True)
     connected_accounts_count = fields.Integer(default=0, tracking=True)
-    period_start = fields.Date(compute="_compute_current_period", store=True)
-    period_end = fields.Date(compute="_compute_current_period", store=True)
+    period_start = fields.Date(compute="_compute_current_period")
+    period_end = fields.Date(compute="_compute_current_period")
     usage_summary_ids = fields.One2many("sce.usage.summary", "subscription_id")
     sale_order_ids = fields.One2many("sale.order", "sce_subscription_id")
     last_billed_period_end = fields.Date(readonly=True)
@@ -103,22 +108,11 @@ class SceSubscription(models.Model):
             if not rec.start_date:
                 rec.period_start = rec.period_end = False
                 continue
-            start = rec.start_date
-            while start > today:
-                start -= relativedelta(months=1)
-            period_end = start + relativedelta(months=1) - timedelta(days=1)
-            while period_end < today:
-                start = start + relativedelta(months=1)
-                period_end = start + relativedelta(months=1) - timedelta(days=1)
-            rec.period_start = start
-            rec.period_end = period_end
+            rec.period_start, rec.period_end = period_for_date(rec.start_date, today)
 
     def _period_for_date(self, date_value):
         self.ensure_one()
-        start = self.start_date
-        while start + relativedelta(months=1) - timedelta(days=1) < date_value:
-            start += relativedelta(months=1)
-        return start, start + relativedelta(months=1) - timedelta(days=1)
+        return period_for_date(self.start_date, date_value)
 
     def _monthly_price(self):
         self.ensure_one()
@@ -160,7 +154,7 @@ class SceSubscription(models.Model):
         self.ensure_one()
         metrics = self.env["sce.usage.metric"].read_group(
             [
-                ("company_id", "=", self.company_id.id),
+                ("account_id.subscription_id", "=", self.id),
                 ("date", ">=", start),
                 ("date", "<=", end),
                 ("metric_type", "in", ["orders_imported", "products_synced"]),
@@ -170,16 +164,16 @@ class SceSubscription(models.Model):
         )
         totals = {row["metric_type"]: row["value"] for row in metrics}
         account_domain = [
-            ("company_id", "=", self.company_id.id),
+            ("subscription_id", "=", self.id),
             ("state", "=", "connected"),
             ("active", "=", True),
         ]
-        publication_count = self.env["marketplace.publication"].search_count(
-            [("account_id.company_id", "=", self.company_id.id), ("state", "=", "published")]
-        ) if "marketplace.publication" in self.env else 0
+        publication_count = self.env["marketplace.product.mapping"].search_count(
+            [("account_id.subscription_id", "=", self.id), ("active", "=", True)]
+        ) if "marketplace.product.mapping" in self.env else 0
         return {
             "orders": int(totals.get("orders_imported", 0)),
-            "products": publication_count or int(totals.get("products_synced", 0)),
+            "products": publication_count,
             "accounts": self.env["sce.account"].search_count(account_domain),
         }
 
@@ -218,11 +212,14 @@ class SceSubscription(models.Model):
             return existing
         product = self._ensure_billing_product()
         days_total = (end - start).days + 1
-        billable_start = start
-        if self.trial_end_date and self.trial_end_date >= start:
-            billable_start = min(end + timedelta(days=1), self.trial_end_date + timedelta(days=1))
-        active_days = max(0, (end - billable_start).days + 1)
-        amount_company_currency = self.plan_id.currency_id._convert(
+        active_days = billable_days(start, end, self.trial_end_date, self.end_date)
+        pricelist = self.env["product.pricelist"].search([
+            ("currency_id", "=", self.company_id.currency_id.id),
+            ("company_id", "in", [False, self.company_id.id]),
+        ], limit=1)
+        if not pricelist:
+            raise UserError("Configurá una lista de precios en la moneda de la empresa para facturar SCE.")
+        amount_company_currency = plan.currency_id._convert(
             amount, self.company_id.currency_id, self.company_id, end
         )
         prorated_amount = amount_company_currency * active_days / days_total
@@ -230,6 +227,7 @@ class SceSubscription(models.Model):
             {
                 "partner_id": self.partner_id.id,
                 "company_id": self.company_id.id,
+                "pricelist_id": pricelist.id,
                 "origin": f"SCE {self.name} {start} - {end}",
                 "sce_subscription_id": self.id,
                 "sce_period_start": start,
@@ -248,13 +246,24 @@ class SceSubscription(models.Model):
 
     @api.model
     def cron_generate_usage_orders(self):
+        subscriptions = self.search([("state", "in", ["trial", "active", "grace", "restricted"])])
+        for subscription in subscriptions:
+            try:
+                with self.env.cr.savepoint():
+                    subscription._generate_usage_order()
+            except Exception:
+                _logger.exception("Error de facturación SCE subscription_id=%s", subscription.id)
+
+    def _generate_usage_order(self):
         today = fields.Date.today()
-        for subscription in self.search([("state", "in", ["trial", "active", "grace", "restricted"])]):
-            start, end = subscription._period_for_date(today - relativedelta(months=1))
+        for subscription in self:
+            anchor = subscription.last_billed_period_end + timedelta(days=1) if subscription.last_billed_period_end else subscription.start_date
+            start, end = subscription._period_for_date(anchor)
             if end >= today or subscription.last_billed_period_end and subscription.last_billed_period_end >= end:
                 continue
             usage = subscription._usage_for_period(start, end)
             plan = subscription._select_plan_for_usage(usage)
+            self.env.cr.execute("SELECT pg_advisory_xact_lock(%s)", [subscription.id])
             order = subscription._create_draft_sale_order(
                 start, end, usage, plan, plan.portal_price_monthly if subscription.customer_type == "portal" else plan.price_monthly
             )
@@ -270,8 +279,9 @@ class SceSubscription(models.Model):
                 "orders_count": usage["orders"],
                 "products_count": usage["products"],
                 "connected_accounts_count": usage["accounts"],
-                "days_active": (end - start).days + 1,
-                "amount_usd": plan.portal_price_monthly if subscription.customer_type == "portal" else plan.price_monthly,
+                "days_active": billable_days(start, end, subscription.trial_end_date, subscription.end_date),
+                "amount_usd": (plan.portal_price_monthly if subscription.customer_type == "portal" else plan.price_monthly)
+                              * billable_days(start, end, subscription.trial_end_date, subscription.end_date) / ((end - start).days + 1),
                 "amount_company_currency": order.amount_total,
                 "sale_order_id": order.id,
                 "state": "ordered",
@@ -366,7 +376,7 @@ class SceSubscription(models.Model):
                     updates["state"] = "trial"
                 else:
                     account_ready = bool(self.env["sce.account"].sudo().search_count(
-                        [("company_id", "=", sub.company_id.id), ("initial_sync_queued", "=", True)]
+                        [("subscription_id", "=", sub.id), ("initial_sync_queued", "=", True)]
                     ))
                     updates["state"] = "active" if account_ready else "restricted"
             elif sub.billing_status == "unpaid":
@@ -438,3 +448,8 @@ class SceUsageMetric(models.Model):
     )
     value = fields.Float(required=True, default=0.0)
     notes = fields.Char()
+    source_key = fields.Char(copy=False, index=True)
+    _usage_source_unique = models.Constraint(
+        "UNIQUE(account_id, metric_type, source_key)",
+        "Este evento de consumo ya fue registrado.",
+    )

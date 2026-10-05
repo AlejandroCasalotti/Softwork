@@ -146,6 +146,8 @@ class ProviderFactory:
 
     @staticmethod
     def get_provider(account):
+        account._check_customer_access()
+        account = account.sudo()
         provider_type = (account.connector_id.provider_type or "").strip().lower()
         if not provider_type:
             raise UserError("Connector has no provider_type configured.")

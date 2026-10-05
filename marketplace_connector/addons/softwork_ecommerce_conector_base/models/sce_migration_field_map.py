@@ -12,6 +12,7 @@ COMPATIBILITY = [
     ("required", "Requerido en destino"),
     ("relation", "Relación"),
     ("missing_target", "No existe en destino"),
+    ("incompatible", "Tipo incompatible"),
     ("readonly", "Solo lectura / calculado"),
     ("lines", "Líneas gestionadas por entidad"),
     ("technical", "Técnico"),

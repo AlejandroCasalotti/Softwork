@@ -157,9 +157,8 @@ class SceOdooMigrationRun(models.Model):
             _logger.debug("RPC OK model=%s method=%s", model, method)
             return result
         except Exception as err:
-            # No se registran los valores enviados: pueden contener datos del cliente.
-            _logger.error("RPC ERROR model=%s method=%s err=%s", model, method, err)
-            raise
+            _logger.error("RPC ERROR model=%s method=%s type=%s", model, method, type(err).__name__)
+            raise UserError(f"RPC remoto falló: {model}.{method} ({type(err).__name__}).") from None
 
     def _validate_source_target_connections(self):
         self.ensure_one()
@@ -309,7 +308,8 @@ class SceOdooMigrationRun(models.Model):
                 rec.error_count = len(errors) if errors else 0
                 rec.write(
                     {
-                        "state": "done",
+                        "state": "failed" if errors else "done",
+                        "last_error": "Finalizada con errores: revisá y reintentá los registros pendientes." if errors else False,
                         "finished_at": fields.Datetime.now(),
                         "result_json": json.dumps(
                             {

@@ -337,7 +337,7 @@ class RemotePublicationWizardLine(models.TransientModel):
 
         account = self.wizard_id.account_id
         price = account.calculate_marketplace_price(self.base_price)
-        quantity = account.calculate_marketplace_stock(self.forecast_stock)
+        quantity = account.calculate_marketplace_stock(self.forecast_stock, sku=self.sku)
         pictures = [{"source": self.picture_url.strip()}] if (self.picture_url or "").strip() else []
         payload = {
             "title": self.title,

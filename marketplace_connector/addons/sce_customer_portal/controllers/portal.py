@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import csv
-import io
-
 from odoo import http
 from odoo.http import request
 from odoo.addons.portal.controllers.portal import CustomerPortal
+from .reserve_csv import parse_reserves
 
 
 class SceCustomerPortal(CustomerPortal):
@@ -22,7 +20,7 @@ class SceCustomerPortal(CustomerPortal):
         if not subscription:
             return request.env["sce.account"]
         return request.env["sce.account"].sudo().search(
-            [("company_id", "=", subscription.company_id.id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            [("subscription_id", "=", subscription.id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)],
             order="create_date desc",
             limit=1,
         )
@@ -31,17 +29,21 @@ class SceCustomerPortal(CustomerPortal):
         if not subscription:
             return request.env["sce.account"]
         return request.env["sce.account"].sudo().search(
-            [("company_id", "=", subscription.company_id.id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)],
+            [("subscription_id", "=", subscription.id), ("provider_type", "=", "mercadolibre"), ("active", "=", True)],
             order="create_date desc",
         )
 
     def _get_portal_account_by_id(self, subscription, account_id):
         if not subscription or not account_id:
             return self._get_portal_account(subscription)
+        try:
+            account_id = int(account_id)
+        except (TypeError, ValueError):
+            return request.env["sce.account"]
         return request.env["sce.account"].sudo().search(
             [
-                ("id", "=", int(account_id)),
-                ("company_id", "=", subscription.company_id.id),
+                ("id", "=", account_id),
+                ("subscription_id", "=", subscription.id),
                 ("provider_type", "=", "mercadolibre"),
                 ("active", "=", True),
             ],
@@ -51,17 +53,37 @@ class SceCustomerPortal(CustomerPortal):
     @http.route("/my/sce", type="http", auth="user", website=True)
     def portal_sce_dashboard(self, **kwargs):
         subscription = self._get_portal_subscription(create=True)
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, kwargs.get("account_id"))
         ml_accounts = self._get_portal_ml_accounts(subscription)
-        total_products = request.env["marketplace.publication"].sudo().search_count(
-            [("account_id", "in", ml_accounts.ids), ("state", "=", "published")]
+        total_products = request.env["marketplace.product.mapping"].sudo().search_count(
+            [("account_id", "in", ml_accounts.ids), ("active", "=", True)]
         ) if ml_accounts else 0
         values = self._prepare_portal_layout_values()
+        sync_status = {}
+        for ml_account in ml_accounts:
+            jobs = request.env["sce.job"].sudo().search(
+                [("account_id", "=", ml_account.id)], order="id desc", limit=10
+            )
+            latest = jobs[:1]
+            status = "Pendiente"
+            if ml_account.sync_paused:
+                status = "Pausada"
+            elif jobs.filtered(lambda job: job.state == "running"):
+                status = "Sincronizando"
+            elif jobs.filtered(lambda job: job.state == "queued"):
+                status = "En cola"
+            elif latest and latest.state == "failed":
+                status = "Error"
+            elif ml_account.last_sync:
+                status = "Sincronización correcta"
+            sync_status[ml_account.id] = status
         values.update(
             {
                 "subscription": subscription,
                 "account": account,
                 "ml_accounts": ml_accounts,
+                "sync_status": sync_status,
+                "current_usage": subscription._usage_for_period(subscription.period_start, subscription.period_end),
                 "total_products": total_products,
                 "summaries": subscription.usage_summary_ids[:6] if subscription else request.env["sce.usage.summary"],
                 "page_name": "sce_subscription",
@@ -74,14 +96,14 @@ class SceCustomerPortal(CustomerPortal):
     @http.route("/my/sce/odoo", type="http", auth="user", website=True, methods=["POST"])
     def portal_save_odoo_connection(self, **post):
         subscription = self._get_portal_subscription()
-        account = self._get_portal_account(subscription)
+        account = self._get_portal_account_by_id(subscription, post.get("account_id"))
         if account:
-            account.write(
+            account.with_context(skip_initial_sync_check=True).write(
                 {
                     "odoo_base_url": (post.get("odoo_base_url") or "").strip(),
                     "odoo_db_name": (post.get("odoo_db_name") or "").strip(),
                     "odoo_user": (post.get("odoo_user") or "").strip(),
-                    "odoo_password": post.get("odoo_password") or "",
+                    "odoo_password": post.get("odoo_password") or account.odoo_password,
                     "sync_stock": post.get("sync_stock") == "on",
                     "sync_prices": post.get("sync_prices") == "on",
                     "sync_orders": post.get("sync_orders") == "on",
@@ -89,33 +111,34 @@ class SceCustomerPortal(CustomerPortal):
             )
             try:
                 account._get_remote_odoo_rpc()
-                for ml_account in self._get_portal_ml_accounts(subscription).filtered(lambda a: a.state == "connected"):
-                    ml_account._enqueue_initial_sync_if_ready()
+                account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": False})
+                account._enqueue_initial_sync_if_ready()
                 request.session["sce_portal_notice"] = "Conexión Odoo validada. La sincronización inicial quedó encolada si Mercado Libre ya está conectado."
             except Exception as error:
                 request.session["sce_portal_error"] = str(error)
-        return request.redirect("/my/sce")
+        return request.redirect(f"/my/sce?account_id={account.id}" if account else "/my/sce")
 
     @http.route("/my/sce/account/<int:account_id>/sync/<string:operation>", type="http", auth="user", website=True, methods=["POST"])
     def portal_account_sync_control(self, account_id, operation, **post):
         subscription = self._get_portal_subscription()
         account = self._get_portal_account_by_id(subscription, account_id)
         if account:
-            if operation == "start":
-                account.action_start_initial_sync()
-                request.session["sce_portal_notice"] = "Sincronización inicial encolada."
-            elif operation == "pause":
-                account.action_pause_sync()
-                request.session["sce_portal_notice"] = "Sincronización pausada para esta cuenta."
-            elif operation == "resume":
-                account.action_resume_sync()
-                request.session["sce_portal_notice"] = "Sincronización reanudada para esta cuenta."
+            try:
+                operations = {"start": account.action_start_initial_sync,
+                              "pause": account.action_pause_sync, "resume": account.action_resume_sync}
+                if operation in operations:
+                    operations[operation]()
+                    request.session["sce_portal_notice"] = "Estado de sincronización actualizado."
+            except Exception:
+                request.session["sce_portal_error"] = "No se pudo iniciar. Revisá la autorización ML y la conexión Odoo."
         return request.redirect("/my/sce")
 
     @http.route("/my/sce/connect/mercadolibre", type="http", auth="user", website=True)
     def portal_connect_mercadolibre(self, **kwargs):
         subscription = self._get_portal_subscription(create=True)
-        account = request.env["sce.account"].sudo().create_quick_ml_account(company=subscription.company_id)
+        account = request.env["sce.account"].sudo().create_quick_ml_account(
+            company=subscription.company_id, subscription=subscription
+        )
         if not account.installment_rule_ids:
             account._seed_default_installment_rules()
         return request.redirect(f"/sce/oauth/mercadolibre/start?account_id={account.id}")
@@ -135,6 +158,7 @@ class SceCustomerPortal(CustomerPortal):
                 "stock_reserve_rules": account.stock_reserve_rule_ids if account else request.env["marketplace.stock.reserve.rule"],
                 "page_name": "sce_rules",
                 "notice": request.session.pop("sce_portal_notice", None),
+                "error": request.session.pop("sce_portal_error", None),
             }
         )
         return request.render("sce_customer_portal.portal_sce_rules", values)
@@ -224,16 +248,12 @@ class SceCustomerPortal(CustomerPortal):
         upload = request.httprequest.files.get("reserve_file")
         imported = 0
         if account and upload:
-            content = upload.read().decode("utf-8-sig")
-            reader = csv.DictReader(io.StringIO(content))
-            for row in reader:
-                sku = (row.get("sku") or row.get("default_code") or "").strip()
-                if not sku:
-                    continue
-                try:
-                    reserve_qty = max(0, int(float(row.get("reserve_qty") or 0)))
-                except (TypeError, ValueError):
-                    continue
+            try:
+                rows = parse_reserves(upload.read(1024 * 1024 + 1))
+            except (ValueError, UnicodeError, IndexError) as error:
+                request.session["sce_portal_error"] = str(error)
+                return request.redirect(f"/my/sce/rules/{account.id}")
+            for sku, reserve_qty in rows:
                 rule = request.env["marketplace.stock.reserve.rule"].sudo().search(
                     [("account_id", "=", account.id), ("sku", "=", sku)], limit=1
                 )
@@ -245,6 +265,13 @@ class SceCustomerPortal(CustomerPortal):
                 imported += 1
             request.session["sce_portal_notice"] = f"Reservas importadas: {imported}."
         return request.redirect(f"/my/sce/rules/{account.id}" if account else "/my/sce/rules")
+
+    @http.route("/my/sce/reserve-template", type="http", auth="user", methods=["GET"])
+    def portal_reserve_template(self, **kwargs):
+        return request.make_response("sku,reserve_qty\nEJEMPLO-001,2\n", headers=[
+            ("Content-Type", "text/csv; charset=utf-8"),
+            ("Content-Disposition", 'attachment; filename="reservas-sku.csv"'),
+        ])
 
     @http.route("/my/sce/remote-options", type="jsonrpc", auth="user", methods=["POST"])
     def portal_remote_options(self, option_type=None, **kwargs):

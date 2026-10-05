@@ -3,6 +3,7 @@
     <template id="portal_sce_rules" name="SCE Reglas de sincronización">
         <t t-call="portal.portal_layout">
             <div class="container py-4">
+                <div t-if="error" class="alert alert-danger" role="alert"><t t-esc="error"/></div>
                 <t t-if="notice">
                     <div class="alert alert-success"><t t-esc="notice"/></div>
                 </t>
@@ -161,7 +162,7 @@
                                 <input type="hidden" name="account_id" t-att-value="account.id"/>
                                 <div class="col-md-7"><input class="form-control" type="file" name="reserve_file" accept=".csv" required="required"/></div>
                                 <div class="col-md-3"><button type="submit" class="btn btn-outline-primary">Importar CSV</button></div>
-                                <div class="col-12 text-muted small">Formato: <code>sku,reserve_qty</code></div>
+                                <div class="col-12"><a href="/my/sce/reserve-template"><i class="fa fa-download"/> Descargar plantilla CSV</a></div>
                             </form>
                         </div>
                     </div>

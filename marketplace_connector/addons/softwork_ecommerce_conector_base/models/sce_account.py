@@ -43,6 +43,13 @@ class SceAccount(models.Model):
         index=True,
     )
     active = fields.Boolean(default=True, tracking=True)
+    subscription_id = fields.Many2one("sce.subscription", ondelete="restrict", index=True)
+    customer_partner_id = fields.Many2one(
+        related="subscription_id.partner_id", store=True, index=True, readonly=True
+    )
+    oauth_state = fields.Char(copy=False, groups="softwork_ecommerce_conector_base.group_sce_technical")
+    oauth_user_id = fields.Many2one("res.users", copy=False)
+    oauth_expires_at = fields.Datetime(copy=False)
     state = fields.Selection(
         selection=[
             ("draft", "Draft"),
@@ -86,7 +93,7 @@ class SceAccount(models.Model):
     last_token_refresh_error = fields.Text(readonly=True)
     token_circuit_open_until = fields.Datetime(readonly=True)
     oauth_code_verifier = fields.Char(string="OAuth Code Verifier", copy=False)
-    oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url")
+    oauth_url = fields.Char(string="OAuth URL", compute="_compute_oauth_url", groups="softwork_ecommerce_conector_base.group_sce_technical")
     last_connection_check = fields.Datetime()
     last_error = fields.Text()
     job_ids = fields.One2many("sce.job", "account_id", string="Jobs")
@@ -157,13 +164,24 @@ class SceAccount(models.Model):
     sync_paused = fields.Boolean(string="Sincronización pausada", default=False, tracking=True)
 
     def write(self, vals):
+        if not self.env.su and {"subscription_id", "connector_id", "company_id", "provider_type"}.intersection(vals):
+            if not self.env.user.has_group("softwork_ecommerce_conector_base.group_sce_technical"):
+                raise UserError("Solo SCE Técnico puede asignar el dueño de una integración.")
+        vals = dict(vals)
+        if "client_secret" in vals:
+            for rec in self:
+                if vals.get("client_secret") != rec.client_secret:
+                    vals.setdefault("state", "draft")
+                    for field_name in ("access_token", "refresh_token", "token_type", "token_expires_at", "external_user_id"):
+                        vals.setdefault(field_name, False)
+                    vals.setdefault("initial_sync_queued", False)
         result = super().write(vals)
         if not self.env.context.get("skip_initial_sync_check"):
             self._enqueue_initial_sync_if_ready()
         return result
 
     def _enqueue_initial_sync_if_ready(self):
-        for account in self:
+        for account in self.sudo():
             if account.initial_sync_queued or account.sync_paused or account.state != "connected":
                 continue
             if account.provider_type != "mercadolibre":
@@ -172,11 +190,17 @@ class SceAccount(models.Model):
                 (account.odoo_base_url, account.odoo_db_name, account.odoo_user, account.odoo_password)
             ):
                 continue
+            if not account._sync_is_allowed():
+                continue
+            if not hasattr(account, "_get_remote_odoo_rpc"):
+                continue
+            try:
+                account._get_remote_odoo_rpc()
+            except Exception:
+                continue
             job_model = self.env["sce.job"].sudo()
             for job_type, label in (
                 ("sync_products", "productos"),
-                ("sync_stock", "stock"),
-                ("sync_prices", "precios"),
             ):
                 job_model.create(
                     {
@@ -187,9 +211,27 @@ class SceAccount(models.Model):
                     }
                 )
             account.with_context(skip_initial_sync_check=True).write({"initial_sync_queued": True})
+            cron = self.env.ref("softwork_ecommerce_conector_base.ir_cron_sce_process_queue", raise_if_not_found=False)
+            if cron:
+                cron.sudo()._trigger()
+
+    def _sync_is_allowed(self):
+        self.ensure_one()
+        account = self.sudo()
+        subscription = account.subscription_id
+        return bool(
+            account.active and account.state == "connected" and not account.sync_paused
+            and (not subscription or (
+                subscription.state not in ("suspended", "cancelled")
+                and (subscription.state != "trial" or not subscription.trial_end_date
+                     or fields.Date.today() <= subscription.trial_end_date)
+            ))
+        )
 
     def action_start_initial_sync(self):
+        self._check_customer_access()
         for account in self:
+            account.sudo()._get_remote_odoo_rpc()
             account.with_context(skip_initial_sync_check=True).write(
                 {"sync_paused": False, "initial_sync_queued": False}
             )
@@ -197,16 +239,24 @@ class SceAccount(models.Model):
         return True
 
     def action_pause_sync(self):
+        self._check_customer_access()
         self.write({"sync_paused": True})
+        self.env["sce.job"].sudo().search([
+            ("account_id", "in", self.ids), ("state", "=", "queued"),
+        ]).write({"state": "cancelled"})
         return True
 
     def action_resume_sync(self):
-        self.write({"sync_paused": False})
+        self._check_customer_access()
+        for account in self:
+            account.sudo()._get_remote_odoo_rpc()
+        self.with_context(skip_initial_sync_check=True).write({"sync_paused": False, "initial_sync_queued": False})
         self._enqueue_initial_sync_if_ready()
         return True
 
     def action_connect_mercadolibre_oauth(self):
         self.ensure_one()
+        self._check_customer_access()
         if self.provider_type != "mercadolibre":
             raise UserError("Esta acción solo está disponible para cuentas Mercado Libre.")
         record = self.sudo()
@@ -313,7 +363,7 @@ class SceAccount(models.Model):
         )
 
     @api.model
-    def create_quick_ml_account(self, company=None):
+    def create_quick_ml_account(self, company=None, subscription=None):
         company = company or self.env.company
         connector = self.env["sce.connector"].search(
             [
@@ -340,6 +390,7 @@ class SceAccount(models.Model):
                 "connector_id": connector.id,
                 "provider_type": "mercadolibre",
                 "company_id": company.id,
+                "subscription_id": subscription.id if subscription else False,
                 "active": True,
                 "state": "draft",
             }
@@ -708,6 +759,7 @@ class SceAccount(models.Model):
 
     def action_open_oauth_url(self):
         self.ensure_one()
+        self._check_customer_access()
         if self.provider_type != "mercadolibre":
             raise UserError("Conexión OAuth disponible solo para MercadoLibre.")
         record = self.sudo()
@@ -718,13 +770,19 @@ class SceAccount(models.Model):
                 "sce.mercadolibre.client_id, sce.mercadolibre.client_secret, sce.mercadolibre.redirect_uri"
             )
         verifier, challenge = self._generate_pkce_pair()
-        record.write({"oauth_code_verifier": verifier})
+        nonce = secrets.token_urlsafe(32)
+        record.write({
+            "oauth_code_verifier": verifier,
+            "oauth_state": nonce,
+            "oauth_user_id": self.env.uid,
+            "oauth_expires_at": fields.Datetime.now() + timedelta(minutes=10),
+        })
         params = urlencode(
             {
                 "response_type": "code",
                 "client_id": record.client_id,
                 "redirect_uri": record.redirect_uri,
-                "state": str(record.id),
+                "state": nonce,
                 "code_challenge": challenge,
                 "code_challenge_method": "S256",
             }
@@ -736,11 +794,19 @@ class SceAccount(models.Model):
             "target": "new",
         }
 
+    def _check_customer_access(self):
+        if self.env.user.has_group("softwork_ecommerce_conector_base.group_sce_technical"):
+            return
+        partner = self.env.user.partner_id.commercial_partner_id
+        for account in self.sudo():
+            if not account.customer_partner_id or account.customer_partner_id.commercial_partner_id != partner:
+                raise UserError("No tenés acceso a esta integración.")
+
     @api.depends("job_ids.state", "job_ids.duration_ms")
     def _compute_job_metrics(self):
         for rec in self:
-            done_jobs = rec.job_ids.filtered(lambda j: j.state == "done")
-            failed_jobs = rec.job_ids.filtered(lambda j: j.state == "failed")
+            done_jobs = rec.sudo().job_ids.filtered(lambda j: j.state == "done")
+            failed_jobs = rec.sudo().job_ids.filtered(lambda j: j.state == "failed")
             rec.jobs_done_count = len(done_jobs)
             rec.jobs_failed_count = len(failed_jobs)
             rec.avg_duration_ms = (sum(done_jobs.mapped("duration_ms")) / len(done_jobs)) if done_jobs else 0.0
@@ -943,18 +1009,6 @@ class SceAccount(models.Model):
             }
         )
         return True
-
-    def write(self, vals):
-        if "client_secret" in vals:
-            for rec in self:
-                if vals.get("client_secret") != rec.client_secret:
-                    vals.setdefault("state", "draft")
-                    vals.setdefault("access_token", False)
-                    vals.setdefault("refresh_token", False)
-                    vals.setdefault("token_type", False)
-                    vals.setdefault("token_expires_at", False)
-                    vals.setdefault("external_user_id", False)
-        return super().write(vals)
 
     def _is_token_circuit_open(self):
         self.ensure_one()

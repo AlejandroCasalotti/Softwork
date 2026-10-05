@@ -3,14 +3,26 @@
     <record id="rule_marketplace_publication_client_premium_own" model="ir.rule">
         <field name="name">Marketplace Publication: Cliente Premium solo su propia empresa</field>
         <field name="model_id" ref="model_marketplace_publication"/>
-        <field name="domain_force">[('account_id.company_id', '=', user.company_id.id)]</field>
+        <field name="domain_force">[('account_id.customer_partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
         <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
     </record>
 
     <record id="rule_marketplace_product_mapping_client_premium_own" model="ir.rule">
         <field name="name">Marketplace Product Mapping: Cliente Premium solo su propia empresa</field>
         <field name="model_id" ref="model_marketplace_product_mapping"/>
-        <field name="domain_force">[('account_id.company_id', '=', user.company_id.id)]</field>
+        <field name="domain_force">[('account_id.customer_partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
         <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
+    </record>
+    <record id="rule_stock_reserve_premium_own" model="ir.rule">
+        <field name="name">SCE Premium: reservas propias</field>
+        <field name="model_id" ref="model_marketplace_stock_reserve_rule"/>
+        <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
+        <field name="domain_force">[('account_id.customer_partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
+    </record>
+    <record id="rule_installment_premium_own" model="ir.rule">
+        <field name="name">SCE Premium: cuotas propias</field>
+        <field name="model_id" ref="model_marketplace_installment_rule"/>
+        <field name="groups" eval="[(4, ref('softwork_ecommerce_conector_base.group_sce_client_premium'))]"/>
+        <field name="domain_force">[('account_id.customer_partner_id.commercial_partner_id', '=', user.partner_id.commercial_partner_id.id)]</field>
     </record>
 </odoo>

@@ -61,6 +61,8 @@ class SceJob(models.Model):
 
     def _execute_job(self):
         self.ensure_one()
+        if self.job_type != "health_check" and not self.account_id._sync_is_allowed():
+            return
         start_dt = fields.Datetime.now()
         self.write({
             "state": "running",
@@ -94,6 +96,8 @@ class SceJob(models.Model):
                     payload = {"raw": self.payload_json}
 
             result = self._execute_provider_operation(provider, payload)
+            if isinstance(result, dict) and (result.get("ok") is False or result.get("errors")):
+                raise ValueError("La sincronización reportó errores; revisá los detalles del trabajo.")
             end_dt = fields.Datetime.now()
             duration = int((end_dt - start_dt).total_seconds() * 1000)
 
@@ -104,6 +108,18 @@ class SceJob(models.Model):
                 "result_json": json.dumps(result or {}),
                 "error_message": False,
             })
+            if self.job_type == "sync_products":
+                for operation, enabled in (
+                    ("sync_stock", self.account_id.sync_stock),
+                    ("sync_prices", self.account_id.sync_prices),
+                ):
+                    if enabled and not self.search_count([
+                        ("account_id", "=", self.account_id.id),
+                        ("job_type", "=", operation), ("state", "in", ["queued", "running"]),
+                    ]):
+                        self.create({"name": f"{operation} - {self.account_id.name}",
+                                     "account_id": self.account_id.id, "job_type": operation, "payload_json": "{}"})
+            self.account_id.with_context(skip_initial_sync_check=True).write({"last_sync": end_dt})
             metric_model.create({
                 "company_id": self.company_id.id,
                 "connector_id": self.connector_id.id,

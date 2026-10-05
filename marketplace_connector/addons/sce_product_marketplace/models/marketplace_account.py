@@ -741,6 +741,8 @@ class MarketplaceAccount(models.Model):
         job_model = self.env["sce.job"]
         mapping_model = self.env["marketplace.product.mapping"]
         for account in accounts:
+            if not account._sync_is_allowed():
+                continue
             if not mapping_model.search_count([
                 ("account_id", "=", account.id),
                 ("remote_only", "=", True),

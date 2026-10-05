@@ -309,7 +309,10 @@ class MarketplacePublicationService(models.AbstractModel):
 
         order_ref = "%s:%s" % (account.provider_type or "marketplace", external_id)
         order_model = self.env["sale.order"].sudo()
-        existing = order_model.search([("client_order_ref", "=", order_ref)], limit=1)
+        existing = order_model.search([
+            ("marketplace_account_id", "=", account.id),
+            ("marketplace_external_order_id", "=", str(external_id)),
+        ], limit=1)
         previous_state = existing.marketplace_order_state if existing else None
         previous_shipping_status = existing.marketplace_shipping_status if existing else None
         order_values = {
@@ -324,6 +327,8 @@ class MarketplacePublicationService(models.AbstractModel):
             existing._apply_marketplace_logistics(order_data)
             existing._apply_marketplace_transition()
             existing._emit_marketplace_state_event(previous_state, previous_shipping_status)
+            if existing.order_line:
+                self._record_order_usage(account, external_id)
             return {
                 "order_id": existing.id,
                 "external_id": str(external_id),
@@ -427,6 +432,8 @@ class MarketplacePublicationService(models.AbstractModel):
         order._apply_marketplace_logistics(order_data)
         order._apply_marketplace_transition()
         order._emit_marketplace_state_event()
+        if not missing_items:
+            self._record_order_usage(account, external_id)
         return {
             "order_id": order.id,
             "external_id": str(external_id),
@@ -434,6 +441,16 @@ class MarketplacePublicationService(models.AbstractModel):
             "state": order.marketplace_order_state,
             "missing_items": missing_items,
         }
+
+    def _record_order_usage(self, account, external_id):
+        source_key = str(external_id)
+        self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [f"sce-order:{account.id}:{source_key}"])
+        metrics = self.env["sce.usage.metric"].sudo()
+        if not metrics.search_count([("account_id", "=", account.id),
+                                     ("metric_type", "=", "orders_imported"), ("source_key", "=", source_key)]):
+            metrics.create({"company_id": account.company_id.id, "account_id": account.id,
+                            "connector_id": account.connector_id.id, "metric_type": "orders_imported",
+                            "value": 1, "source_key": source_key})
 
     def _normalize_order_state(self, order_data):
         status = str(order_data.get("status") or "").lower()

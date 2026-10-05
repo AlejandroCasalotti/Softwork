@@ -23,8 +23,8 @@
                     <button name="action_connect_mercadolibre_oauth" type="object" string="Conectar Mercado Libre" class="btn-primary" invisible="provider_type != 'mercadolibre' or state == 'connected'"/>
                     <button name="action_connect_mercadolibre_oauth" type="object" string="Reautorizar Mercado Libre" invisible="provider_type != 'mercadolibre' or state != 'connected'"/>
                     <button name="action_start_onboarding_connection" type="object" string="Conectar" class="btn-primary" invisible="provider_type == 'mercadolibre' or state == 'connected'"/>
-                    <button name="action_refresh_token" type="object" string="Reconectar" invisible="state != 'connected'"/>
-                    <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary" icon="fa-random"/>
+                    <button name="action_refresh_token" type="object" string="Renovar token" invisible="state != 'connected'" groups="softwork_ecommerce_conector_base.group_sce_technical"/>
+                    <button name="action_check_integration_status" type="object" string="Estado de conexión" class="btn-secondary" icon="fa-random" groups="softwork_ecommerce_conector_base.group_sce_technical"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,connected,error,disabled"/>
                 </header>
                 <sheet>
@@ -55,6 +55,7 @@
                             <field name="connector_id"/>
                             <field name="provider_type"/>
                             <field name="company_id" invisible="1"/>
+                            <field name="subscription_id" groups="softwork_ecommerce_conector_base.group_sce_technical"/>
                             <field name="mode"/>
                             <field name="active" invisible="1"/>
                         </group>

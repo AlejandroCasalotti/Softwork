@@ -2,7 +2,7 @@
 import json
 import logging
 
-from odoo import http
+from odoo import fields, http
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
@@ -15,6 +15,8 @@ class SceOAuthController(http.Controller):
             f"/web#id={account_id}&model=sce.account&view_type=form"
             if account_id else "/web"
         )
+        if request.env.user.has_group("base.group_portal"):
+            fallback_url = "/my/sce"
         html = f"""
         <!doctype html>
         <html><head><meta charset="utf-8"><title>Mercado Libre</title></head>
@@ -53,8 +55,11 @@ class SceOAuthController(http.Controller):
             if not account:
                 return self._oauth_popup_response("error", "No se encontró la cuenta Mercado Libre a conectar.")
         else:
+            if not request.env.user.has_group("softwork_ecommerce_conector_base.group_sce_technical"):
+                return self._oauth_popup_response("error", "Seleccioná una integración desde Mis Integraciones.")
             account = request.env["sce.account"].sudo().get_or_create_quick_ml_account(company=company)
         try:
+            account._check_customer_access()
             action = account.action_open_oauth_url()
             return request.redirect(action.get("url"), local=False)
         except Exception as err:
@@ -75,8 +80,7 @@ class SceOAuthController(http.Controller):
         code = kwargs.get("code") or kwargs.get("authorization_code")
         error = kwargs.get("error")
         _logger.info(
-            "ML OAuth callback received: state=%s has_code=%s code_len=%s keys=%s",
-            state,
+            "ML OAuth callback received: has_code=%s code_len=%s keys=%s",
             bool(code),
             len((code or "").strip()),
             sorted(list(kwargs.keys())),
@@ -85,14 +89,15 @@ class SceOAuthController(http.Controller):
         if not state:
             return request.redirect("/web#action=base.action_res_users")
 
-        try:
-            account_id = int(state)
-        except Exception:
-            return request.redirect("/web#action=base.action_res_users")
-
-        account = request.env["sce.account"].sudo().browse(account_id)
-        if not account.exists():
-            return request.redirect("/web#action=base.action_res_users")
+        account = request.env["sce.account"].sudo().search([
+            ("oauth_state", "=", state),
+            ("oauth_user_id", "=", request.env.uid),
+            ("oauth_expires_at", ">", fields.Datetime.now()),
+        ], limit=1)
+        if not account:
+            return self._oauth_popup_response("error", "La autorización venció o no pertenece a tu sesión.")
+        account._check_customer_access()
+        account.write({"oauth_state": False, "oauth_expires_at": False})
 
         if error:
             account.write(

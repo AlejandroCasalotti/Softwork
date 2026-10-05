@@ -272,9 +272,11 @@ class SceOdooMigrationEngine(models.Model):
                 if not domain:
                     continue
                 try:
-                    found = self._call(ctx, "dst", model, "search", domain, limit=1)
+                    found = self._call(ctx, "dst", model, "search", domain, limit=2)
                 except Exception:
                     found = []
+                if len(found) > 1:
+                    raise UserError(f"Relación ambigua en {model}: hay más de un candidato en destino.")
                 if found:
                     result = found[0]
                     break
@@ -295,6 +297,7 @@ class SceOdooMigrationEngine(models.Model):
 
     def _prepare_remote_vals(self, ctx, model, src_vals, dst_fields, allowed=None):
         vals = {}
+        source_fields = self._cached_fields(ctx, "src", model)
         for fname, fdef in dst_fields.items():
             if fname in SKIP_FIELDS or fdef.get("readonly"):
                 continue
@@ -302,9 +305,14 @@ class SceOdooMigrationEngine(models.Model):
                 continue
             if allowed is not None and fname not in allowed:
                 continue
+            compatibility, _enabled = self._classify_field(fname, source_fields.get(fname, {}), fdef)
+            if compatibility == "incompatible":
+                raise UserError(f"Tipos incompatibles para {model}.{fname}.")
 
             ftype = fdef.get("type")
             value = src_vals.get(fname)
+            if model in CHILD_LINES and fname == "state":
+                continue
 
             if ftype == "one2many":
                 continue
@@ -318,6 +326,8 @@ class SceOdooMigrationEngine(models.Model):
                 resolved = self._resolve_relation(ctx, fdef.get("relation"), value)
                 if resolved:
                     vals[fname] = resolved
+                elif fdef.get("required"):
+                    raise UserError(f"No se pudo resolver la relación obligatoria {model}.{fname}.")
             elif ftype == "many2many":
                 comodel = fdef.get("relation")
                 resolved_ids = []
@@ -339,9 +349,11 @@ class SceOdooMigrationEngine(models.Model):
             if not domain:
                 continue
             try:
-                found = self._call(ctx, "dst", model, "search", domain, limit=1)
+                found = self._call(ctx, "dst", model, "search", domain, limit=2)
             except Exception:
                 found = []
+            if len(found) > 1:
+                raise UserError(f"Hay múltiples candidatos para {model}; se requiere un mapeo explícito.")
             if found:
                 return found[0]
         return False
@@ -360,6 +372,8 @@ class SceOdooMigrationEngine(models.Model):
         """Migra un modelo completo de origen a destino con mapeo dinámico."""
         self.ensure_one()
         errors = []
+        if model == "account.partial.reconcile":
+            return self._sync_reconciliations(ctx, cp)
 
         if not self._model_exists(ctx, "src", model) or not self._model_exists(ctx, "dst", model):
             _logger.info("Migración: se omite %s (no existe en origen o destino)", model)
@@ -395,7 +409,8 @@ class SceOdooMigrationEngine(models.Model):
 
         checkpoint_key = f"{model}_last_id"
         last_id = cp.get(checkpoint_key, 0)
-        pending = [rid for rid in sorted(source_ids) if rid > last_id]
+        retry_ids = set(cp.get(f"{model}_failed_ids", []))
+        pending = [rid for rid in sorted(source_ids) if rid > last_id or rid in retry_ids]
         migrated = 0
 
         for batch in self._iter_model_batches(model, pending):
@@ -403,6 +418,7 @@ class SceOdooMigrationEngine(models.Model):
                 records = self._call(ctx, "src", model, "read", batch, fields=readable)
             except Exception as err:
                 errors.append({"model": model, "id": False, "error": str(err)})
+                retry_ids.update(batch)
                 if not self.continue_on_error:
                     raise
                 continue
@@ -416,6 +432,10 @@ class SceOdooMigrationEngine(models.Model):
                         return
                     existing = self._find_existing_target(ctx, model, _vals, dst_fields)
                     if existing:
+                        if model in CHILD_LINES:
+                            state = self._call(ctx, "dst", model, "read", [existing], fields=["state"])[0]["state"]
+                            if state != "draft":
+                                raise UserError("El documento destino no está en borrador; no se modificó.")
                         # Las líneas no se reescriben: evitaría duplicarlas o borrar ajustes del destino.
                         self._call(ctx, "dst", model, "write", existing, write_vals)
                     else:
@@ -426,6 +446,10 @@ class SceOdooMigrationEngine(models.Model):
 
                 if self._safe_process_record(_process, record_id, cp, checkpoint_key, errors, model):
                     migrated += 1
+                    retry_ids.discard(record_id)
+                else:
+                    retry_ids.add(record_id)
+        cp[f"{model}_failed_ids"] = sorted(retry_ids)
 
         if migrated and counter_field in self._fields:
             self[counter_field] = (self[counter_field] or 0) + migrated
@@ -438,7 +462,7 @@ class SceOdooMigrationEngine(models.Model):
             return []
         o2m_field, line_model, parent_field = config
         if not self._model_exists(ctx, "src", line_model) or not self._model_exists(ctx, "dst", line_model):
-            return []
+            raise UserError("No se pudieron analizar las líneas; no se creará una cabecera vacía.")
 
         src_line_fields = self._cached_fields(ctx, "src", line_model)
         dst_line_fields = self._cached_fields(ctx, "dst", line_model)
@@ -457,15 +481,19 @@ class SceOdooMigrationEngine(models.Model):
             return []
 
         try:
-            line_ids = self._call(
-                ctx, "src", line_model, "search", [(parent_field, "=", parent_src_id)]
-            )
+            domain = [(parent_field, "=", parent_src_id)]
+            if model == "account.move":
+                source_move = self._call(ctx, "src", model, "read", [parent_src_id], fields=["move_type"])[0]
+                if source_move["move_type"] == "entry":
+                    raise UserError("Los asientos generales necesitan migración contable específica; no se copian como facturas.")
+                if "display_type" in src_line_fields:
+                    domain.append(("display_type", "in", [False, "product", "line_section", "line_note"]))
+            line_ids = self._call(ctx, "src", line_model, "search", domain)
             if not line_ids:
                 return []
             src_lines = self._call(ctx, "src", line_model, "read", line_ids, fields=readable)
-        except Exception:
-            _logger.warning("No se pudieron leer las líneas de %s (documento %s)", line_model, parent_src_id)
-            return []
+        except Exception as error:
+            raise UserError("No se pudieron leer las líneas; el documento no fue creado.") from error
 
         commands = []
         for src_line in src_lines:
@@ -483,6 +511,74 @@ class SceOdooMigrationEngine(models.Model):
             if toggle in self._fields and self[toggle]:
                 yield model, counter
 
+    def _sync_reconciliations(self, ctx, cp):
+        model = "account.partial.reconcile"
+        source_meta = self._cached_fields(ctx, "src", model)
+        target_meta = self._cached_fields(ctx, "dst", model)
+        if not source_meta or not target_meta:
+            raise UserError("No se pudo analizar el modelo de conciliaciones en ambas bases.")
+        required = {"debit_move_id", "credit_move_id", "amount"}
+        allowed = self._get_allowed_fields(model)
+        if allowed is not None and not required.issubset(allowed):
+            raise UserError("Las conciliaciones requieren importe y ambas líneas contables.")
+        names = list(required) + [name for name in ("debit_amount_currency", "credit_amount_currency")
+                                  if name in source_meta and name in target_meta]
+        checkpoint = f"{model}_last_id"
+        retry_ids = set(cp.get(f"{model}_failed_ids", []))
+        source_ids = self._call(ctx, "src", model, "search", self._build_since_domain(), order="id asc")
+        pending = [identity for identity in source_ids if identity > cp.get(checkpoint, 0) or identity in retry_ids]
+        errors = []
+        for batch in self._iter_model_batches(model, pending):
+            records = self._call(ctx, "src", model, "read", batch, fields=names)
+            for source in records:
+                def reconcile_record(identity):
+                    debit_id = self._resolve_relation(ctx, "account.move.line", source["debit_move_id"])
+                    credit_id = self._resolve_relation(ctx, "account.move.line", source["credit_move_id"])
+                    if not debit_id or not credit_id or debit_id == credit_id:
+                        raise UserError("No se encontraron ambas líneas contables únicas en destino.")
+                    amount = source["amount"]
+                    existing = self._call(ctx, "dst", model, "search", [
+                        ("debit_move_id", "=", debit_id), ("credit_move_id", "=", credit_id),
+                        ("amount", "=", amount),
+                    ], limit=2)
+                    if existing:
+                        return
+                    lines = self._call(ctx, "dst", "account.move.line", "read", [debit_id, credit_id],
+                                       fields=["parent_state", "account_id", "company_id", "currency_id", "amount_residual"])
+                    by_id = {line["id"]: line for line in lines}
+                    debit, credit = by_id[debit_id], by_id[credit_id]
+                    if any(line["parent_state"] != "posted" for line in lines):
+                        raise UserError("Las conciliaciones requieren asientos publicados en destino.")
+                    if debit["account_id"] != credit["account_id"] or debit["company_id"] != credit["company_id"]:
+                        raise UserError("Las líneas deben compartir cuenta contable y empresa.")
+                    if debit["currency_id"] != credit["currency_id"]:
+                        raise UserError("La conciliación entre monedas diferentes requiere revisión contable.")
+                    for field_name, destination in (("debit_move_id", debit), ("credit_move_id", credit)):
+                        original = self._call(ctx, "src", "account.move.line", "read",
+                                              [self._extract_id(source[field_name])], fields=["company_id", "currency_id"])[0]
+                        original_company = self._call(ctx, "src", "res.company", "read",
+                                                      [original["company_id"][0]], fields=["currency_id"])[0]
+                        target_company = self._call(ctx, "dst", "res.company", "read",
+                                                    [destination["company_id"][0]], fields=["currency_id"])[0]
+                        currency = self._resolve_relation(ctx, "res.currency", original_company["currency_id"])
+                        line_currency = self._resolve_relation(ctx, "res.currency", original["currency_id"])
+                        if currency != target_company["currency_id"][0] or line_currency != destination["currency_id"][0]:
+                            raise UserError("Las monedas origen/destino difieren; no se copiarán importes contables.")
+                    if amount <= 0 or debit["amount_residual"] + 0.000001 < amount or -credit["amount_residual"] + 0.000001 < amount:
+                        raise UserError("Saldo insuficiente para reproducir la conciliación.")
+                    values = {"debit_move_id": debit_id, "credit_move_id": credit_id, "amount": amount}
+                    values.update({name: source[name] for name in names if name.endswith("_amount_currency")})
+                    self._call(ctx, "dst", model, "create", values)
+
+                identity = source["id"]
+                if self._safe_process_record(reconcile_record, identity, cp, checkpoint, errors, model):
+                    retry_ids.discard(identity)
+                    self.migrated_reconciliations += 1
+                else:
+                    retry_ids.add(identity)
+        cp[f"{model}_failed_ids"] = sorted(retry_ids)
+        return errors
+
     def _iter_selected_line_models(self):
         """Modelos de línea de los documentos seleccionados."""
         for model, _counter in self._iter_selected_entities():
@@ -498,6 +594,12 @@ class SceOdooMigrationEngine(models.Model):
             return "technical", False
         if not dst_def:
             return "missing_target", False
+        numeric = {"integer", "float", "monetary"}
+        source_type, target_type = src_def.get("type"), dst_def.get("type")
+        if source_type != target_type and not {source_type, target_type}.issubset(numeric):
+            return "incompatible", False
+        if source_type in ("many2one", "many2many", "one2many") and src_def.get("relation") != dst_def.get("relation"):
+            return "incompatible", False
         if dst_def.get("readonly"):
             return "readonly", False
         if dst_def.get("type") == "one2many":
@@ -518,6 +620,7 @@ class SceOdooMigrationEngine(models.Model):
         src_uid, src_rpc, dst_uid, dst_rpc = self._validate_source_target_connections()
         ctx = self._build_migration_context(src_uid, src_rpc, dst_uid, dst_rpc)
 
+        previous_choices = {(line.model_name, line.source_field): line.migrate for line in self.field_map_ids}
         self.field_map_ids.unlink()
         entity_labels = dict(
             (model, label)
@@ -561,6 +664,8 @@ class SceOdooMigrationEngine(models.Model):
                 compatibility, migrate = self._classify_field(fname, src_def, dst_def)
                 if compatibility == "technical":
                     continue
+                if migrate:
+                    migrate = previous_choices.get((model, fname), migrate)
                 lines.append(
                     {
                         "run_id": self.id,
@@ -572,7 +677,7 @@ class SceOdooMigrationEngine(models.Model):
                         "field_type": (dst_def or src_def).get("type"),
                         "relation_model": (dst_def or src_def).get("relation") or False,
                         "compatibility": compatibility,
-                        "is_required": bool((dst_def or {}).get("required")),
+                        "is_required": compatibility == "required",
                         "migrate": migrate,
                         "sequence": 5 if fname in ("name", "default_code") else 10,
                     }
@@ -773,6 +878,12 @@ class SceOdooMigrationEngine(models.Model):
         )
         removed = 0
         for run in stale_runs:
+            newer = self.search_count([
+                ("account_id", "=", run.account_id.id), ("id", ">", run.id),
+                ("field_map_ids", "!=", False),
+            ])
+            if not newer:
+                continue
             removed += len(run.field_map_ids)
             run.field_map_ids.unlink()
         if removed:

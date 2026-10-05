@@ -131,7 +131,7 @@
                             </div>
                             <field name="field_map_ids" nolabel="1">
                                 <list editable="bottom" default_order="model_name,sequence,field_label"
-                                      decoration-muted="compatibility in ('missing_target','readonly','lines')"
+                                      decoration-muted="compatibility in ('missing_target','readonly','lines','incompatible')"
                                       decoration-bf="is_required">
                                                         <header>
                                                         <button name="action_delete_selected" type="object"
@@ -147,9 +147,9 @@
                                            decoration-success="compatibility == 'ok'"
                                            decoration-info="compatibility == 'relation'"
                                            decoration-warning="compatibility in ('required','readonly')"
-                                           decoration-danger="compatibility in ('missing_target','lines')"/>
+                                           decoration-danger="compatibility in ('missing_target','lines','incompatible')"/>
                                     <field name="is_required" readonly="1" optional="hide"/>
-                                    <field name="migrate" readonly="compatibility in ('missing_target','readonly','lines')"/>
+                                    <field name="migrate" readonly="compatibility in ('missing_target','readonly','lines','incompatible')"/>
                                     <field name="model_name" column_invisible="1"/>
                                     <field name="sequence" column_invisible="1"/>
                                 </list>

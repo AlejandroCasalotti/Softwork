@@ -74,6 +74,8 @@ class MlQuestionChannel(models.Model):
             ]
         )
         for account in accounts:
+            if not account._sync_is_allowed():
+                continue
             try:
                 self._sync_account_questions(account)
             except Exception:
@@ -104,6 +106,18 @@ class MlQuestionChannel(models.Model):
             )
             if existing:
                 result["already_tracked"] += 1
+                if not existing.last_message_id and existing.remote_channel_id:
+                    try:
+                        messages = account.fetch_remote_discuss_messages(existing.remote_channel_id)
+                        for message in messages:
+                            text = existing._plain_text(message.get("body") or "")
+                            expected = " ".join((question.get("text") or "").split())
+                            if "Pregunta de Mercado Libre" in text and expected and expected in text:
+                                existing.write({"last_message_id": message["id"], "question_posted": True})
+                                result["recovered"] += 1
+                                break
+                    except Exception as error:
+                        result["errors"].append({"question_id": question_id, "stage": "recover_id", "error": str(error)})
                 continue
             try:
                 self._create_channel_for_question(account, question)
@@ -192,6 +206,8 @@ class MlQuestionChannel(models.Model):
     def _check_reply(self):
         self.ensure_one()
         account = self.account_id
+        if not account._sync_is_allowed() or not self.last_message_id:
+            return
         messages = account.fetch_remote_discuss_messages(self.remote_channel_id, after_id=self.last_message_id)
         if not messages:
             return
@@ -276,4 +292,5 @@ class MlQuestionChannel(models.Model):
                         record.remote_channel_id,
                         record.account_id.display_name,
                     )
+                    continue
                 record.unlink()
