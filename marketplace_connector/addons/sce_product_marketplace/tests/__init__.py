@@ -1,1 +1,1 @@
-from . import test_order_import
+# Marketplace tests are now provided by sce_connector_ml.

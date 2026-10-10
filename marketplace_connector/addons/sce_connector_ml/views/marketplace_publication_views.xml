@@ -3,7 +3,7 @@
     <record id="view_marketplace_publication_form_ml_product" model="ir.ui.view">
         <field name="name">marketplace.publication.form.mercadolibre</field>
         <field name="model">marketplace.publication</field>
-        <field name="inherit_id" ref="sce_product_marketplace.view_marketplace_publication_form"/>
+        <field name="inherit_id" ref="sce_connector_ml.view_marketplace_publication_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
                 <button name="action_open_ml_publish_assistant" type="object"

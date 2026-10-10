@@ -27,7 +27,7 @@
 
     <menuitem id="menu_marketplace_product_mapping"
               name="Mappings de productos"
-              parent="sce_product_marketplace.menu_marketplace_publication_root"
+              parent="sce_connector_ml.menu_marketplace_publication_root"
               action="action_marketplace_product_mapping"
               sequence="20"/>
 </odoo>

@@ -1,2 +1,1 @@
-# -*- coding: utf-8 -*-
-from . import publication_service
+# Marketplace services are now provided by sce_connector_ml.

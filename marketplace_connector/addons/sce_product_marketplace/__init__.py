@@ -1,3 +1,1 @@
-# -*- coding: utf-8 -*-
-from . import models
-from . import services
+# Legacy compatibility package. Marketplace models are now provided by sce_connector_ml.

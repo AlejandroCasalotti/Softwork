@@ -5,6 +5,16 @@ from . import ml_listing_type
 from . import ml_category_search_result
 from . import ml_category_search_wizard
 from . import ml_attribute_option_picker_wizard
+from . import marketplace_installment_rule
+from . import marketplace_stock_reserve_rule
+from . import marketplace_account
+from . import marketplace_publication_core
+from . import marketplace_product_mapping
+from . import marketplace_sale_order
+from . import marketplace_product_template
+from . import sce_job_marketplace
+from . import marketplace_product_status_wizard
+from . import ml_test_user_wizard
 from . import marketplace_publication
 from . import ml_attribute_editor_wizard
 from . import ml_publish_config_wizard
