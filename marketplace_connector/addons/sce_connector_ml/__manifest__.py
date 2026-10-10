@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "SCE Connector MercadoLibre",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "summary": "Conector MercadoLibre para SCE",
     "category": "Sales",
     "author": "Softwork",
@@ -21,6 +21,7 @@
         "views/ml_attribute_editor_wizard_views.xml",
         "views/ml_publish_config_wizard_views.xml",
         "views/ml_publish_assistant_wizard_views.xml",
+        "views/remote_publication_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

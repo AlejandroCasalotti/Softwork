@@ -223,7 +223,7 @@ class RemotePublicationWizardLine(models.TransientModel):
     def action_open_configuration(self):
         self.ensure_one()
         view = self.env.ref(
-            "sce_product_marketplace.view_remote_publication_wizard_line_form"
+            "sce_connector_ml.view_remote_publication_wizard_line_form"
         )
         return {
             "type": "ir.actions.act_window",

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "MercadoLibre Product Connector",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "summary": "Publicación y gestión de productos en MercadoLibre",
     "category": "Sales",
     "author": "Softwork",

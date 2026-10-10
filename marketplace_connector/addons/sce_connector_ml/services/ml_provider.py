@@ -1,23 +1,103 @@
-"""MercadoLibre implementation owned by the connector addon.
-
-The base implementation is inherited temporarily while the remaining ML API
-helpers are extracted from the core provider module.
-"""
+"""MercadoLibre implementation owned by the connector addon."""
 # -*- coding: utf-8 -*-
 import base64
 import json
+from decimal import Decimal, ROUND_HALF_UP
 
-from odoo.addons.softwork_ecommerce_conector_base.services.providers.ml_provider import (
-    MercadoLibreProvider as CoreMercadoLibreProvider,
-)
 from odoo.exceptions import UserError
 
 from .http_transport import MercadoLibreHttpTransport
 from .oauth import MercadoLibreOAuth
 
 
-class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMercadoLibreProvider):
+class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth):
     """Connector-owned entry point for MercadoLibre provider behavior."""
+
+    def __init__(self, env, account):
+        self.env = env
+        self.account = account
+
+    def _ok(self, **kwargs):
+        return {"ok": True, "provider": "mercadolibre", **kwargs}
+
+    def _to_int(self, value, default=0):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _to_float(self, value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _extract_item_id(self, payload):
+        payload = payload or {}
+        item_id = (
+            payload.get("id")
+            or payload.get("item_id")
+            or payload.get("external_id")
+            or payload.get("ml_item_id")
+            or payload.get("publication_id")
+        )
+        if not item_id:
+            raise UserError("Falta item_id/id para operar publicación de MercadoLibre.")
+        return str(item_id).strip()
+
+    def _normalize_attributes(self, payload):
+        attributes = payload.get("attributes") or []
+        if isinstance(attributes, str):
+            try:
+                attributes = json.loads(attributes)
+            except (TypeError, ValueError):
+                attributes = []
+        if not isinstance(attributes, list):
+            return []
+        return [
+            attribute
+            for attribute in attributes
+            if isinstance(attribute, dict)
+            and attribute.get("id")
+            and (attribute.get("value_name") is not None or attribute.get("value_id") is not None)
+        ]
+
+    def _normalize_pictures(self, payload):
+        pictures = payload.get("pictures") or []
+        if not isinstance(pictures, list):
+            pictures = []
+        normalized = []
+        for picture in pictures:
+            if isinstance(picture, dict) and picture.get("source"):
+                normalized.append({"source": picture["source"]})
+            elif isinstance(picture, str) and picture.strip():
+                normalized.append({"source": picture.strip()})
+        image = payload.get("image_1920")
+        if image and isinstance(image, (str, bytes)):
+            if isinstance(image, bytes):
+                image = image.decode()
+            normalized.append({"source": f"data:image/jpeg;base64,{image}"})
+        return normalized
+
+    def _normalize_variations(self, payload):
+        variations = payload.get("variations") if isinstance(payload, dict) else []
+        if not isinstance(variations, list):
+            return []
+        normalized_variations = []
+        for variation in variations:
+            if not isinstance(variation, dict):
+                continue
+            normalized = {
+                "available_quantity": max(0, self._to_int(variation.get("available_quantity"), 0)),
+                "price": self._to_float(variation.get("price"), 0.0),
+                "attribute_combinations": variation.get("attribute_combinations") or [],
+            }
+            if variation.get("seller_custom_field"):
+                normalized["seller_custom_field"] = str(variation["seller_custom_field"])
+            if normalized["price"] <= 0:
+                normalized.pop("price")
+            normalized_variations.append(normalized)
+        return normalized_variations
 
     def create_test_user(self, site_id="MLA", description="SCE Test"):
         if getattr(self.account, "mode", "production") != "sandbox":
@@ -43,7 +123,59 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
             payload.setdefault("warranty", provider_data.get("warranty") or "")
         payload.setdefault("available_quantity", payload.get("stock", 0))
         payload.setdefault("listing_type_id", payload.get("listing_type") or "gold_special")
-        return super()._build_item_payload(payload)
+        title = (payload.get("title") or "").strip()
+        category_id = (payload.get("category_id") or "").strip()
+        if not title:
+            raise UserError("MercadoLibre: falta 'title' para publicar.")
+        if not category_id:
+            raise UserError("MercadoLibre: falta 'category_id' para publicar.")
+
+        price = self._to_float(payload.get("price"), 0.0)
+        currency_id = payload.get("currency_id") or "ARS"
+        if currency_id == "ARS":
+            price = float(Decimal(str(price)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        quantity = max(0, self._to_int(payload.get("available_quantity"), 0))
+        if price <= 0:
+            raise UserError("MercadoLibre: el precio debe ser mayor a cero.")
+
+        item = {
+            "title": title,
+            "category_id": category_id,
+            "price": price,
+            "currency_id": currency_id,
+            "available_quantity": quantity,
+            "buying_mode": payload.get("buying_mode") or "buy_it_now",
+            "condition": payload.get("condition") or "new",
+            "listing_type_id": payload.get("listing_type_id") or payload.get("listing_type") or "gold_special",
+        }
+        if payload.get("seller_custom_field"):
+            item["seller_custom_field"] = str(payload["seller_custom_field"])
+        if payload.get("shipping_mode"):
+            item["shipping"] = {"mode": payload["shipping_mode"]}
+        attributes = self._normalize_attributes(payload)
+        if attributes:
+            item["attributes"] = attributes
+        variations = self._normalize_variations(payload)
+        if variations:
+            item["variations"] = variations
+        family_name = (payload.get("family_name") or "").strip()
+        if family_name:
+            item["family_name"] = family_name
+        pictures = self._normalize_pictures(payload)
+        if pictures:
+            item["pictures"] = pictures
+        description = payload.get("description")
+        if isinstance(description, dict):
+            item["description"] = description
+        elif payload.get("description_plain_text"):
+            item["description"] = {"plain_text": payload["description_plain_text"]}
+        sale_terms = payload.get("sale_terms")
+        if isinstance(sale_terms, list):
+            item["sale_terms"] = sale_terms
+        if payload.get("warranty"):
+            item.setdefault("sale_terms", [])
+            item["sale_terms"].append({"id": "WARRANTY_TYPE", "value_name": payload["warranty"]})
+        return item
 
     def health(self):
         user = self._request("GET", "/users/me")
@@ -64,7 +196,33 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
             payload.setdefault("description_html", provider_data.get("description_html") or "")
             payload.setdefault("warranty", provider_data.get("warranty") or "")
         payload.setdefault("available_quantity", payload.get("stock", 0))
-        return super()._build_item_update_payload(payload)
+        item = {}
+        if "price" in payload:
+            price = self._to_float(payload.get("price"), 0.0)
+            if price > 0:
+                item["price"] = price
+        if "available_quantity" in payload:
+            item["available_quantity"] = max(0, self._to_int(payload.get("available_quantity"), 0))
+        if payload.get("seller_custom_field"):
+            item["seller_custom_field"] = str(payload["seller_custom_field"])
+        attributes = self._normalize_attributes(payload)
+        if attributes:
+            item["attributes"] = attributes
+        variations = self._normalize_variations(payload)
+        if variations:
+            item["variations"] = variations
+        pictures = self._normalize_pictures(payload)
+        if pictures:
+            item["pictures"] = pictures
+        description = payload.get("description")
+        if isinstance(description, dict):
+            item["description"] = description
+        elif payload.get("description_plain_text"):
+            item["description"] = {"plain_text": payload["description_plain_text"]}
+        sale_terms = payload.get("sale_terms")
+        if isinstance(sale_terms, list):
+            item["sale_terms"] = sale_terms
+        return item
 
     def search_categories(self, query, limit=20):
         query = (query or "").strip()
@@ -292,6 +450,42 @@ class MercadoLibreProvider(MercadoLibreHttpTransport, MercadoLibreOAuth, CoreMer
             payload={"text": text},
         )
         return self._ok(action="answer_message", message_id=message_id, raw=data)
+
+    def get_questions(self, status="UNANSWERED", limit=50):
+        seller_id = self.account.external_user_id
+        if not seller_id:
+            seller = self._request("GET", "/users/me")
+            seller_id = seller.get("id") if isinstance(seller, dict) else False
+        data = self._request(
+            "GET",
+            "/questions/search",
+            params={
+                "seller_id": seller_id,
+                "status": status,
+                "api_version": 4,
+                "limit": min(max(self._to_int(limit, 50), 1), 50),
+            },
+        )
+        questions = data.get("questions") if isinstance(data, dict) else []
+        return self._ok(
+            action="get_questions",
+            items=questions if isinstance(questions, list) else [],
+            raw=data,
+        )
+
+    def answer_question(self, question_id, text):
+        question_id = str(question_id or "").strip()
+        text = (text or "").strip()
+        if not question_id:
+            raise UserError("Falta question_id para responder la pregunta.")
+        if not text:
+            raise UserError("Falta el texto de la respuesta.")
+        data = self._request(
+            "POST",
+            "/answers",
+            payload={"question_id": question_id, "text": text},
+        )
+        return self._ok(action="answer_question", question_id=question_id, raw=data)
 
     def get_questions(self, status="UNANSWERED", limit=50):
         """Preguntas de productos (pre-venta), distintas de los mensajes post-venta."""

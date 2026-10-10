@@ -16,6 +16,8 @@ _logger = logging.getLogger(__name__)
 class MercadoLibreHttpTransport:
     """HTTP transport owned by the MercadoLibre connector."""
 
+    BASE_API_URL = "https://api.mercadolibre.com"
+
     def _ensure_requests(self):
         if not requests:
             raise UserError("La librería Python 'requests' no está disponible en el entorno Odoo.")

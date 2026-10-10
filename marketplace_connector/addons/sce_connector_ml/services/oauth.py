@@ -11,6 +11,8 @@ _logger = logging.getLogger(__name__)
 class MercadoLibreOAuth:
     """OAuth operations owned by the MercadoLibre connector."""
 
+    BASE_AUTH_URL = "https://api.mercadolibre.com/oauth/token"
+
     def _persist_refreshed_tokens(self, refresh_result):
         if not isinstance(refresh_result, dict):
             return False

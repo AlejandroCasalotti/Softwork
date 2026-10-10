@@ -12,7 +12,7 @@ a los campos específicos de un proveedor.
 Los conectores concretos (sce_connector_ml, futuros sce_connector_amazon, etc.)
 extienden marketplace.publication con sus propios campos y servicios.
     """,
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.1.0",
     "category": "Sales/Sales",
     "author": "Softwork",
     "website": "https://swsistemas.com",
@@ -29,7 +29,6 @@ extienden marketplace.publication con sus propios campos y servicios.
         "views/sce_job_marketplace_views.xml",
         "views/product_template_views.xml",
         "views/marketplace_product_status_wizard_views.xml",
-        "views/remote_publication_wizard_views.xml",
         "views/ml_test_user_wizard_views.xml",
     ],
     "installable": True,
