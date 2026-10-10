@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "MercadoLibre Product Connector",
-    "version": "19.0.1.1.0",
+    "name": "MercadoLibre Product Connector (Legacy)",
+    "version": "19.0.1.2.0",
     "summary": "Publicación y gestión de productos en MercadoLibre",
     "category": "Sales",
     "author": "Softwork",
@@ -11,7 +11,7 @@
         "data/migration_actions.xml",
         "views/product_template_views.xml",
     ],
-    "installable": True,
+    "installable": False,
     "application": False,
     "post_init_hook": "post_init_migrate_legacy_marketplace",
 }
