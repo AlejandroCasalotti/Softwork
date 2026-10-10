@@ -323,35 +323,25 @@ class MarketplacePublicationService(models.AbstractModel):
             "marketplace_sync_date": fields.Datetime.now(),
         }
         if existing:
-            existing.write(order_values)
-            existing._apply_marketplace_logistics(order_data)
-            existing._apply_marketplace_transition()
-            existing._emit_marketplace_state_event(previous_state, previous_shipping_status)
-            if existing.order_line:
-                self._record_order_usage(account, external_id)
-            return {
-                "order_id": existing.id,
-                "external_id": str(external_id),
-                "created": False,
-                "state": existing.marketplace_order_state,
-            }
+            order = existing
+            order.write(order_values)
+        else:
+            buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
+            buyer_name = buyer.get("nickname") or buyer.get("first_name") or "Marketplace buyer"
+            buyer_email = buyer.get("email") or False
+            partner_model = self.env["res.partner"].sudo()
+            partner = partner_model.search([("ref", "=", order_ref)], limit=1)
+            if not partner:
+                partner = partner_model.create({"name": buyer_name, "email": buyer_email, "ref": order_ref})
 
-        buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
-        buyer_name = buyer.get("nickname") or buyer.get("first_name") or "Marketplace buyer"
-        buyer_email = buyer.get("email") or False
-        partner_model = self.env["res.partner"].sudo()
-        partner = partner_model.search([("ref", "=", order_ref)], limit=1)
-        if not partner:
-            partner = partner_model.create({"name": buyer_name, "email": buyer_email, "ref": order_ref})
-
-        order = order_model.create(
-            {
-                "partner_id": partner.id,
-                "client_order_ref": order_ref,
-                "origin": "Marketplace %s" % external_id,
-                **order_values,
-            }
-        )
+            order = order_model.create(
+                {
+                    "partner_id": partner.id,
+                    "client_order_ref": order_ref,
+                    "origin": "Marketplace %s" % external_id,
+                    **order_values,
+                }
+            )
         missing_items = []
         for line in order_data.get("order_items") or []:
             item = line.get("item") if isinstance(line, dict) and isinstance(line.get("item"), dict) else {}
@@ -416,6 +406,8 @@ class MarketplacePublicationService(models.AbstractModel):
                     ("marketplace_external_line_id", "=", external_line_id),
                 ]
             order_line = order.env["sale.order.line"].sudo().search(line_domain, limit=1)
+            if order_line and existing:
+                continue
             line_values = {
                 "order_id": order.id,
                 "product_id": product.id,
@@ -430,14 +422,15 @@ class MarketplacePublicationService(models.AbstractModel):
             else:
                 order.env["sale.order.line"].sudo().create(line_values)
         order._apply_marketplace_logistics(order_data)
-        order._apply_marketplace_transition()
-        order._emit_marketplace_state_event()
-        if not missing_items:
+        if not missing_items or order.marketplace_order_state != "paid":
+            order._apply_marketplace_transition()
+        order._emit_marketplace_state_event(previous_state, previous_shipping_status)
+        if not missing_items and order.order_line:
             self._record_order_usage(account, external_id)
         return {
             "order_id": order.id,
             "external_id": str(external_id),
-            "created": True,
+            "created": not bool(existing),
             "state": order.marketplace_order_state,
             "missing_items": missing_items,
         }
