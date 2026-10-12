@@ -8,6 +8,7 @@
             <xpath expr="//button[@name='action_check_integration_status']" position="after">
                 <button name="action_check_products_status" type="object" string="Estados de productos" class="btn-secondary" icon="fa-cubes" invisible="provider_type == 'odoo'"/>
                 <button name="action_open_ml_test_user_wizard" type="object" string="Usuarios de prueba ML" class="btn-secondary" icon="fa-users" groups="softwork_ecommerce_conector_base.group_sce_technical" invisible="provider_type != 'mercadolibre' or mode != 'sandbox'"/>
+                <button name="action_open_ml_test_sale_wizard" type="object" string="Prueba de venta completa" class="btn-primary" icon="fa-flask" groups="softwork_ecommerce_conector_base.group_sce_technical" invisible="provider_type != 'mercadolibre' or mode != 'sandbox' or state != 'connected'"/>
             </xpath>
             <xpath expr="//sheet" position="inside">
                 <notebook invisible="provider_type == 'odoo'">

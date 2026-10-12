@@ -313,7 +313,7 @@ class MarketplacePublicationService(models.AbstractModel):
             publication.write(values)
         return result
 
-    def import_order(self, account, external_id):
+    def import_order(self, account, external_id, force_draft=False):
         external_id = str(external_id or "").strip()
         if not external_id:
             raise UserError("La importación necesita una cuenta e ID externo de orden válido.")
@@ -377,10 +377,52 @@ class MarketplacePublicationService(models.AbstractModel):
         state = self._normalize_order_state(order_data)
         existing_order_id = search_unique("sale.order", [("client_order_ref", "=", order_ref)])
         if existing_order_id:
-            apply_remote_state(existing_order_id, state)
-            return {"created": False, "state": state}
+            if force_draft:
+                remote_order = ensure_remote_draft(existing_order_id)
+            else:
+                apply_remote_state(existing_order_id, state)
+                remote_order = {}
+            return {
+                "created": False,
+                "state": self._order_import_target_state(state, force_draft),
+                "sale_order_id": existing_order_id,
+                "sale_order_name": remote_order.get("name") or False,
+            }
 
         buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
+        if "sce.ml.test.sale.wizard" in self.env:
+            order_items = order_data.get("order_items")
+            order_items = order_items if isinstance(order_items, list) else []
+            order_item_ids = {
+                str(item_data.get("id"))
+                for order_line in order_items
+                if isinstance(order_line, dict)
+                and isinstance((item_data := order_line.get("item")), dict)
+                and item_data.get("id")
+            }
+            test_sale = self.env["sce.ml.test.sale.wizard"].sudo().search(
+                [
+                    ("account_id", "=", account.id),
+                    ("buyer_external_id", "=", str(buyer.get("id") or "")),
+                    ("state", "=", "waiting_order"),
+                ],
+            ).filtered(
+                lambda wizard: wizard.publication_id.external_id
+                and wizard.publication_id.external_id in order_item_ids
+            )[:1]
+            force_draft = force_draft or bool(test_sale)
+
+        def ensure_remote_draft(order_id):
+            values = remote_call(
+                "sale.order", "read", [[order_id]], {"fields": ["state", "name"]}
+            )
+            if values and values[0].get("state") != "draft":
+                raise UserError(
+                    "La orden de prueba ya existe en Odoo pero no está en borrador. "
+                    "No se modificó su estado."
+                )
+            return values[0] if values else {}
+
         buyer_key = buyer.get("id") or buyer.get("email") or f"order-{external_id}"
         partner_ref = f"SCE-ML-{account.id}-{buyer_key}"
         partner_id = search_unique("res.partner", [("ref", "=", partner_ref)])
@@ -465,8 +507,21 @@ class MarketplacePublicationService(models.AbstractModel):
         order_id = remote_call(
             "sale.order", "create", [order_values]
         )
-        apply_remote_state(order_id, state)
-        return {"created": True, "state": state}
+        if force_draft:
+            remote_order = ensure_remote_draft(order_id)
+        else:
+            apply_remote_state(order_id, state)
+            remote_order = {}
+        return {
+            "created": True,
+            "state": self._order_import_target_state(state, force_draft),
+            "sale_order_id": order_id,
+            "sale_order_name": remote_order.get("name") or False,
+        }
+
+    @staticmethod
+    def _order_import_target_state(marketplace_state, force_draft=False):
+        return "draft" if force_draft else marketplace_state
 
     def sync_account_orders(self, account, payload=None):
         if not account:

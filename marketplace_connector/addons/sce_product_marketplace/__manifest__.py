@@ -31,6 +31,7 @@ extienden marketplace.publication con sus propios campos y servicios.
         "views/marketplace_product_status_wizard_views.xml",
         "views/remote_publication_wizard_views.xml",
         "views/ml_test_user_wizard_views.xml",
+        "views/ml_test_sale_wizard_views.xml",
     ],
     "installable": True,
     "application": False,

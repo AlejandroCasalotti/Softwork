@@ -14,3 +14,9 @@ class TestMarketplaceOrderRetries(TransactionCase):
         service = self.env["marketplace.publication.service"]
 
         self.assertEqual(service._order_retry_bucket("order-1", 3), ("manual", 3))
+
+    def test_simulated_order_is_always_imported_as_draft(self):
+        service = self.env["marketplace.publication.service"]
+
+        self.assertEqual(service._order_import_target_state("paid", force_draft=True), "draft")
+        self.assertEqual(service._order_import_target_state("paid"), "paid")

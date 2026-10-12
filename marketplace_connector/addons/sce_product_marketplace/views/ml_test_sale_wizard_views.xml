@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sce_ml_test_sale_wizard_form" model="ir.ui.view">
+        <field name="name">sce.ml.test.sale.wizard.form</field>
+        <field name="model">sce.ml.test.sale.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Prueba de venta completa Mercado Libre">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Flujo de prueba únicamente. El vendedor debe ser un usuario de prueba de Mercado Libre.
+                        La orden resultante se importa al Odoo de esta cuenta como presupuesto en borrador,
+                        sin confirmación ni factura. El checkout se completa en la página de Mercado Libre.
+                    </div>
+                    <group>
+                        <group string="Cuenta y publicación">
+                            <field name="account_id" readonly="state != 'setup'" options="{'no_create': True}"/>
+                            <field name="publication_id" readonly="state != 'setup'" options="{'no_create': True}"/>
+                            <field name="site_id" readonly="state != 'setup'"/>
+                        </group>
+                        <group string="Estado de la prueba">
+                            <field name="state" widget="badge"/>
+                            <field name="external_order_id" invisible="not external_order_id"/>
+                            <field name="remote_sale_order_name" invisible="not remote_sale_order_name"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="status" invisible="state != 'waiting_order'">
+                        <p>1. Abrí la publicación y completá la compra usando este usuario comprador de prueba.</p>
+                        <p>2. Volvé aquí y presioná “Verificar e importar orden”.</p>
+                        <p class="mb-0">Las credenciales se conservan temporalmente en este asistente para completar la prueba y se eliminan con la limpieza automática de asistentes temporales.</p>
+                    </div>
+                    <group string="Credenciales temporales del comprador" invisible="not buyer_external_id">
+                        <field name="buyer_external_id"/>
+                        <field name="buyer_nickname"/>
+                        <field name="buyer_email"/>
+                        <field name="buyer_password"/>
+                        <field name="purchase_url" widget="url"/>
+                    </group>
+                    <field name="result_message" nolabel="1" readonly="1" invisible="not result_message"/>
+                    <footer>
+                        <button name="action_prepare_test_sale" type="object" string="Crear comprador y preparar compra" class="btn-primary" icon="fa-user-plus" invisible="state != 'setup'"/>
+                        <button name="action_open_purchase_page" type="object" string="Abrir publicación" class="btn-secondary" icon="fa-external-link" invisible="state != 'waiting_order'"/>
+                        <button name="action_check_and_import_order" type="object" string="Verificar e importar orden" class="btn-primary" icon="fa-download" invisible="state != 'waiting_order'"/>
+                        <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                    </footer>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

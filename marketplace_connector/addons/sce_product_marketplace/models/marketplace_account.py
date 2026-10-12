@@ -30,6 +30,22 @@ class MarketplaceAccount(models.Model):
             "context": {"default_account_id": self.id},
         }
 
+    def action_open_ml_test_sale_wizard(self):
+        self.ensure_one()
+        if self.provider_type != "mercadolibre" or self.mode != "sandbox":
+            raise UserError("Seleccioná una cuenta Mercado Libre en modo Sandbox.")
+        if self.state != "connected":
+            raise UserError("La cuenta Sandbox debe estar conectada antes de probar una venta.")
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Prueba de venta Mercado Libre",
+            "res_model": "sce.ml.test.sale.wizard",
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+            "context": {"default_account_id": self.id},
+        }
+
     # --- 1. Vinculación Producto - Publicación & Multicompañía ---
     matching_field = fields.Selection(
         selection=[
