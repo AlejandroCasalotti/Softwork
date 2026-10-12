@@ -70,7 +70,12 @@ class SceMlTestSaleWizard(models.TransientModel):
         provider = self.env["sce.provider.factory"].get_provider(account)
         seller = provider._request("GET", "/users/me")
         tags = seller.get("tags", []) if isinstance(seller, dict) else []
-        if not isinstance(tags, list) or "test_user" not in tags:
+        seller_id = str(
+            (seller.get("id") if isinstance(seller, dict) else False)
+            or account.external_user_id
+            or ""
+        )
+        if not seller_id or not isinstance(tags, list) or "test_user" not in tags:
             raise UserError(
                 "Mercado Libre no identificó esta cuenta como usuario de prueba. "
                 "No se creará una compra para evitar operaciones en producción."
@@ -80,6 +85,11 @@ class SceMlTestSaleWizard(models.TransientModel):
             site_id=(self.site_id or "MLA").strip().upper(),
             description="SCE test buyer",
         )
+        if str(buyer.get("id") or "") == seller_id:
+            raise UserError(
+                "Mercado Libre devolvió el mismo usuario para vendedor y comprador. "
+                "La prueba se detuvo para evitar una compra inválida."
+            )
         self.write(
             {
                 "buyer_external_id": str(buyer["id"]),
@@ -181,3 +191,7 @@ class SceMlTestSaleWizard(models.TransientModel):
             "res_id": self.id,
             "target": "new",
         }
+
+    def action_close_wizard(self):
+        self.write({"buyer_password": False})
+        return {"type": "ir.actions.act_window_close"}

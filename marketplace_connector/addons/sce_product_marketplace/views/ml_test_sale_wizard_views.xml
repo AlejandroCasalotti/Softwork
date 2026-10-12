@@ -32,7 +32,7 @@
                         <field name="buyer_external_id"/>
                         <field name="buyer_nickname"/>
                         <field name="buyer_email"/>
-                        <field name="buyer_password"/>
+                        <field name="buyer_password" ******/>
                         <field name="purchase_url" widget="url"/>
                     </group>
                     <field name="result_message" nolabel="1" readonly="1" invisible="not result_message"/>
@@ -40,7 +40,7 @@
                         <button name="action_prepare_test_sale" type="object" string="Crear comprador y preparar compra" class="btn-primary" icon="fa-user-plus" invisible="state != 'setup'"/>
                         <button name="action_open_purchase_page" type="object" string="Abrir publicación" class="btn-secondary" icon="fa-external-link" invisible="state != 'waiting_order'"/>
                         <button name="action_check_and_import_order" type="object" string="Verificar e importar orden" class="btn-primary" icon="fa-download" invisible="state != 'waiting_order'"/>
-                        <button string="Cerrar" special="cancel" class="btn-secondary"/>
+                        <button name="action_close_wizard" type="object" string="Cerrar y borrar clave temporal" class="btn-secondary"/>
                     </footer>
                 </sheet>
             </form>

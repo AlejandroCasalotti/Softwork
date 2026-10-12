@@ -374,21 +374,6 @@ class MarketplacePublicationService(models.AbstractModel):
                         "sale.order", "action_cancel", [[order_id]]
                     )
 
-        state = self._normalize_order_state(order_data)
-        existing_order_id = search_unique("sale.order", [("client_order_ref", "=", order_ref)])
-        if existing_order_id:
-            if force_draft:
-                remote_order = ensure_remote_draft(existing_order_id)
-            else:
-                apply_remote_state(existing_order_id, state)
-                remote_order = {}
-            return {
-                "created": False,
-                "state": self._order_import_target_state(state, force_draft),
-                "sale_order_id": existing_order_id,
-                "sale_order_name": remote_order.get("name") or False,
-            }
-
         buyer = order_data.get("buyer") if isinstance(order_data.get("buyer"), dict) else {}
         if "sce.ml.test.sale.wizard" in self.env:
             order_items = order_data.get("order_items")
@@ -422,6 +407,21 @@ class MarketplacePublicationService(models.AbstractModel):
                     "No se modificó su estado."
                 )
             return values[0] if values else {}
+
+        state = self._normalize_order_state(order_data)
+        existing_order_id = search_unique("sale.order", [("client_order_ref", "=", order_ref)])
+        if existing_order_id:
+            if force_draft:
+                remote_order = ensure_remote_draft(existing_order_id)
+            else:
+                apply_remote_state(existing_order_id, state)
+                remote_order = {}
+            return {
+                "created": False,
+                "state": self._order_import_target_state(state, force_draft),
+                "sale_order_id": existing_order_id,
+                "sale_order_name": remote_order.get("name") or False,
+            }
 
         buyer_key = buyer.get("id") or buyer.get("email") or f"order-{external_id}"
         partner_ref = f"SCE-ML-{account.id}-{buyer_key}"
