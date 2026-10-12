@@ -121,13 +121,18 @@ class SceMlTestSaleWizard(models.TransientModel):
     def _find_matching_order(orders, buyer_id, item_id):
         buyer_id = str(buyer_id or "")
         item_id = str(item_id or "")
+        if not isinstance(orders, list):
+            return False
         for order in orders:
             if not isinstance(order, dict):
                 continue
             buyer = order.get("buyer")
             if not isinstance(buyer, dict) or str(buyer.get("id") or "") != buyer_id:
                 continue
-            for line in order.get("order_items") or []:
+            order_lines = order.get("order_items")
+            if not isinstance(order_lines, list):
+                continue
+            for line in order_lines:
                 item = line.get("item") if isinstance(line, dict) else False
                 if isinstance(item, dict) and str(item.get("id") or "") == item_id:
                     return order
@@ -143,6 +148,8 @@ class SceMlTestSaleWizard(models.TransientModel):
         for page in range(5):
             response = provider.get_orders({"offset": page * 50, "limit": 50})
             orders = response.get("items", []) if isinstance(response, dict) else []
+            if not isinstance(orders, list):
+                orders = []
             match = self._find_matching_order(
                 orders,
                 self.buyer_external_id,

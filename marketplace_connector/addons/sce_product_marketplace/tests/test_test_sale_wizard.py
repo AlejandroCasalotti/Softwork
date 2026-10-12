@@ -36,8 +36,9 @@ class TestSceMlTestSaleWizard(TransactionCase):
 
         self.assertFalse(
             wizard._find_matching_order(
-                [None, {"buyer": [], "order_items": [False]}, {"id": 4}],
+                [None, {"buyer": [], "order_items": [False]}, {"order_items": None}],
                 "buyer-id",
                 "item-id",
             )
         )
+        self.assertFalse(wizard._find_matching_order(None, "buyer-id", "item-id"))

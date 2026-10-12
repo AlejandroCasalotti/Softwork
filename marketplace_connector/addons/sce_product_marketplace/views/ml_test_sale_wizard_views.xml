@@ -32,7 +32,7 @@
                         <field name="buyer_external_id"/>
                         <field name="buyer_nickname"/>
                         <field name="buyer_email"/>
-                        <field name="buyer_password" ******/>
+                        <field name="buyer_password"/>
                         <field name="purchase_url" widget="url"/>
                     </group>
                     <field name="result_message" nolabel="1" readonly="1" invisible="not result_message"/>

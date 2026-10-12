@@ -399,12 +399,22 @@ class MarketplacePublicationService(models.AbstractModel):
 
         def ensure_remote_draft(order_id):
             values = remote_call(
-                "sale.order", "read", [[order_id]], {"fields": ["state", "name"]}
+                "sale.order",
+                "read",
+                [[order_id]],
+                {"fields": ["state", "name", "invoice_ids"]},
             )
-            if values and values[0].get("state") != "draft":
+            if not values:
+                raise UserError("No se pudo verificar la orden de prueba en el Odoo destino.")
+            if values[0].get("state") != "draft":
                 raise UserError(
                     "La orden de prueba ya existe en Odoo pero no está en borrador. "
                     "No se modificó su estado."
+                )
+            if values[0].get("invoice_ids"):
+                raise UserError(
+                    "La orden de prueba tiene facturas vinculadas en Odoo; no se puede "
+                    "garantizar que permanezca sin facturar."
                 )
             return values[0] if values else {}
 
