@@ -212,6 +212,78 @@ class RemotePublicationWizardLine(models.TransientModel):
     )
     error_message = fields.Text(readonly=True)
 
+    @staticmethod
+    def _gtin_submission_state(attribute_values):
+        gtin_ids = {"GTIN", "EAN", "BARCODE"}
+        has_gtin = any(
+            (attribute.get("id") or "").strip() in gtin_ids
+            and ((attribute.get("value_id") or "").strip() or (attribute.get("value_name") or "").strip())
+            for attribute in attribute_values
+        )
+        reason = next(
+            (
+                attribute
+                for attribute in attribute_values
+                if (attribute.get("id") or "").strip() == "EMPTY_GTIN_REASON"
+            ),
+            {},
+        )
+        reason_id = (reason.get("value_id") or "").strip()
+        reason_name = (reason.get("value_name") or "").strip()
+        has_reason = bool(reason_id or reason_name)
+        if has_gtin and has_reason:
+            raise UserError(
+                "Completá el código universal (GTIN) o el motivo de código ausente, pero no ambos."
+            )
+        if has_reason and not reason_id:
+            raise UserError(
+                "Para indicar que el producto no tiene GTIN, seleccioná una opción permitida "
+                "y completá su ID en la columna 'ID valor'."
+            )
+        if reason_id:
+            try:
+                options = json.loads(reason.get("allowed_values_json") or "[]")
+            except (TypeError, ValueError):
+                options = []
+            allowed_ids = {
+                str(option.get("id")).strip()
+                for option in options
+                if isinstance(option, dict) and option.get("id") is not None
+            }
+            if reason_id not in allowed_ids:
+                raise UserError(
+                    "El motivo de GTIN no es válido para esta categoría. "
+                    "Usá una de las opciones permitidas por Mercado Libre."
+                )
+        return {"has_gtin": has_gtin, "has_reason": bool(reason_id)}
+
+    def _get_gtin_submission_state(self):
+        self.ensure_one()
+        return self._gtin_submission_state([
+            {
+                "id": line.attribute_id,
+                "value_id": line.value_id,
+                "value_name": line.value_name,
+                "allowed_values_json": line.allowed_values_json,
+            }
+            for line in self.attribute_line_ids
+        ])
+
+    def _get_required_attribute_errors(self, gtin_state):
+        self.ensure_one()
+        errors = []
+        for attribute in self.attribute_line_ids.filtered("required"):
+            attribute_id = (attribute.attribute_id or "").strip()
+            has_value = bool((attribute.value_id or "").strip() or (attribute.value_name or "").strip())
+            if has_value:
+                continue
+            if gtin_state["has_reason"] and attribute_id in {"GTIN", "EAN", "BARCODE"}:
+                continue
+            if gtin_state["has_gtin"] and attribute_id == "EMPTY_GTIN_REASON":
+                continue
+            errors.append(attribute.attribute_name)
+        return errors
+
     def _compute_final_price(self):
         for line in self:
             final_price = line.wizard_id.account_id.calculate_marketplace_price(
@@ -303,18 +375,30 @@ class RemotePublicationWizardLine(models.TransientModel):
             raise UserError(
                 "El producto necesita una Referencia Interna/SKU para publicarse y mantener la sincronización."
             )
-        missing = self.attribute_line_ids.filtered(
-            lambda attribute: attribute.required and not (attribute.value_id or attribute.value_name)
-        )
+        gtin_state = self._get_gtin_submission_state()
+        missing = self._get_required_attribute_errors(gtin_state)
         if missing:
             raise UserError(
                 "Completá los atributos requeridos: %s"
-                % ", ".join(missing.mapped("attribute_name"))
+                % ", ".join(missing)
             )
         attributes = self.attribute_line_ids.to_payload()
+        if gtin_state["has_gtin"]:
+            attributes = [
+                attribute for attribute in attributes if attribute.get("id") != "EMPTY_GTIN_REASON"
+            ]
+        elif gtin_state["has_reason"]:
+            for attribute in attributes:
+                if attribute.get("id") == "EMPTY_GTIN_REASON":
+                    attribute.pop("value_name", None)
         if "SELLER_SKU" not in {attribute.get("id") for attribute in attributes}:
             attributes.append({"id": "SELLER_SKU", "value_name": self.sku.strip()})
-        if self.barcode and "GTIN" not in {attribute.get("id") for attribute in attributes}:
+        provided_attribute_ids = {attribute.get("id") for attribute in attributes}
+        if (
+            self.barcode
+            and not provided_attribute_ids.intersection({"GTIN", "EAN", "BARCODE"})
+            and not gtin_state["has_reason"]
+        ):
             attributes.append({"id": "GTIN", "value_name": self.barcode})
         if self.brand:
             attributes.append({"id": "BRAND", "value_name": self.brand})
@@ -323,13 +407,17 @@ class RemotePublicationWizardLine(models.TransientModel):
         required_result = provider.get_category_required_fields(self.category_id)
         required = required_result.get("items") if isinstance(required_result, dict) else []
         provided_ids = {attribute.get("id") for attribute in attributes}
-        missing_ids = [
-            attribute.get("name") or attribute.get("id")
-            for attribute in required or []
-            if isinstance(attribute, dict)
-            and attribute.get("id")
-            and attribute.get("id") not in provided_ids
-        ]
+        missing_ids = []
+        for attribute in required or []:
+            if not isinstance(attribute, dict) or not attribute.get("id"):
+                continue
+            attribute_id = attribute["id"]
+            if attribute_id in {"GTIN", "EAN", "BARCODE"} and gtin_state["has_reason"]:
+                continue
+            if attribute_id == "EMPTY_GTIN_REASON" and gtin_state["has_gtin"]:
+                continue
+            if attribute_id not in provided_ids:
+                missing_ids.append(attribute.get("name") or attribute_id)
         if missing_ids:
             raise UserError(
                 "Cargá y completá los atributos requeridos: %s" % ", ".join(missing_ids)
@@ -432,7 +520,10 @@ class RemotePublicationAttributeLine(models.TransientModel):
                 lines.append(f"• {name} — ID: {option_id}")
             if len(options) > 20:
                 lines.append(f"… y {len(options) - 20} opciones más.")
-            lines.append("Ingresá el nombre o ID en el atributo.")
+            if self.attribute_id == "EMPTY_GTIN_REASON":
+                lines.append("Elegí una opción y copiá únicamente su ID en la columna 'ID valor'.")
+            else:
+                lines.append("Ingresá el nombre o ID indicado por Mercado Libre en el atributo.")
             message = "\n".join(lines)
         return {
             "type": "ir.actions.client",
@@ -441,8 +532,7 @@ class RemotePublicationAttributeLine(models.TransientModel):
                 "title": "Opciones de Mercado Libre",
                 "message": Markup(
                     "<pre style='margin:0; white-space:pre-wrap; font-family:inherit;'>%s</pre>"
-                    % message
-                ),
+                ) % message,
                 "type": "info",
                 "sticky": True,
             },

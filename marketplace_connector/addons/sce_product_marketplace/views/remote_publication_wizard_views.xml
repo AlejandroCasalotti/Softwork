@@ -102,15 +102,22 @@
                         </group>
                     </group>
                     <group string="Atributos requeridos por Mercado Libre">
+                        <div class="alert alert-info" role="alert">
+                            <strong>Código universal (GTIN):</strong>
+                            completá el EAN/UPC/ISBN impreso en el empaque del producto, no el SKU o la referencia interna.
+                            Si el fabricante no asignó un código, dejá el GTIN vacío y elegí el motivo permitido por Mercado Libre
+                            con el botón de opciones; para ese motivo se debe ingresar el ID en la columna "ID valor".
+                            Se informa el código o el motivo, nunca ambos.
+                        </div>
                         <field name="attribute_line_ids" nolabel="1">
                             <list editable="bottom" decoration-danger="required and not value_name and not value_id">
                                 <field name="required"/>
                                 <field name="attribute_name" readonly="1"/>
-                                <field name="value_name"/>
-                                <field name="value_id" optional="hide"/>
+                                <field name="value_name" help="Para GTIN, ingresá el código de barras EAN/UPC/ISBN del producto. No uses el SKU."/>
+                                <field name="value_id" optional="hide" help="Para EMPTY_GTIN_REASON, ingresá aquí el ID exacto de una opción mostrada por Mercado Libre."/>
                                 <field name="value_type" readonly="1" optional="hide"/>
                                 <field name="allowed_values_json" readonly="1" optional="hide"/>
-                                <button name="action_show_options" type="object" icon="fa-search" title="Ver opciones permitidas por Mercado Libre"/>
+                                <button name="action_show_options" type="object" icon="fa-search" title="Ver opciones permitidas. Para el motivo GTIN, el ID debe ingresarse en ID valor."/>
                             </list>
                         </field>
                     </group>
