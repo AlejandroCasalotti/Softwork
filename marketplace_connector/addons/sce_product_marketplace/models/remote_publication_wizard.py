@@ -255,7 +255,11 @@ class RemotePublicationWizardLine(models.TransientModel):
                     "El motivo de GTIN no es válido para esta categoría. "
                     "Usá una de las opciones permitidas por Mercado Libre."
                 )
-        return {"has_gtin": has_gtin, "has_reason": bool(reason_id)}
+        return {
+            "has_gtin": has_gtin,
+            "has_reason": bool(reason_id),
+            "reason_required": bool(reason.get("required")),
+        }
 
     def _get_gtin_submission_state(self):
         self.ensure_one()
@@ -265,6 +269,7 @@ class RemotePublicationWizardLine(models.TransientModel):
                 "value_id": line.value_id,
                 "value_name": line.value_name,
                 "allowed_values_json": line.allowed_values_json,
+                "required": line.required,
             }
             for line in self.attribute_line_ids
         ])
@@ -277,7 +282,10 @@ class RemotePublicationWizardLine(models.TransientModel):
             has_value = bool((attribute.value_id or "").strip() or (attribute.value_name or "").strip())
             if has_value:
                 continue
-            if gtin_state["has_reason"] and attribute_id in {"GTIN", "EAN", "BARCODE"}:
+            if (
+                (gtin_state["has_reason"] or gtin_state["reason_required"])
+                and attribute_id in {"GTIN", "EAN", "BARCODE"}
+            ):
                 continue
             if gtin_state["has_gtin"] and attribute_id == "EMPTY_GTIN_REASON":
                 continue
@@ -412,7 +420,10 @@ class RemotePublicationWizardLine(models.TransientModel):
             if not isinstance(attribute, dict) or not attribute.get("id"):
                 continue
             attribute_id = attribute["id"]
-            if attribute_id in {"GTIN", "EAN", "BARCODE"} and gtin_state["has_reason"]:
+            if (
+                attribute_id in {"GTIN", "EAN", "BARCODE"}
+                and (gtin_state["has_reason"] or gtin_state["reason_required"])
+            ):
                 continue
             if attribute_id == "EMPTY_GTIN_REASON" and gtin_state["has_gtin"]:
                 continue

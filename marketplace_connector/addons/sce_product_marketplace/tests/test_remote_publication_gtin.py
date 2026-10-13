@@ -11,10 +11,13 @@ class TestRemotePublicationGtin(TransactionCase):
     def test_gtin_value_is_accepted_without_empty_reason(self):
         state = self.publication_line._gtin_submission_state([
             {"id": "GTIN", "value_name": "7790001000018"},
-            {"id": "EMPTY_GTIN_REASON"},
+            {"id": "EMPTY_GTIN_REASON", "required": True},
         ])
 
-        self.assertEqual(state, {"has_gtin": True, "has_reason": False})
+        self.assertEqual(
+            state,
+            {"has_gtin": True, "has_reason": False, "reason_required": True},
+        )
 
     def test_allowed_empty_gtin_reason_is_accepted_without_gtin(self):
         state = self.publication_line._gtin_submission_state([
@@ -23,10 +26,25 @@ class TestRemotePublicationGtin(TransactionCase):
                 "id": "EMPTY_GTIN_REASON",
                 "value_id": "17055160",
                 "allowed_values_json": '[{"id": "17055160", "name": "No aplica"}]',
+                "required": True,
             },
         ])
 
-        self.assertEqual(state, {"has_gtin": False, "has_reason": True})
+        self.assertEqual(
+            state,
+            {"has_gtin": False, "has_reason": True, "reason_required": True},
+        )
+
+    def test_conditional_reason_is_the_only_missing_gtin_alternative(self):
+        state = self.publication_line._gtin_submission_state([
+            {"id": "GTIN", "required": True},
+            {"id": "EMPTY_GTIN_REASON", "required": True},
+        ])
+
+        self.assertEqual(
+            state,
+            {"has_gtin": False, "has_reason": False, "reason_required": True},
+        )
 
     def test_reason_requires_allowed_value_id(self):
         with self.assertRaisesRegex(UserError, "ID valor"):
@@ -61,4 +79,7 @@ class TestRemotePublicationGtin(TransactionCase):
     def test_category_without_gtin_attributes_does_not_require_a_value(self):
         state = self.publication_line._gtin_submission_state([])
 
-        self.assertEqual(state, {"has_gtin": False, "has_reason": False})
+        self.assertEqual(
+            state,
+            {"has_gtin": False, "has_reason": False, "reason_required": False},
+        )
