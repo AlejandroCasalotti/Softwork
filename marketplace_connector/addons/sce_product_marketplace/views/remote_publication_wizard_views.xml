@@ -110,11 +110,12 @@
                             Se informa el código o el motivo, nunca ambos.
                         </div>
                         <field name="attribute_line_ids" nolabel="1">
-                            <list editable="bottom" decoration-danger="required and not value_name and not value_id">
-                                <field name="required"/>
+                            <list editable="bottom" decoration-danger="missing_required">
+                                <field name="missing_required" column_invisible="True"/>
+                                <field name="required" string="Requerido/condicional"/>
                                 <field name="attribute_name" readonly="1"/>
                                 <field name="value_name" help="Para GTIN, ingresá el código de barras EAN/UPC/ISBN del producto. No uses el SKU."/>
-                                <field name="value_id" optional="hide" help="Para EMPTY_GTIN_REASON, ingresá aquí el ID exacto de una opción mostrada por Mercado Libre."/>
+                                <field name="value_id" help="Para EMPTY_GTIN_REASON, ingresá aquí el ID exacto de una opción mostrada por Mercado Libre."/>
                                 <field name="value_type" readonly="1" optional="hide"/>
                                 <field name="allowed_values_json" readonly="1" optional="hide"/>
                                 <button name="action_show_options" type="object" icon="fa-search" title="Ver opciones permitidas. Para el motivo GTIN, el ID debe ingresarse en ID valor."/>

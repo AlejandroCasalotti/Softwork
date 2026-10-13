@@ -3,7 +3,7 @@ import json
 
 from markupsafe import Markup
 
-from odoo import fields, models
+from odoo import api, fields, models
 from odoo.exceptions import UserError
 
 
@@ -501,6 +501,31 @@ class RemotePublicationAttributeLine(models.TransientModel):
     value_name = fields.Char(string="Valor")
     value_id = fields.Char(string="ID valor")
     allowed_values_json = fields.Text(string="Opciones permitidas", readonly=True)
+    missing_required = fields.Boolean(compute="_compute_missing_required")
+
+    @api.depends(
+        "required",
+        "value_id",
+        "value_name",
+        "publication_line_id.attribute_line_ids.attribute_id",
+        "publication_line_id.attribute_line_ids.value_id",
+        "publication_line_id.attribute_line_ids.value_name",
+        "publication_line_id.attribute_line_ids.allowed_values_json",
+    )
+    def _compute_missing_required(self):
+        for line in self:
+            missing = line.required and not (line.value_id or line.value_name)
+            if missing and line.publication_line_id:
+                try:
+                    gtin_state = line.publication_line_id._get_gtin_submission_state()
+                except UserError:
+                    gtin_state = {}
+                attribute_id = (line.attribute_id or "").strip()
+                if gtin_state.get("has_reason") and attribute_id in {"GTIN", "EAN", "BARCODE"}:
+                    missing = False
+                elif gtin_state.get("has_gtin") and attribute_id == "EMPTY_GTIN_REASON":
+                    missing = False
+            line.missing_required = missing
 
     def action_show_options(self):
         self.ensure_one()
