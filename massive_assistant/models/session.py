@@ -22,7 +22,11 @@ class MassiveSession(models.Model):
     user_id=fields.Many2one('res.users',required=True,ondelete='cascade',index=True)
     sealed=fields.Text(groups='base.group_no_one',copy=False)
     expires_at=fields.Datetime(required=True,index=True)
-    _sql_constraints=[('user_unique','unique(user_id)','Existe una sesión para este usuario.')]
+    # Odoo 19+ registers declarative constraints; older releases use the list.
+    if hasattr(models, 'Constraint'):
+        _user_unique = models.Constraint('UNIQUE(user_id)', 'Existe una sesión para este usuario.')
+    else:
+        _sql_constraints=[('user_unique','unique(user_id)','Existe una sesión para este usuario.')]
 
     @api.model
     def _cipher(self):
