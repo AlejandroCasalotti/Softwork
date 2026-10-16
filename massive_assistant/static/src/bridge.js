@@ -16,7 +16,7 @@ window.massiveNativeRequest=async message=>{
     let result;
     if(type==='status'){
       result=await nativeRPC('status');document.getElementById('native-pair').hidden=true;
-    }else if(type==='chat')result=await nativeRPC('chat',{messages:message.messages});
+    }else if(type==='chat')result=await nativeRPC('chat',{messages:message.messages,conversation:message.conversation});
     else if(['options','operation'].includes(type))result=await nativeRPC(type,{job:message.id});
     else if(['upload','preview','confirm','cancel'].includes(type)){const data={...message};delete data.type;delete data.access_id;result=await nativeRPC(type,data);}
     else throw Error('Acción no habilitada.');
