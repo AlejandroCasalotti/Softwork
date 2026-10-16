@@ -1,6 +1,6 @@
 {
     'name':'Asistente Massive Connector',
-    'version':'19.0.1.0.0',
+    'version':'19.0.1.0.1',
     'summary':'Chat de IA integrado, herramientas Odoo y cambios con confirmación',
     'author':'Massive Connector',
     'website':'https://app.massiveconnector.com',
@@ -8,7 +8,7 @@
     'category':'Productivity',
     'depends':['base','web'],
     'external_dependencies':{'python':['cryptography']},
-    'data':['security/groups.xml','data/cleanup.xml','views/menu.xml'],
+    'data':['security/groups.xml','security/ir.model.access.csv','data/cleanup.xml','views/menu.xml'],
     'assets':{'web.assets_backend':['massive_assistant/static/src/launcher.js','massive_assistant/static/src/launcher.css']},
     'application':True,
     'installable':True,
