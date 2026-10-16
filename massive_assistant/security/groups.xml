@@ -1,0 +1,3 @@
+<odoo><record id="group_massive_assistant_user" model="res.groups"><field name="name">Asistente Massive · Usuario</field><field name="implied_ids" eval="[(4, ref('base.group_user'))]"/></record>
+<record id="base.group_system" model="res.groups"><field name="implied_ids" eval="[(4, ref('massive_assistant.group_massive_assistant_user'))]"/></record>
+</odoo>
