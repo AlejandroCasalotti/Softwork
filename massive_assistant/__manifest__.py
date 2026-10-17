@@ -1,6 +1,6 @@
 {
     'name':'Asistente Massive Connector',
-    'version':'19.0.1.0.2',
+    'version':'19.0.1.0.3',
     'summary':'Chat de IA integrado, herramientas Odoo y cambios con confirmación',
     'author':'Massive Connector',
     'website':'https://app.massiveconnector.com',
