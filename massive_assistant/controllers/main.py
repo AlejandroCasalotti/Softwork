@@ -29,10 +29,10 @@ class MassiveAssistant(http.Controller):
         content=(Path(__file__).resolve().parents[1]/'static/src/panel.html').read_text()
         return request.make_response(content,headers=[('Content-Type','text/html; charset=utf-8'),('Cache-Control','no-store'),('X-Frame-Options','SAMEORIGIN'),('X-Content-Type-Options','nosniff')])
 
-    @http.route('/massive_assistant/api',type='jsonrpc',auth='user',methods=['POST'],csrf=False)
+    @http.route('/massive_assistant/api',type='__JSON_ROUTE__',auth='user',methods=['POST'],csrf=False)
     def api(self,action='',data=None):
         user=user_guard();origin_guard()
-        if not isinstance(data,dict) or len(json.dumps(data))>1500000:raise UserError('Solicitud inválida.')
+        if not isinstance(data,dict) or len(json.dumps(data))>8000000:raise UserError('Solicitud inválida.')
         sessions=request.env['massive.assistant.session'].sudo()
         session=sessions.search([('user_id','=',user.id)],limit=1)
         if action=='visible':
@@ -73,6 +73,6 @@ class MassiveAssistant(http.Controller):
                 if result.get('access_id')!=saved.get('access_id'):raise AccessDenied()
                 result['native']=True
             return result
-        if action not in ('chat','upload','preview','confirm','cancel'):raise UserError('Acción no habilitada.')
+        if action not in ('chat','upload','preview','confirm','cancel','attachment'):raise UserError('Acción no habilitada.')
         data={**data,'access_id':saved['access_id']}
         return session._request(action,data)

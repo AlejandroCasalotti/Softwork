@@ -57,23 +57,32 @@ class MassiveSession(models.Model):
 
     def _request(self,action,body=None,job=None):
         self.ensure_one();data=self._load()
-        if action not in ('status','chat','result','revoke','upload','preview','confirm','cancel','operation','options','native-bind'):raise UserError('Acción no habilitada.')
+        if action not in ('status','chat','result','revoke','upload','preview','confirm','cancel','operation','options','native-bind','attachment'):raise UserError('Acción no habilitada.')
         path='/extension/native/bind/' if action=='native-bind' else '/extension/api/'+action+'/'
         if job:
             from urllib.parse import urlencode
             if not isinstance(job,str) or len(job)>100:raise UserError('Identificador inválido.')
             path+='?'+urlencode({'job':job})
         encoded=None if body is None else json.dumps(body,allow_nan=False).encode()
-        if encoded and len(encoded)>1500000:raise UserError('El archivo supera el límite permitido.')
+        if encoded and len(encoded)>8000000:raise UserError('El archivo supera el límite permitido.')
         req=Request(SERVER+path,data=encoded,headers={'Authorization':'Bearer mcx_'+data['secret'],'Content-Type':'application/json','Accept':'application/json'})
         try:
             with build_opener(ProxyHandler({}),NoRedirect()).open(req,timeout=15) as response:
-                raw=response.read(1500001)
-                if len(raw)>1500000:raise ValueError
+                raw=response.read(8000001)
+                if len(raw)>8000000:raise ValueError
                 result=json.loads(raw)
                 if not isinstance(result,dict):raise ValueError
                 return result
-        except Exception:raise UserError('No se pudo completar la consulta. Revisá conexión, autorización, saldo y permisos. No repitas cambios sin consultar su estado.') from None
+        except HTTPError as error:
+            # Only the application's public error string, never upstream tracebacks/headers.
+            try:
+                payload=json.loads(error.read(32769))
+                message=payload.get('error') if isinstance(payload,dict) else None
+            except Exception:message=None
+            if isinstance(message,str) and 0<len(message)<=1000:
+                raise UserError(message) from None
+            raise UserError('Massive Connector rechazó la solicitud. Revisá la vinculación y los permisos; no repitas cambios sin revisar su estado.') from None
+        except Exception:raise UserError('No se pudo conectar con Massive Connector. Revisá la conexión y la autorización. No repitas cambios sin consultar su estado.') from None
 
     @api.model
     def _cron_cleanup(self):

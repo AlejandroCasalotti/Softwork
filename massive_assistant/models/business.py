@@ -158,8 +158,9 @@ class MassiveBusiness(models.AbstractModel):
         return result
 
     @api.model
-    def assistant_capabilities(self, company_id):
+    def assistant_capabilities(self, company_id=0):
         try:
+            if type(company_id) is int and company_id==0:company_id=self.env.user.company_id.id
             env=self._business_env(company_id)
             access={}
             for name in ('product.product','sale.order','purchase.order','stock.picking','account.move','website.page'):

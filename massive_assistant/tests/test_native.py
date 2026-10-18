@@ -6,6 +6,19 @@ from odoo.exceptions import UserError, AccessError
 
 
 class NativeSessionTests(TransactionCase):
+    def test_application_error_is_preserved_without_returning_headers_or_traceback(self):
+        import io
+        import json
+        from urllib.error import HTTPError
+        from unittest.mock import patch
+        from ..models import session as module
+        session=self.env['massive.assistant.session'].sudo().create({'user_id':self.env.uid,'expires_at':fields.Datetime.now()+timedelta(minutes=15)})
+        session._save({'secret':'test-secret','uid':self.env.uid})
+        error=HTTPError('https://app.massiveconnector.com',403,'Forbidden',{},io.BytesIO(json.dumps({'error':'Actualizá el addon para vincular.'}).encode()))
+        with patch.object(module,'build_opener') as opener:
+            opener.return_value.open.side_effect=error
+            with self.assertRaisesRegex(UserError,'Actualizá el addon'):
+                session._request('status')
     def test_encrypted_pairing_has_no_plaintext_secret(self):
         session=self.env['massive.assistant.session'].sudo().create({'user_id':self.env.uid,'expires_at':fields.Datetime.now()+timedelta(minutes=15)})
         session._save({'secret':'local-only-test-secret','uid':self.env.uid})

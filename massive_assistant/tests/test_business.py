@@ -11,6 +11,11 @@ class BusinessTests(TransactionCase):
         if release.version_info[0]!=19:raise unittest.SkipTest('Odoo 19 bridge only.')
         cls.gateway=cls.env['massive.assistant.gateway']
 
+    def test_default_company_is_resolved_without_browser_context(self):
+        result=self.gateway.with_context({}).assistant_capabilities(0)
+        self.assertEqual(result['uid'],self.env.uid)
+        self.assertEqual(result['company_id'],self.env.user.company_id.id)
+
     def test_discovery_honors_field_security_and_rejects_technical_models(self):
         result=self.gateway.assistant_discover(self.env.company.id,'res.partner')
         self.assertIn('name',result['fields'])
